@@ -120,6 +120,15 @@ normalization:
       when:
         afterClass: VOWELS
         beforeClass: VOWELS
+    # Word-final tap: add leading micro-schwa so the tap gets a
+    # vocalic run-up instead of arriving from raw consonant formants.
+    # The tap itself stays final — singleWordFinalHold then applies
+    # to the tap closure (brief alveolar), not to a schwa (which
+    # would inflate into a full vowel, e.g. "trabajadora").
+    - from: "ɾ"
+      to: "ᵊɾ"
+      when:
+        atWordEnd: true
     # Fix espeak's pronounciation mistakes like 'prueba', when 'u' is preceded by a stressed vowel. That always should be 'w', diphthong.
     - from: "uˈ"
       to: "wˈ"
