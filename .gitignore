@@ -13,3 +13,25 @@ build-x86/
 briefing.md
 nvdaAddon/synthDrivers/tgSpeechBox/speechPlayer.py
 tools/gen_nvda_api_ref.py
+
+# ── Mobile (platforms/) ──────────────────────────────────────
+# Android
+src/platforms/android/local.properties
+src/platforms/android/app/build/
+src/platforms/android/app/.cxx/
+src/platforms/android/.gradle/
+src/platforms/android/build/
+signing.properties
+*.keystore
+*.jks
+*.p12
+
+# iOS
+src/platforms/ios/*.xcodeproj/xcuserdata/
+src/platforms/ios/*.xcodeproj/project.xcworkspace/xcuserdata/
+src/platforms/ios/build/
+*.mobileprovision
+ExportOptions.plist
+
+# Shared mobile
+*.raw

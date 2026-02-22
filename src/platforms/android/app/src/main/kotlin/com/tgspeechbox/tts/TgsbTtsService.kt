@@ -1,0 +1,458 @@
+/*
+ * TgsbTtsService — Android TextToSpeechService backed by TGSpeechBox.
+ *
+ * Pipeline: text → eSpeak IPA → nvspFrontend → speechPlayer → PCM
+ *
+ * License: GPL-3.0 (links eSpeak-ng GPL)
+ */
+
+package com.tgspeechbox.tts
+
+import android.content.SharedPreferences
+import android.content.res.AssetManager
+import android.media.AudioFormat
+import android.speech.tts.SynthesisCallback
+import android.speech.tts.SynthesisRequest
+import android.speech.tts.TextToSpeech
+import android.speech.tts.TextToSpeechService
+import android.speech.tts.Voice
+import android.util.Log
+import java.io.File
+import java.io.FileOutputStream
+import java.io.IOException
+import java.util.Locale
+
+class TgsbTtsService : TextToSpeechService() {
+
+    companion object {
+        private const val TAG = "TgsbTTS"
+        private const val SAMPLE_RATE = 22050
+        const val PREFS_NAME = "tgsb_settings"
+        const val PREF_VOICE_PRESET = "voice_preset"
+        const val PREF_SUPPORTED_LANGUAGES = "tgsb_supported_languages"
+        const val DEFAULT_PRESET = "adam"
+
+        init {
+            System.loadLibrary("tgspeechbox_jni")
+        }
+
+        /** Voice presets — timbre only, independent of language */
+        data class VoiceDef(val id: String, val label: String)
+
+        val VOICES = listOf(
+            VoiceDef("adam",     "Adam"),
+            VoiceDef("benjamin", "Benjamin"),
+            VoiceDef("caleb",    "Caleb"),
+            VoiceDef("david",    "David"),
+            VoiceDef("robert",   "Robert"),
+        )
+
+        /**
+         * Language mapping: Android ISO-639-3 lang + ISO-3166 country
+         * → eSpeak language tag + tgsb lang pack name.
+         */
+        data class LangDef(
+            val iso3Lang: String,       // Android 3-letter lang (eng, fra, deu ...)
+            val iso3Country: String,    // Android 3-letter country ("" = any)
+            val espeakLang: String,     // eSpeak voice language tag
+            val tgsbLang: String,       // nvspFrontend language pack
+            val displayLocale: Locale   // for Voice API
+        )
+
+        val LANGUAGES = listOf(
+            // English
+            LangDef("eng", "USA", "en-us", "en-us", Locale("en", "US")),
+            LangDef("eng", "GBR", "en-gb", "en-gb", Locale("en", "GB")),
+            LangDef("eng", "CAN", "en",    "en-ca", Locale("en", "CA")),
+            LangDef("eng", "",    "en-us", "en-us", Locale("en", "US")), // fallback
+
+            // Romance
+            LangDef("fra", "",    "fr",    "fr",    Locale("fr")),
+            LangDef("spa", "MEX", "es-mx", "es-mx", Locale("es", "MX")),
+            LangDef("spa", "",    "es",    "es",    Locale("es")),
+            LangDef("ita", "",    "it",    "it",    Locale("it")),
+            LangDef("por", "BRA", "pt-br", "pt-br", Locale("pt", "BR")),
+            LangDef("por", "PRT", "pt",    "pt-pt", Locale("pt", "PT")),
+            LangDef("por", "",    "pt",    "pt",    Locale("pt")),
+            LangDef("ron", "",    "ro",    "ro",    Locale("ro")),
+
+            // Germanic
+            LangDef("deu", "",    "de",    "de",    Locale("de")),
+            LangDef("nld", "",    "nl",    "nl",    Locale("nl")),
+            LangDef("dan", "",    "da",    "da",    Locale("da")),
+            LangDef("swe", "",    "sv",    "sv",    Locale("sv")),
+
+            // Slavic
+            LangDef("pol", "",    "pl",    "pl",    Locale("pl")),
+            LangDef("ces", "",    "cs",    "cs",    Locale("cs")),
+            LangDef("slk", "",    "sk",    "sk",    Locale("sk")),
+            LangDef("bul", "",    "bg",    "bg",    Locale("bg")),
+            LangDef("hrv", "",    "hr",    "hr",    Locale("hr")),
+            LangDef("rus", "",    "ru",    "ru",    Locale("ru")),
+            LangDef("ukr", "",    "uk",    "uk",    Locale("uk")),
+
+            // Uralic
+            LangDef("hun", "",    "hu",    "hu",    Locale("hu")),
+            LangDef("fin", "",    "fi",    "fi",    Locale("fi")),
+
+            // Other
+            LangDef("zho", "",    "cmn",   "zh",    Locale("zh")),
+        )
+
+        /** Unique base languages (for LANG_AVAILABLE matching) */
+        private val SUPPORTED_LANGS = LANGUAGES.map { it.iso3Lang }.toSet()
+
+        /** (lang, country) pairs that match LANG_COUNTRY_AVAILABLE */
+        private val SUPPORTED_PAIRS = LANGUAGES
+            .filter { it.iso3Country.isNotEmpty() }
+            .map { it.iso3Lang to it.iso3Country }
+            .toSet()
+
+        /** Look up the best LangDef for a given locale */
+        fun findLangDef(lang: String, country: String): LangDef? {
+            if (country.isNotEmpty()) {
+                LANGUAGES.find { it.iso3Lang == lang && it.iso3Country == country }
+                    ?.let { return it }
+            }
+            return LANGUAGES.find { it.iso3Lang == lang && it.iso3Country.isEmpty() }
+        }
+
+        /** Build a voice name encoding the language */
+        private fun buildVoiceName(ld: LangDef): String {
+            return if (ld.iso3Country.isNotEmpty()) {
+                "tgsb-${ld.iso3Lang}-${ld.iso3Country}".lowercase()
+            } else {
+                "tgsb-${ld.iso3Lang}".lowercase()
+            }
+        }
+
+        /** Parse a voice name back into a LangDef */
+        private fun parseVoiceName(voiceName: String): LangDef? {
+            val lower = voiceName.lowercase()
+            for (ld in LANGUAGES) {
+                if (buildVoiceName(ld) == lower) return ld
+            }
+            return null
+        }
+
+        /**
+         * Get the set of enabled locale keys from prefs.
+         * null = no preference set → all languages enabled.
+         */
+        fun getEnabledLocaleKeys(prefs: SharedPreferences): Set<String>? {
+            return prefs.getStringSet(PREF_SUPPORTED_LANGUAGES, null)
+        }
+
+        /** Check if a LangDef is enabled by the user's language filter. */
+        fun isLangEnabled(ld: LangDef, enabledKeys: Set<String>?): Boolean {
+            if (enabledKeys == null) return true  // no pref = all enabled
+            return ld.displayLocale.toString() in enabledKeys
+        }
+    }
+
+    @Volatile
+    private var stopRequested = false
+    private var nativeHandle: Long = 0L
+    private var currentPreset: String = DEFAULT_PRESET
+    private var currentLang: LangDef = LANGUAGES[0] // en-us default
+    /** Tracks what the native side actually has loaded.
+     *  null = unknown/failed — forces re-try on next synthesis. */
+    private var confirmedNativeLang: LangDef? = null
+    private lateinit var prefs: SharedPreferences
+
+    // JNI declarations
+    private external fun nativeCreate(
+        espeakDataPath: String, packDirPath: String, sampleRate: Int
+    ): Long
+    private external fun nativeDestroy(handle: Long)
+    private external fun nativeSetVoice(handle: Long, voiceName: String)
+    private external fun nativeQueueText(
+        handle: Long, text: String, speechRate: Int, pitch: Int
+    )
+    private external fun nativePullAudio(
+        handle: Long, outBuffer: ByteArray, maxBytes: Int
+    ): Int
+    private external fun nativeStop(handle: Long)
+    private external fun nativeSetLanguage(
+        handle: Long, espeakLang: String, tgsbLang: String
+    ): Int
+
+    override fun onCreate() {
+        super.onCreate()
+        Log.i(TAG, "onCreate: extracting assets and initializing engine")
+
+        prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+        loadPresetFromPrefs()
+
+        extractAssets()
+
+        val espeakDataPath = filesDir.absolutePath
+        val packDirPath = File(filesDir, "tgsb").absolutePath
+
+        nativeHandle = nativeCreate(espeakDataPath, packDirPath, SAMPLE_RATE)
+        if (nativeHandle == 0L) {
+            Log.e(TAG, "Failed to create native engine")
+        } else {
+            Log.i(TAG, "Native engine created (handle=$nativeHandle)")
+            nativeSetVoice(nativeHandle, currentPreset)
+            // nativeCreate already sets en-us internally
+            confirmedNativeLang = currentLang
+        }
+    }
+
+    /** Set the native language, tracking success/failure. */
+    private fun setNativeLanguage(ld: LangDef): Boolean {
+        if (nativeHandle == 0L) return false
+        val result = nativeSetLanguage(nativeHandle, ld.espeakLang, ld.tgsbLang)
+        return if (result == 0) {
+            confirmedNativeLang = ld
+            true
+        } else {
+            confirmedNativeLang = null
+            Log.e(TAG, "setNativeLanguage FAILED: ${ld.espeakLang}/${ld.tgsbLang}")
+            false
+        }
+    }
+
+    override fun onDestroy() {
+        if (nativeHandle != 0L) {
+            nativeDestroy(nativeHandle)
+            nativeHandle = 0L
+        }
+        super.onDestroy()
+    }
+
+    private fun loadPresetFromPrefs() {
+        val saved = prefs.getString(PREF_VOICE_PRESET, DEFAULT_PRESET) ?: DEFAULT_PRESET
+        currentPreset = if (VOICES.any { it.id == saved }) saved else DEFAULT_PRESET
+    }
+
+    // ---- Asset extraction ----
+
+    private fun extractAssets() {
+        val assetVersion = 4
+        val marker = File(filesDir, ".assets_v$assetVersion")
+        if (marker.exists()) return
+
+        filesDir.listFiles()?.filter { it.name.startsWith(".assets_") }?.forEach { it.delete() }
+        File(filesDir, "espeak-ng-data").deleteRecursively()
+        File(filesDir, "tgsb").deleteRecursively()
+
+        Log.i(TAG, "Extracting assets to ${filesDir.absolutePath}")
+        copyAssetsDir("espeak-ng-data", File(filesDir, "espeak-ng-data"))
+        copyAssetsDir("tgsb", File(filesDir, "tgsb"))
+        marker.createNewFile()
+    }
+
+    private fun copyAssetsDir(assetPath: String, targetDir: File) {
+        val assetMgr = assets
+        val entries = assetMgr.list(assetPath) ?: return
+
+        if (entries.isEmpty()) {
+            copyAssetFile(assetMgr, assetPath, targetDir)
+            return
+        }
+
+        targetDir.mkdirs()
+        for (entry in entries) {
+            val childAsset = "$assetPath/$entry"
+            val childTarget = File(targetDir, entry)
+            val subEntries = assetMgr.list(childAsset)
+            if (subEntries != null && subEntries.isNotEmpty()) {
+                copyAssetsDir(childAsset, childTarget)
+            } else {
+                copyAssetFile(assetMgr, childAsset, childTarget)
+            }
+        }
+    }
+
+    private fun copyAssetFile(assetMgr: AssetManager, assetPath: String, target: File) {
+        try {
+            target.parentFile?.mkdirs()
+            assetMgr.open(assetPath).use { input ->
+                FileOutputStream(target).use { output ->
+                    input.copyTo(output)
+                }
+            }
+        } catch (e: IOException) {
+            Log.e(TAG, "Failed to copy asset $assetPath: ${e.message}")
+        }
+    }
+
+    // ---- Locale-based API (required abstract methods) ----
+
+    override fun onIsLanguageAvailable(lang: String, country: String, variant: String): Int {
+        if (lang !in SUPPORTED_LANGS) return TextToSpeech.LANG_NOT_SUPPORTED
+        if (country.isNotEmpty() && (lang to country) in SUPPORTED_PAIRS)
+            return TextToSpeech.LANG_COUNTRY_AVAILABLE
+        return TextToSpeech.LANG_AVAILABLE
+    }
+
+    override fun onLoadLanguage(lang: String, country: String, variant: String): Int {
+        val availability = onIsLanguageAvailable(lang, country, variant)
+        if (availability == TextToSpeech.LANG_NOT_SUPPORTED) return availability
+
+        val ld = findLangDef(lang, country) ?: return TextToSpeech.LANG_NOT_SUPPORTED
+        currentLang = ld
+        if (setNativeLanguage(ld)) {
+            Log.i(TAG, "Language loaded: ${ld.espeakLang} / ${ld.tgsbLang}")
+        }
+        return availability
+    }
+
+    override fun onGetLanguage(): Array<String> {
+        return arrayOf(currentLang.iso3Lang, currentLang.iso3Country, "")
+    }
+
+    // ---- Voice API (API 21+) ----
+
+    override fun onGetVoices(): List<Voice> {
+        // One voice per supported language. Timbre (preset) is selected
+        // via the settings activity, not through the Voice API.
+        // Only expose languages the user has enabled in settings.
+        // Skip fallback entries whose displayLocale duplicates a more
+        // specific entry — Android gets confused by duplicate locales.
+        val enabledKeys = getEnabledLocaleKeys(prefs)
+        val seen = mutableSetOf<String>()
+        return LANGUAGES.mapNotNull { ld ->
+            if (!isLangEnabled(ld, enabledKeys)) return@mapNotNull null
+            val key = ld.displayLocale.toString()
+            if (key in seen) return@mapNotNull null
+            seen.add(key)
+            Voice(
+                buildVoiceName(ld),
+                ld.displayLocale,
+                Voice.QUALITY_VERY_HIGH,
+                Voice.LATENCY_NORMAL,
+                false,
+                emptySet()
+            )
+        }
+    }
+
+    override fun onIsValidVoiceName(voiceName: String): Int {
+        return if (parseVoiceName(voiceName) != null) TextToSpeech.SUCCESS
+               else TextToSpeech.ERROR
+    }
+
+    override fun onLoadVoice(voiceName: String): Int {
+        val ld = parseVoiceName(voiceName) ?: return TextToSpeech.ERROR
+
+        // Re-read preset in case the user changed it in settings
+        loadPresetFromPrefs()
+        if (nativeHandle != 0L) {
+            nativeSetVoice(nativeHandle, currentPreset)
+        }
+
+        // Always set language (don't skip even if ld == currentLang —
+        // the native side may be out of sync from a prior failure)
+        currentLang = ld
+        if (setNativeLanguage(ld)) {
+            Log.i(TAG, "Voice loaded: $voiceName → lang=${ld.espeakLang}/${ld.tgsbLang} preset=$currentPreset")
+        }
+
+        return TextToSpeech.SUCCESS
+    }
+
+    override fun onGetDefaultVoiceNameFor(
+        lang: String, country: String, variant: String
+    ): String {
+        val ld = findLangDef(lang, country)
+            ?: findLangDef(lang, "")
+            ?: LANGUAGES[0]
+        return buildVoiceName(ld)
+    }
+
+    // ---- Synthesis ----
+
+    override fun onSynthesizeText(request: SynthesisRequest, callback: SynthesisCallback) {
+        stopRequested = false
+
+        if (nativeHandle == 0L) {
+            Log.e(TAG, "Engine not initialized")
+            callback.error(TextToSpeech.ERROR_SYNTHESIS)
+            return
+        }
+
+        // Resolve language from the request.  Voice name takes priority
+        // over locale fields (the Voice API is the modern path).
+        val voiceName = request.voiceName
+        if (!voiceName.isNullOrEmpty()) {
+            val ld = parseVoiceName(voiceName)
+            if (ld != null) currentLang = ld
+        } else {
+            val reqLang = request.language ?: ""
+            val reqCountry = request.country ?: ""
+            if (reqLang.isNotEmpty()) {
+                val ld = findLangDef(reqLang, reqCountry)
+                if (ld != null) currentLang = ld
+            }
+        }
+
+        // Re-read timbre preset
+        loadPresetFromPrefs()
+        nativeSetVoice(nativeHandle, currentPreset)
+
+        // Ensure the native side has the right language loaded.
+        // If a prior setLanguage failed (confirmedNativeLang == null)
+        // or the requested language changed, re-set it now.
+        if (confirmedNativeLang != currentLang) {
+            setNativeLanguage(currentLang)
+        }
+
+        // Start audio stream
+        val ret = callback.start(
+            SAMPLE_RATE, AudioFormat.ENCODING_PCM_16BIT, 1
+        )
+        if (ret != TextToSpeech.SUCCESS) {
+            callback.error(TextToSpeech.ERROR_SYNTHESIS)
+            return
+        }
+
+        // Get text
+        val text = request.charSequenceText?.toString()
+            ?: request.text
+            ?: ""
+        if (text.isEmpty()) {
+            callback.done()
+            return
+        }
+
+        // Queue text through pipeline (fast: eSpeak IPA + frontend frames)
+        try {
+            nativeQueueText(nativeHandle, text, request.speechRate, request.pitch)
+        } catch (e: Exception) {
+            Log.e(TAG, "Queue failed: ${e.message}")
+            callback.error(TextToSpeech.ERROR_SYNTHESIS)
+            return
+        }
+
+        // Stream PCM as it's synthesized — audio starts playing immediately
+        val buf = ByteArray(8192) // ~93ms at 22050Hz s16le
+        var totalBytes = 0
+        while (!stopRequested) {
+            val n = nativePullAudio(nativeHandle, buf, buf.size)
+            if (n <= 0) break
+            val writeResult = callback.audioAvailable(buf, 0, n)
+            if (writeResult != TextToSpeech.SUCCESS) {
+                callback.error(TextToSpeech.ERROR_OUTPUT)
+                return
+            }
+            totalBytes += n
+        }
+
+        if (stopRequested) {
+            callback.error(TextToSpeech.ERROR_SERVICE)
+            return
+        }
+
+        callback.done()
+    }
+
+    override fun onStop() {
+        stopRequested = true
+        if (nativeHandle != 0L) {
+            nativeStop(nativeHandle)
+        }
+    }
+}
