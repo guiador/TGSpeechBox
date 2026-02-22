@@ -818,6 +818,15 @@ settings:
   # Values < 1.0 make cross-syllable transitions crisper (less vowel pull on the
   # consonant), preserving syllable identity. Default 1.0 (no reduction).
   coarticulationCrossSyllableScale: 0.70
+
+  # ── High-rate intelligibility ──
+  # At high speech rates, IIR cascade resonators spend most of their time
+  # in transition rather than at target frequencies. These settings reduce
+  # coarticulation strength at speed so vowels sound clearer.
+  highRateThreshold: 2.0            # speed below which no attenuation (shared
+                                    # with boundary smoothing fade ratio)
+  highRateCoarticulationFloor: 0.35 # minimum strength multiplier at extreme speed
+                                    # (ceiling is threshold × 2.5, i.e. 5.0)
 ```
 
 #### Graduated coarticulation
@@ -1145,8 +1154,19 @@ settings:
     # Duration safety nets
     durationProminentFloorMs: 0     # 0 = disabled. If > 0, prominent vowels
                                     # (score >= 0.4) never shrink below this.
+    durationPrimaryFloorMs: 0       # 0 = disabled. If > 0, primary-stressed vowels
+                                    # (score >= 0.9) never shrink below this.
+                                    # Skips diphthong nuclei (tiedTo) since the
+                                    # offglide already adds perceived duration.
     durationReducedCeiling: 1.0     # non-prominent vowels (score < 0.3) scaled
                                     # toward this (1.0 = no reduction, 0.7 = 70%)
+
+    # Full-vowel protection (Pass 1c)
+    # Non-schwa vowels with zero prominence get boosted to this floor.
+    # Prevents compound word second elements (firefox, laptop, desktop)
+    # from being reduced like schwas when eSpeak omits secondary stress.
+    # Excluded vowels: ə, ɐ, ᵊ, ɨ, ᵻ (true reduced vowels).
+    fullVowelFloor: 0.0             # 0 = disabled. en-us uses 0.4.
 
     # Amplitude: prominence → voiceAmplitude adjustment (dB)
     amplitudeBoostDb: 0.0           # max boost for prominence=1.0
@@ -1169,7 +1189,9 @@ Flat-key equivalents are also supported:
 - `prominenceWordInitialBoost`
 - `prominenceWordFinalReduction`
 - `prominenceDurationProminentFloorMs`
+- `prominenceDurationPrimaryFloorMs`
 - `prominenceDurationReducedCeiling`
+- `prominenceFullVowelFloor`
 - `prominenceAmplitudeBoostDb`
 - `prominenceAmplitudeReductionDb`
 - `prominencePitchFromProminence`
@@ -1450,6 +1472,17 @@ The pass handles a comprehensive set of boundary types:
 #### Fade cap and floor
 
 The fade is capped at 75% of the token's duration to preserve some steady-state. A 6ms floor prevents the cap from creating near-discontinuities on very short sentence-final phones.
+
+At high speech rates, the 75% cap can leave only 5-8ms of steady-state — too short for resonators to express formant peaks. The `highRateFadeRatioFloor` setting tightens the cap at speed, using the shared `highRateThreshold` (see Coarticulation section):
+
+```yaml
+settings:
+  boundarySmoothing:
+    highRateFadeRatioFloor: 0.40  # minimum fade ratio at extreme speed
+                                  # (default 0.75 ramps down to this above threshold)
+```
+
+At 4x speed with a 25ms vowel: default allows 19ms fade / 6ms steady. With floor=0.40: 13ms fade / 12ms steady — 1-2 extra pitch cycles for vowel identity.
 
 #### Tuning notes
 
