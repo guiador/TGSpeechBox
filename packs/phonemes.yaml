@@ -5369,6 +5369,57 @@ phonemes:
     pf5: 3750
     pf6: 4900
     voiceAmplitude: 0.95
+  "ɾ_wf":
+    # Word-final tap for Spanish. At utterance end the base ɾ is held
+    # by singleWordFinalHold and sounds nasal (voiced alveolar closure
+    # with no release ≈ /n/). This allophone adds fricationAmplitude
+    # for a tongue-flick release and raises cf2 to push away from /n/.
+    _isLiquid: false
+    _isNasal: false
+    _isSemivowel: false
+    _isStop: false
+    _isTap: true
+    _isVoiced: true
+    _isVowel: false
+    aspirationAmplitude: 0
+    caNP: 0
+    cb1: 60
+    cb2: 80
+    cb3: 130
+    cb4: 320
+    cb5: 400
+    cb6: 1400
+    cbN0: 100
+    cbNP: 100
+    cf1: 220
+    cf2: 1720
+    cf3: 2600
+    cf4: 3300
+    cf5: 3750
+    cf6: 4900
+    cfN0: 250
+    cfNP: 200
+    fricationAmplitude: 0.03
+    pa1: 0
+    pa2: 0.22
+    pa3: 0.22
+    pa4: 0
+    pa5: 0
+    pa6: 0.50
+    parallelBypass: 0
+    pb1: 55
+    pb2: 100
+    pb3: 160
+    pb4: 320
+    pb5: 400
+    pb6: 1400
+    pf1: 220
+    pf2: 1720
+    pf3: 2600
+    pf4: 3300
+    pf5: 3750
+    pf6: 4900
+    voiceAmplitude: 0.95
   "ʁ":
     _isAfricate: false
     _isLiquid: true
