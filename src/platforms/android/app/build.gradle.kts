@@ -60,6 +60,32 @@ android {
     }
 }
 
+// ── Build-time asset copy ────────────────────────────────────
+// Single canonical data lives at repo root:
+//   resources/espeak-ng-data/   (eSpeak dictionary + voice data)
+//   packs/                      (language packs + phonemes.yaml)
+// Copy into the build's asset tree so the APK is self-contained.
+val repoRoot = rootProject.projectDir.resolve("../../..")
+val generatedAssets = layout.buildDirectory.dir("generated/assets/main")
+
+val copyEspeakData by tasks.registering(Copy::class) {
+    from(repoRoot.resolve("resources/espeak-ng-data"))
+    into(generatedAssets.map { it.dir("espeak-ng-data") })
+}
+
+val copyPacks by tasks.registering(Copy::class) {
+    from(repoRoot.resolve("packs"))
+    into(generatedAssets.map { it.dir("tgsb/packs") })
+}
+
+android.sourceSets.getByName("main") {
+    assets.srcDir(generatedAssets)
+}
+
+tasks.named("preBuild") {
+    dependsOn(copyEspeakData, copyPacks)
+}
+
 dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
 }
