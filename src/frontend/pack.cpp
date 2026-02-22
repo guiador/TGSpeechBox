@@ -581,6 +581,7 @@ getNum("primaryStressDiv", lp.primaryStressDiv);
   getNum("coarticulationStrength", lp.coarticulationStrength);
   getNum("highRateThreshold", lp.highRateThreshold);
   getNum("highRateCoarticulationFloor", lp.highRateCoarticulationFloor);
+  getNum("highRateBandwidthWideningFactor", lp.highRateBandwidthWideningFactor);
   getNum("coarticulationWordInitialFadeScale", lp.coarticulationWordInitialFadeScale);
   getBool("coarticulationGraduated", lp.coarticulationGraduated);
   getNum("coarticulationAdjacencyMaxConsonants", lp.coarticulationAdjacencyMaxConsonants);

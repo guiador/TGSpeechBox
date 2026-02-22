@@ -85,6 +85,10 @@ settings:
   # so resonators spend more time at canonical vowel targets.
   highRateCoarticulationFloor: 0.35
 
+  # Rate-adaptive bandwidth widening: max cascade BW multiplier at extreme speed.
+  # Wider BW = faster resonator settling = formant identity expressed sooner.
+  highRateBandwidthWideningFactor: 1.8
+
   phraseFinalLengtheningEnabled: true
   phraseFinalLengtheningNucleusOnlyMode: false
   phraseFinalLengtheningFinalSyllableScale: 1.05

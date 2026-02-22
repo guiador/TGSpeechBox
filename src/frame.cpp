@@ -423,7 +423,21 @@ class FrameManagerImpl: public FrameManager {
 			}
 			
 			if(hasAnyFormantTarget) {
-				frameRequest->formantAlpha = kFormantAlpha;
+				// Scale alpha so formant ramps reach their target even in short
+				// (high-speed) frames.  At normal speed (~2200 samples for a vowel),
+				// kFormantAlpha gives a ~250-sample time constant — plenty of time.
+				// At 3x speed (~700 samples), the same alpha covers only 1/3 of
+				// the trajectory.  We scale alpha up so the effective time constant
+				// never exceeds 1/4 of the frame duration.
+				double alpha = kFormantAlpha;
+				if (minNumSamples > 0) {
+					const double maxTau = minNumSamples * 0.15;  // settle within 15% of frame
+					const double baseTau = 1.0 / kFormantAlpha;  // ~250 samples
+					if (baseTau > maxTau && maxTau > 0.0) {
+						alpha = 1.0 / maxTau;
+					}
+				}
+				frameRequest->formantAlpha = alpha;
 			}
 		} else {
 			frameRequest->hasFrameEx=false;

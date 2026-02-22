@@ -656,6 +656,10 @@ double lengthContrastPreGeminateVowelScale = 0.85;
 
   // Coarticulation rate scaling floor
   double highRateCoarticulationFloor = 0.35;
+
+  // Rate-adaptive bandwidth widening: max cascade BW multiplier at extreme speed.
+  // Wider BW = faster resonator settling = formant identity expressed sooner.
+  double highRateBandwidthWideningFactor = 1.0;  // 1.0 = disabled
   double coarticulationWordInitialFadeScale = 1.0;
 
   // If true, scale coarticulation strength down when the nearest vowel is not

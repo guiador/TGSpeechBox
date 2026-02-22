@@ -38,6 +38,7 @@ void emitFrames(
   const PackSet& pack,
   const std::vector<Token>& tokens,
   int userIndexBase,
+  double speed,
   TrajectoryState* trajectoryState,
   nvspFrontend_FrameCallback cb,
   void* userData
@@ -142,6 +143,22 @@ void emitFrames(
     // Save full base for voice bar emission on the next voiced closure.
     std::memcpy(trajectoryState->prevBase, base, sizeof(base));
     trajectoryState->hasPrevBase = true;
+
+    // Rate-adaptive bandwidth widening: widen cascade bandwidths at high speeds
+    // so resonators settle faster and express formant identity sooner.
+    // Applied AFTER prevBase save so voice bar inherits natural bandwidths.
+    {
+      const double hrT = pack.lang.highRateThreshold;
+      const double bwF = pack.lang.highRateBandwidthWideningFactor;
+      if (hrT > 0.0 && bwF > 1.0 && speed > hrT) {
+        const double ceiling = hrT * 2.5;
+        const double ramp = std::min((speed - hrT) / (ceiling - hrT), 1.0);
+        const double bwScale = 1.0 + ramp * (bwF - 1.0);
+        base[static_cast<int>(FieldId::cb1)] *= bwScale;
+        base[static_cast<int>(FieldId::cb2)] *= bwScale;
+        base[static_cast<int>(FieldId::cb3)] *= bwScale;
+      }
+    }
 
     // DIPHTHONG GLIDE (legacy path -- no FrameEx, no endCf guidance)
     if (t.isDiphthongGlide && t.durationMs > 0.0) {
@@ -597,6 +614,7 @@ void emitFramesEx(
   const PackSet& pack,
   const std::vector<Token>& tokens,
   int userIndexBase,
+  double speed,
   const nvspFrontend_FrameEx& frameExDefaults,
   TrajectoryState* trajectoryState,
   nvspFrontend_FrameExCallback cb,
@@ -689,6 +707,20 @@ void emitFramesEx(
     // Save full base for voice bar emission on the next voiced closure.
     std::memcpy(trajectoryState->prevBase, base, sizeof(base));
     trajectoryState->hasPrevBase = true;
+
+    // Rate-adaptive bandwidth widening (same logic as emitFrames path).
+    {
+      const double hrT = pack.lang.highRateThreshold;
+      const double bwF = pack.lang.highRateBandwidthWideningFactor;
+      if (hrT > 0.0 && bwF > 1.0 && speed > hrT) {
+        const double ceiling = hrT * 2.5;
+        const double ramp = std::min((speed - hrT) / (ceiling - hrT), 1.0);
+        const double bwScale = 1.0 + ramp * (bwF - 1.0);
+        base[static_cast<int>(FieldId::cb1)] *= bwScale;
+        base[static_cast<int>(FieldId::cb2)] *= bwScale;
+        base[static_cast<int>(FieldId::cb3)] *= bwScale;
+      }
+    }
 
     // Build FrameEx by mixing user defaults with per-phoneme values.
     // The mixing formula:

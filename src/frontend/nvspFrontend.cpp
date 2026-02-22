@@ -230,7 +230,7 @@ NVSP_FRONTEND_API int nvspFrontend_queueIPA(
     }
   }
 
-  emitFrames(h->pack, tokens, userIndexBase, &h->trajectoryState, cb, userData);
+  emitFrames(h->pack, tokens, userIndexBase, speed, &h->trajectoryState, cb, userData);
   if (hasRealPhoneme) {
     h->streamHasSpeech = true;
     h->lastEndsVowelLike = endsVowelLike;
@@ -440,7 +440,7 @@ static int queueIPA_ExImpl(
   frameExDefaults.endPf2 = NAN;
   frameExDefaults.endPf3 = NAN;
 
-  emitFramesEx(h->pack, tokens, userIndexBase, frameExDefaults, &h->trajectoryState, cb, userData);
+  emitFramesEx(h->pack, tokens, userIndexBase, speed, frameExDefaults, &h->trajectoryState, cb, userData);
 
   if (hasRealPhoneme) {
     h->streamHasSpeech = true;
