@@ -827,6 +827,7 @@ static std::vector<std::string> knownLanguageSettingKeys() {
     "fujisakiPhraseLen",
     "fujisakiPrimaryAccentAmp",
     "fujisakiSecondaryAccentAmp",
+    "highRateBandwidthWideningFactor",
     "highRateCoarticulationFloor",
     "highRateThreshold",
     "impulseAssertiveness",
