@@ -493,6 +493,13 @@ static void applyRules(std::u32string& text, const PackSet& pack, const std::vec
           }
         }
 
+        // Don't replace inside a tied sequence.  A tie bar immediately
+        // before the match means this phoneme is bound to its predecessor
+        // (e.g. "s" inside "t͡s") and must not be split out independently.
+        if (ok && matchStart > 0 && isTieBar(text[matchStart - 1])) {
+          ok = false;
+        }
+
         if (ok) {
           out.append(to);
           // Only protect replacement output when it is LONGER than the
