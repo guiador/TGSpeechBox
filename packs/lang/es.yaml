@@ -111,11 +111,15 @@ normalization:
       to: "ɡ"
       when:
         atWordStart: true
-    # Mark the proper, trill "r" in vowels, for example "para".
+    # Intervocalic tap: insert micro-schwa to give the tap room
+    # between vowels (e.g. "para" → "paᵊɾa").
+    # Requires vowel both before AND after — prevents nasal-like
+    # murmur at word-final position ("trabajador" stays clean).
     - from: "ɾ"
       to: "ᵊɾ"
       when:
         afterClass: VOWELS
+        beforeClass: VOWELS
     # Fix espeak's pronounciation mistakes like 'prueba', when 'u' is preceded by a stressed vowel. That always should be 'w', diphthong.
     - from: "uˈ"
       to: "wˈ"
@@ -184,6 +188,26 @@ normalization:
       to: "t͡ʃ_es"
     - from: "tɾ"
       to: "tᵊɾ"
+    # Separate sonorant/fricative + velar clusters so the preceding
+    # consonant isn't swallowed by the velar burst.
+    # Reported: "algo", "carga", "rasgar", "regla" sound unclear.
+    - from: "lɡ"
+      to: "lᵊɡ"
+    - from: "lɣ"
+      to: "lᵊɣ"
+    - from: "ɾɡ"
+      to: "ɾᵊɡ"
+    - from: "ɾɣ"
+      to: "ɾᵊɣ"
+    - from: "sɡ"
+      to: "sᵊɡ"
+    - from: "sɣ"
+      to: "sᵊɣ"
+    # Velar + lateral (regla = /reɣla/)
+    - from: "ɣl"
+      to: "ɣᵊl"
+    - from: "ɡl"
+      to: "ɡᵊl"
     # Set our own r trill r. The default one lacks naturalness.
     - from: "r"
       to: "ɾᵊɾ"
