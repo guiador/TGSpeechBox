@@ -1,7 +1,13 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
 }
+
+val sigProps = Properties()
+val sigFile = rootProject.file("signing.properties")
+if (sigFile.exists()) sigProps.load(sigFile.inputStream())
 
 android {
     namespace = "com.tgspeechbox.tts"
@@ -9,12 +15,21 @@ android {
 
     ndkVersion = "27.2.12479018"
 
+    signingConfigs {
+        create("release") {
+            storeFile = file(sigProps.getProperty("STORE_FILE", ""))
+            storePassword = sigProps.getProperty("STORE_PASSWORD", "")
+            keyAlias = sigProps.getProperty("KEY_ALIAS", "")
+            keyPassword = sigProps.getProperty("KEY_PASSWORD", "")
+        }
+    }
+
     defaultConfig {
         applicationId = "com.tgspeechbox.tts"
         minSdk = 26
         targetSdk = 35
-        versionCode = 297
-        versionName = "2.97"
+        versionCode = 299
+        versionName = "2.99"
 
         externalNativeBuild {
             cmake {
@@ -28,7 +43,7 @@ android {
         }
 
         ndk {
-            abiFilters += listOf("arm64-v8a")
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
         }
     }
 
@@ -41,6 +56,7 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 
