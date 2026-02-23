@@ -1467,10 +1467,17 @@ static void autoTieDiphthongs(const PackSet& pack, std::vector<Token>& tokens) {
       const bool prevVowelLike = tokenIsVowel(prev);  // onset must be a vowel, not a semivowel
       const bool curVowelLike = tokenIsVowel(cur) || tokenIsSemivowel(cur);
 
+      // R-colored vowels (ɚ, ɝ) should never be diphthong onset nuclei.
+      // ɚ+i is not a real diphthong in any language — when the text parser
+      // fails to insert syllable dots, ɚ can end up adjacent to i and get
+      // falsely tied, causing diphthong_collapse to erase the second vowel.
+      const bool prevIsRColored = (prev.baseChar == U'\u025A' ||  // ɚ
+                                   prev.baseChar == U'\u025D');   // ɝ
+
       // Only consider within-syllable vowel-like sequences.
       // If the current token starts a new syllable (explicit stress, word start,
       // etc.), treat it as hiatus instead.
-      if (prevVowelLike && curVowelLike && !cur.wordStart && !cur.syllableStart) {
+      if (prevVowelLike && !prevIsRColored && curVowelLike && !cur.wordStart && !cur.syllableStart) {
         // Skip if the IPA already encoded tying, or the vowel is explicitly long.
         if (!prev.tiedTo && !prev.tiedFrom && !cur.tiedTo && !cur.tiedFrom && cur.lengthened == 0) {
           // Only auto-tie when the second vowel is a common offglide candidate.
