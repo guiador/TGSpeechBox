@@ -290,6 +290,7 @@ class LanguagePack:
     coarticulation_velar_pinch_f3: float = 2400.0
     coarticulation_cross_syllable_scale: float = 0.70
     high_rate_threshold: float = 2.0
+    high_rate_bandwidth_widening_factor: float = 1.0
     high_rate_coarticulation_floor: float = 0.35
     special_coarticulation_enabled: bool = False
     special_coartic_max_delta_hz: float = 400.0
@@ -771,6 +772,7 @@ def _merge_settings(lp: LanguagePack, s: dict):
     lp.coarticulation_velar_pinch_f3 = gn("coarticulationVelarPinchF3", lp.coarticulation_velar_pinch_f3)
     lp.coarticulation_cross_syllable_scale = gn("coarticulationCrossSyllableScale", lp.coarticulation_cross_syllable_scale)
     lp.high_rate_threshold = gn("highRateThreshold", lp.high_rate_threshold)
+    lp.high_rate_bandwidth_widening_factor = gn("highRateBandwidthWideningFactor", lp.high_rate_bandwidth_widening_factor)
     lp.high_rate_coarticulation_floor = gn("highRateCoarticulationFloor", lp.high_rate_coarticulation_floor)
     lp.special_coarticulation_enabled = gb("specialCoarticulationEnabled", lp.special_coarticulation_enabled)
     lp.special_coartic_max_delta_hz = gn("specialCoarticMaxDeltaHz", lp.special_coartic_max_delta_hz)

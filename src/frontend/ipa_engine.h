@@ -186,6 +186,7 @@ void emitFrames(
   const PackSet& pack,
   const std::vector<Token>& tokens,
   int userIndexBase,
+  double speed,
   TrajectoryState* trajectoryState,
   nvspFrontend_FrameCallback cb,
   void* userData
@@ -198,6 +199,7 @@ void emitFramesEx(
   const PackSet& pack,
   const std::vector<Token>& tokens,
   int userIndexBase,
+  double speed,
   const nvspFrontend_FrameEx& frameExDefaults,
   TrajectoryState* trajectoryState,
   nvspFrontend_FrameExCallback cb,

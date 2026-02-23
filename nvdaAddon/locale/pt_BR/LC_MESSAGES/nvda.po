@@ -1441,6 +1441,11 @@ msgstr "Fujisaki Amplitude de Acento Secundário"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "High Rate Bandwidth Widening Factor"
+msgstr "Fator de Alargamento de Largura de Banda a Alta Velocidade"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "High Rate Coarticulation Floor"
 msgstr "Piso de Coarticulação a Alta Velocidade"
 

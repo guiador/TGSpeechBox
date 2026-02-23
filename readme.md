@@ -54,6 +54,17 @@ TGSpeechBox exists as a modern formant synthesizer:
 - to explore the "classic" fast-and-stable sound profile with modern voice quality enhancements,
 - and to keep conversation and experimentation alive around this synthesis method.
 
+## Use of AI and code provenance
+This project uses generative AI as a collaborative development tool — for debugging, brainstorming approaches, and working through DSP or phonetics problems together. AI does not architect this project, write its features wholesale, or make design decisions unilaterally. Every change is reviewed, tested, and understood by a human before it ships.
+
+That said, we recognize the broader risks that generative AI brings to open-source work. Large language models are trained on vast amounts of public code, and there is a real danger of inadvertently reproducing patented algorithms, proprietary techniques, or copyrighted material through AI-generated suggestions. We take this seriously:
+
+- **No patented content.** No code in this repository knowingly implements patented algorithms or proprietary techniques. Where standard DSP methods are used (LF models, formant synthesis, SVF resonators), they are drawn from published academic literature.
+- **No lifted code.** No code has been taken directly from commercial or open-source synthesis engines (such as DECtalk, Eloquence, or eSpeak-ng internals) without the express permission of the rights holders. Where this engine draws inspiration from classic synthesizers — for example, Klatt-style pitch modes or voicing characteristics — the implementations are reconstructed from inferred behavior and published academic literature (Klatt 1980, Klatt & Klatt 1990, technical papers referencing DECTalk, etc.). Where this project diverges from its original NV Speech Player fork, the new code is original work.
+- **Ear-tuned, not copy-pasted.** Many of the acoustic parameters, formant targets, and voicing characteristics in this engine were arrived at through careful listening and iterative adjustment — not by copying tables or coefficients from existing synthesizers. The tuning reflects what sounds right to real users, not what a reference implementation dictates. Espeak's formant tables (which this project used from the original Speechplayer) will gradually move away and become their own formant tables as the project evolves.
+
+We believe transparency about AI use is important, especially in accessibility software where trust matters. If you have questions or concerns about the provenance of any code in this repository, please open an issue.
+
 ## Repository layout
 At a high level, the project is split into two layers:
 

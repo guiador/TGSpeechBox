@@ -1441,6 +1441,11 @@ msgstr "Fujisaki Másodlagos hangsúly amplitúdó"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "High Rate Bandwidth Widening Factor"
+msgstr "Magas sebesség sávszélesség tágítási tényező"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "High Rate Coarticulation Floor"
 msgstr "Magas sebesség koartikuláció padló"
 

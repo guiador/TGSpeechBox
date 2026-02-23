@@ -529,6 +529,7 @@ def _getPanelClass():
                 "fujisakiSecondaryAccentAmp",
 
                 # --- High-rate intelligibility ---
+                "highRateBandwidthWideningFactor",
                 "highRateCoarticulationFloor",
                 "highRateThreshold",
 
