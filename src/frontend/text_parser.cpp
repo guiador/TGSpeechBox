@@ -426,11 +426,77 @@ std::string runTextParser(
 
   if (textWords.empty() || ipaChunks.empty()) return ipa;
 
-  // When word counts don't match, skip the entire utterance.  Numbers,
-  // abbreviations, and contractions cause eSpeak to expand or merge words,
-  // making positional alignment unreliable.  A wrong match that passes
-  // the nucleus guard (e.g. "driver" vs "DP") is worse than no correction.
-  if (textWords.size() != ipaChunks.size()) return ipa;
+  // When word counts don't match, skip stress correction (which needs
+  // text↔IPA alignment), but still apply syllable boundaries to each IPA
+  // chunk independently.  Without dots, downstream autoTieDiphthongs can
+  // misfire across syllable boundaries.
+  if (textWords.size() != ipaChunks.size()) {
+    if (legalOnsets.empty()) return ipa;
+
+    bool anyChange = false;
+    for (size_t i = 0; i < ipaChunks.size(); ++i) {
+      std::u32string u32 = utf8ToU32(ipaChunks[i]);
+      std::u32string stripped = stripStress(u32);
+      auto nuclei = findNuclei(stripped);
+      if (nuclei.size() < 2) continue;
+
+      std::u32string dotted = applySyllableBoundaries(stripped, nuclei, legalOnsets);
+      if (dotted == stripped) continue;
+
+      // Re-insert eSpeak's original stress marks on the dotted string.
+      // Extract the per-nucleus stress pattern from the original.
+      auto dottedNuclei = findNuclei(dotted);
+      std::vector<int> pattern(dottedNuclei.size(), 0);
+      {
+        size_t nIdx = 0;
+        bool pendingStress = false;
+        int pendingLevel = 0;
+        bool inVowel = false;
+        for (size_t j = 0; j < u32.size(); ++j) {
+          char32_t c = u32[j];
+          if (isStressMark(c)) {
+            pendingStress = true;
+            pendingLevel = (c == U'\u02C8') ? 1 : 2;
+            inVowel = false;
+          } else if (isIpaVowel(c)) {
+            if (!inVowel && nIdx < pattern.size()) {
+              // First vowel of a new nucleus.
+              if (pendingStress) {
+                pattern[nIdx] = pendingLevel;
+                pendingStress = false;
+              }
+              inVowel = true;
+            }
+          } else if (isLengthMark(c) && inVowel) {
+            // Extends current nucleus — stay in vowel.
+          } else if (isTieBar(c) && inVowel) {
+            if (j + 1 < u32.size()) ++j;  // skip tied char
+          } else {
+            if (inVowel) {
+              nIdx++;  // exited a nucleus
+              inVowel = false;
+            }
+          }
+        }
+      }
+
+      std::u32string result = applyStressPattern(dotted, dottedNuclei, pattern);
+      std::string utf8Result = u32ToUtf8(result);
+      if (utf8Result != ipaChunks[i]) {
+        ipaChunks[i] = std::move(utf8Result);
+        anyChange = true;
+      }
+    }
+
+    if (!anyChange) return ipa;
+
+    std::string result;
+    for (size_t i = 0; i < ipaChunks.size(); ++i) {
+      if (i > 0) result.push_back(' ');
+      result += ipaChunks[i];
+    }
+    return result;
+  }
 
   bool anyChange = false;
 
