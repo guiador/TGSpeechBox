@@ -822,11 +822,17 @@ settings:
   # ── High-rate intelligibility ──
   # At high speech rates, IIR cascade resonators spend most of their time
   # in transition rather than at target frequencies. These settings reduce
-  # coarticulation strength at speed so vowels sound clearer.
-  highRateThreshold: 2.0            # speed below which no attenuation (shared
-                                    # with boundary smoothing fade ratio)
+  # coarticulation strength and widen bandwidths at speed so vowels sound clearer.
+  highRateThreshold: 2.5            # speed below which no attenuation (shared
+                                    # with boundary smoothing fade ratio and BW widening)
   highRateCoarticulationFloor: 0.35 # minimum strength multiplier at extreme speed
-                                    # (ceiling is threshold × 2.5, i.e. 5.0)
+                                    # (ceiling is threshold × 1.8)
+  highRateBandwidthWideningFactor: 1.3
+                                    # max cascade BW multiplier at extreme speed.
+                                    # Wider BW = faster resonator settling = formant
+                                    # identity expressed sooner in compressed frames.
+                                    # 1.0 = disabled. Ramps linearly from threshold
+                                    # to ceiling (threshold × 1.8). en-us uses 1.3.
 ```
 
 #### Graduated coarticulation
