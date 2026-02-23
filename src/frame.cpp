@@ -431,7 +431,7 @@ class FrameManagerImpl: public FrameManager {
 				// never exceeds 1/4 of the frame duration.
 				double alpha = kFormantAlpha;
 				if (minNumSamples > 0) {
-					const double maxTau = minNumSamples * 0.15;  // settle within 15% of frame
+					const double maxTau = minNumSamples * 0.10;  // settle within 10% of frame
 					const double baseTau = 1.0 / kFormantAlpha;  // ~250 samples
 					if (baseTau > maxTau && maxTau > 0.0) {
 						alpha = 1.0 / maxTau;

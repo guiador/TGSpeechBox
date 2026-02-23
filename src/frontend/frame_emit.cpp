@@ -91,6 +91,7 @@ void emitFrames(
   // Track whether previous real token was a stop/affricate/aspiration.
   // Used to skip fricative attack ramp in post-stop clusters (/ks/, /ts/, etc.)
   bool prevTokenWasStop = false;
+  bool prevTokenWasTap = false;
 
   for (const Token& t : tokens) {
     // ============================================
@@ -151,7 +152,7 @@ void emitFrames(
       const double hrT = pack.lang.highRateThreshold;
       const double bwF = pack.lang.highRateBandwidthWideningFactor;
       if (hrT > 0.0 && bwF > 1.0 && speed > hrT) {
-        const double ceiling = hrT * 2.5;
+        const double ceiling = hrT * 1.8;
         const double ramp = std::min((speed - hrT) / (ceiling - hrT), 1.0);
         const double bwScale = 1.0 + ramp * (bwF - 1.0);
         base[static_cast<int>(FieldId::cb1)] *= bwScale;
@@ -587,22 +588,69 @@ void emitFrames(
       // else: spread fills entire token or zero, fall through to normal emission
     }
 
+    // TAP MICRO-EVENT (v1 path — see emitFramesEx for full rationale).
+    const bool isTap = t.def && ((t.def->flags & kIsTap) != 0);
+    if (isTap && t.durationMs > 2.0) {
+      const double totalDur = t.durationMs;
+      const double notchFloorMs = 1.5;
+      double notchDur = std::max(totalDur * 0.50, notchFloorMs);
+      if (notchDur > totalDur * 0.80) notchDur = totalDur * 0.80;
+      const double remainDur = totalDur - notchDur;
+      const double onsetDur = remainDur * 0.5;
+      const double recovDur = remainDur - onsetDur;
+
+      const int vaIdx = static_cast<int>(FieldId::voiceAmplitude);
+      const double notchAmp = base[vaIdx] * 0.50;
+
+      const double startPitch = base[vp];
+      const double pitchDelta = base[evp] - startPitch;
+      const double onsetFrac = (totalDur > 0.0) ? (onsetDur / totalDur) : 0.0;
+      const double notchEndFrac = (totalDur > 0.0) ? ((onsetDur + notchDur) / totalDur) : 0.0;
+      const double microFade = std::max(0.5, 1.5 / std::max(0.5, speed));
+
+      { double seg[kFrameFieldCount]; std::memcpy(seg, base, sizeof(seg));
+        seg[vp] = startPitch; seg[evp] = startPitch + pitchDelta * onsetFrac;
+        nvspFrontend_Frame f; std::memcpy(&f, seg, sizeof(f));
+        cb(userData, &f, onsetDur, t.fadeMs, userIndexBase); hadPrevFrame = true; }
+
+      { double seg[kFrameFieldCount]; std::memcpy(seg, base, sizeof(seg));
+        seg[vaIdx] = notchAmp;
+        seg[vp] = startPitch + pitchDelta * onsetFrac; seg[evp] = startPitch + pitchDelta * notchEndFrac;
+        nvspFrontend_Frame f; std::memcpy(&f, seg, sizeof(f));
+        cb(userData, &f, notchDur, microFade, userIndexBase); }
+
+      { double seg[kFrameFieldCount]; std::memcpy(seg, base, sizeof(seg));
+        seg[vp] = startPitch + pitchDelta * notchEndFrac; seg[evp] = startPitch + pitchDelta;
+        nvspFrontend_Frame f; std::memcpy(&f, seg, sizeof(f));
+        cb(userData, &f, recovDur, microFade, userIndexBase); }
+
+      trajectoryState->prevVoiceAmp = base[va];
+      trajectoryState->prevFricAmp = base[fa];
+      trajectoryState->hasPrevFrame = true;
+      trajectoryState->prevWasNasal = false;
+      prevTokenWasTap = true;
+      prevTokenWasStop = false;
+      continue;
+    }
+
     nvspFrontend_Frame frame;
     std::memcpy(&frame, base, sizeof(frame));
 
-    // Trajectory limiting is handled by the trajectory_limit pass (fade-based,
-    // Trans-F aware).  We only track state needed by micro-event emission here.
     const bool isNasal = t.def && ((t.def->flags & kIsNasal) != 0);
     trajectoryState->prevVoiceAmp = base[va];
     trajectoryState->prevFricAmp = base[fa];
     trajectoryState->hasPrevFrame = true;
     trajectoryState->prevWasNasal = isNasal;
 
-    cb(userData, &frame, t.durationMs, t.fadeMs, userIndexBase);
+    double emitFade = t.fadeMs;
+    if (prevTokenWasTap && t.durationMs > 0.0) {
+      emitFade = std::min(emitFade, t.durationMs * 0.35);
+    }
+
+    cb(userData, &frame, t.durationMs, emitFade, userIndexBase);
     hadPrevFrame = true;
 
-    // Update prevTokenWasStop for the normal emission path.
-    // Stops/affricates that fell through (burst >= duration) and postStopAspiration.
+    prevTokenWasTap = false;
     prevTokenWasStop = t.def && (
       ((t.def->flags & kIsStop) != 0) ||
       ((t.def->flags & kIsAfricate) != 0) ||
@@ -650,6 +698,7 @@ void emitFramesEx(
   // Track whether we've emitted at least one real frame
   bool hadPrevFrame = false;
   bool prevTokenWasStop = false;
+  bool prevTokenWasTap = false;
 
   for (const Token& t : tokens) {
     // ============================================
@@ -713,7 +762,7 @@ void emitFramesEx(
       const double hrT = pack.lang.highRateThreshold;
       const double bwF = pack.lang.highRateBandwidthWideningFactor;
       if (hrT > 0.0 && bwF > 1.0 && speed > hrT) {
-        const double ceiling = hrT * 2.5;
+        const double ceiling = hrT * 1.8;
         const double ramp = std::min((speed - hrT) / (ceiling - hrT), 1.0);
         const double bwScale = 1.0 + ramp * (bwF - 1.0);
         base[static_cast<int>(FieldId::cb1)] *= bwScale;
@@ -1261,6 +1310,87 @@ void emitFramesEx(
       }
     }
 
+    // ============================================
+    // TAP MICRO-EVENT EMISSION (amplitude notch)
+    // ============================================
+    // Research shows the primary perceptual cue for taps is a brief amplitude
+    // dip, not formant identity.  At high speech rates, smooth crossfade
+    // completely smears the dip.  Emit 3 micro-frames: onset, notch, recovery.
+    const bool isTap = t.def && ((t.def->flags & kIsTap) != 0);
+    if (isTap && t.durationMs > 2.0) {
+      const double totalDur = t.durationMs;
+
+      // Phase proportions: onset 25%, notch 50%, recovery 25%.
+      // Notch gets a duration floor so the dip survives extreme speeds.
+      const double notchFloorMs = 1.5;
+      double notchDur = std::max(totalDur * 0.50, notchFloorMs);
+      if (notchDur > totalDur * 0.80) notchDur = totalDur * 0.80;
+      const double remainDur = totalDur - notchDur;
+      const double onsetDur = remainDur * 0.5;
+      const double recovDur = remainDur - onsetDur;
+
+      // Amplitude dip: reduce voiceAmplitude by 50% in the notch.
+      const int vaIdx = static_cast<int>(FieldId::voiceAmplitude);
+      const double origAmp = base[vaIdx];
+      const double notchAmp = origAmp * 0.50;
+
+      // Pitch interpolation
+      const double startPitch = base[vp];
+      const double pitchDelta = base[evp] - startPitch;
+      const double onsetFrac = (totalDur > 0.0) ? (onsetDur / totalDur) : 0.0;
+      const double notchEndFrac = (totalDur > 0.0) ? ((onsetDur + notchDur) / totalDur) : 0.0;
+
+      // Short micro-fade between phases — sharp transitions, not smooth.
+      const double microFade = std::max(0.5, 1.5 / std::max(0.5, speed));
+
+      // Phase 1: onset — full amplitude, tap formants, fade from previous.
+      {
+        double seg[kFrameFieldCount];
+        std::memcpy(seg, base, sizeof(seg));
+        seg[vp] = startPitch;
+        seg[evp] = startPitch + pitchDelta * onsetFrac;
+
+        nvspFrontend_Frame f;
+        std::memcpy(&f, seg, sizeof(f));
+        cb(userData, &f, &frameEx, onsetDur, t.fadeMs, userIndexBase);
+        hadPrevFrame = true;
+      }
+
+      // Phase 2: notch — amplitude dipped, tap formants hold.
+      {
+        double seg[kFrameFieldCount];
+        std::memcpy(seg, base, sizeof(seg));
+        seg[vaIdx] = notchAmp;
+        seg[vp] = startPitch + pitchDelta * onsetFrac;
+        seg[evp] = startPitch + pitchDelta * notchEndFrac;
+
+        nvspFrontend_Frame f;
+        std::memcpy(&f, seg, sizeof(f));
+        cb(userData, &f, &frameEx, notchDur, microFade, userIndexBase);
+      }
+
+      // Phase 3: recovery — amplitude back to full, fade out short.
+      {
+        double seg[kFrameFieldCount];
+        std::memcpy(seg, base, sizeof(seg));
+        seg[vp] = startPitch + pitchDelta * notchEndFrac;
+        seg[evp] = startPitch + pitchDelta;
+
+        nvspFrontend_Frame f;
+        std::memcpy(&f, seg, sizeof(f));
+        cb(userData, &f, &frameEx, recovDur, microFade, userIndexBase);
+      }
+
+      trajectoryState->prevVoiceAmp = base[va];
+      trajectoryState->prevFricAmp = base[fa];
+      trajectoryState->hasPrevFrame = true;
+      trajectoryState->prevWasNasal = false;
+
+      prevTokenWasTap = true;
+      prevTokenWasStop = false;
+      continue;
+    }
+
     // Normal frame emission
     nvspFrontend_Frame frame;
     std::memcpy(&frame, base, sizeof(frame));
@@ -1273,9 +1403,17 @@ void emitFramesEx(
     trajectoryState->hasPrevFrame = true;
     trajectoryState->prevWasNasal = isNasal;
 
-    cb(userData, &frame, &frameEx, t.durationMs, t.fadeMs, userIndexBase);
+    // Post-tap: cap fade on the token after a tap so the tap's amplitude
+    // notch rings briefly before the next sound smears it away.
+    double emitFade = t.fadeMs;
+    if (prevTokenWasTap && t.durationMs > 0.0) {
+      emitFade = std::min(emitFade, t.durationMs * 0.35);
+    }
+
+    cb(userData, &frame, &frameEx, t.durationMs, emitFade, userIndexBase);
     hadPrevFrame = true;
 
+    prevTokenWasTap = false;
     prevTokenWasStop = t.def && (
       ((t.def->flags & kIsStop) != 0) ||
       ((t.def->flags & kIsAfricate) != 0) ||

@@ -78,7 +78,7 @@ settings:
 
   # Speed above which high-rate intelligibility adjustments activate.
   # Shared by coarticulation attenuation and fade ratio tightening.
-  highRateThreshold: 2.0
+  highRateThreshold: 2.5
 
   # Rate-adaptive coarticulation: minimum strength multiplier at extreme speed.
   # At speeds above highRateThreshold, coarticulation weakens toward this floor
@@ -87,7 +87,7 @@ settings:
 
   # Rate-adaptive bandwidth widening: max cascade BW multiplier at extreme speed.
   # Wider BW = faster resonator settling = formant identity expressed sooner.
-  highRateBandwidthWideningFactor: 1.8
+  highRateBandwidthWideningFactor: 1.3
 
   phraseFinalLengtheningEnabled: true
   phraseFinalLengtheningNucleusOnlyMode: false
