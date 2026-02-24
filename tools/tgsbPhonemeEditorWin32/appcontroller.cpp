@@ -930,6 +930,7 @@ static std::vector<std::string> knownLanguageSettingKeys() {
     "prominenceDurationReducedCeiling",
     "prominenceEnabled",
     "prominenceFullVowelFloor",
+    "prominenceMonosyllableFloor",
     "prominenceLongVowelMode",
     "prominenceLongVowelWeight",
     "prominencePitchFromProminence",

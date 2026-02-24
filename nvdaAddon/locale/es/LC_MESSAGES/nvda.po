@@ -2067,6 +2067,11 @@ msgstr "Prominencia Piso de Vocal Plena"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Prominence Monosyllable Floor"
+msgstr "Prominencia Piso de Monosílabo"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Prominence Long Vowel Mode"
 msgstr "Prominencia Modo de Vocal Larga"
 
@@ -2139,6 +2144,11 @@ msgstr "Prominencia: Habilitado"
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Prominence: Full Vowel Floor"
 msgstr "Prominencia: Piso de Vocal Plena"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Prominence: Monosyllable Floor"
+msgstr "Prominencia: Piso de Monosílabo"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py

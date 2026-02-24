@@ -1167,11 +1167,27 @@ settings:
     durationReducedCeiling: 1.0     # non-prominent vowels (score < 0.3) scaled
                                     # toward this (1.0 = no reduction, 0.7 = 70%)
 
+    # Monosyllable floor (Pass 1b)
+    # Dedicated prominence floor for content monosyllables like "box",
+    # "top", "lock" that need near-full prominence even when eSpeak
+    # omits the stress mark.  Separate from fullVowelFloor so we don't
+    # over-promote lax vowels in polysyllabic words.
+    # 0 = use secondaryStressLevel as before.
+    monosyllableFloor: 0.0          # en-us uses 0.9.
+
+    # Function word exclusion list for monosyllable floor.
+    # IPA baseChar sequences that should NOT receive the monoFloor boost.
+    # English has ~30 monosyllabic function words ("of", "the", "in", etc.)
+    # that are phonetically indistinguishable from content monosyllables
+    # at the token level — this closed list is the only reliable signal.
+    monosyllableExclude:             # en-us: ~30 entries (ðə, ʌv, ɪn, ...)
+      - "..."                        # (see en-us.yaml for the full list)
+
     # Full-vowel protection (Pass 1c)
     # Non-schwa vowels with zero prominence get boosted to this floor.
     # Prevents compound word second elements (firefox, laptop, desktop)
     # from being reduced like schwas when eSpeak omits secondary stress.
-    # Excluded vowels: ə, ɐ, ᵊ, ɨ, ᵻ (true reduced vowels).
+    # Excluded vowels: ə, ɐ, ᵊ, ɨ, ᵻ, ɪ, ʊ, ʌ (reduced + lax vowels).
     fullVowelFloor: 0.0             # 0 = disabled. en-us uses 0.4.
 
     # Amplitude: prominence → voiceAmplitude adjustment (dB)
