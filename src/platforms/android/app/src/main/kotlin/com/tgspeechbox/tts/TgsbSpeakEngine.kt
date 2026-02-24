@@ -81,6 +81,8 @@ class TgsbSpeakEngine(private val context: Context) {
         shimmer: Double,
         sharpness: Double
     )
+    private external fun nativeSetPitchMode(handle: Long, mode: String): Int
+    private external fun nativeSetInflectionScale(handle: Long, scale: Double)
 
     // ── Lifecycle ────────────────────────────────────────────────────
 
@@ -150,6 +152,16 @@ class TgsbSpeakEngine(private val context: Context) {
             nativeHandle,
             creakiness, breathiness, jitter, shimmer, sharpness
         )
+    }
+
+    fun setPitchMode(mode: String): Boolean {
+        if (nativeHandle == 0L) return false
+        return nativeSetPitchMode(nativeHandle, mode) == 1
+    }
+
+    fun setInflectionScale(scale: Double) {
+        if (nativeHandle == 0L) return
+        nativeSetInflectionScale(nativeHandle, scale)
     }
 
     // ── Speak / Stop ─────────────────────────────────────────────────

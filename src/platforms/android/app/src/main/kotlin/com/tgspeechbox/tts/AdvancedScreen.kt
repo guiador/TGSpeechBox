@@ -9,6 +9,8 @@
 
 package com.tgspeechbox.tts
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -22,10 +24,16 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -41,6 +49,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
@@ -48,6 +57,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AdvancedScreen(
     viewModel: TgsbViewModel,
@@ -61,6 +71,28 @@ fun AdvancedScreen(
             .verticalScroll(rememberScrollState())
             .padding(20.dp)
     ) {
+        // ── Pitch section ───────────────────────────────────────────
+        Text(
+            text = stringResource(R.string.pitch_section_title),
+            style = MaterialTheme.typography.headlineMedium,
+            modifier = Modifier.semantics { heading() }
+        )
+
+        Spacer(Modifier.height(12.dp))
+
+        PitchModeDropdown(viewModel)
+
+        Spacer(Modifier.height(8.dp))
+
+        VoicingToneSlider(
+            label = stringResource(R.string.inflection_scale_label),
+            flow = viewModel.inflectionScale,
+            onChange = { viewModel.onInflectionScaleChanged(it) },
+            format = { v -> "${v.roundToInt()}" }
+        )
+
+        Spacer(Modifier.height(20.dp))
+
         // ── Voice Quality section ───────────────────────────────────
         Text(
             text = stringResource(R.string.voice_quality_title),
@@ -161,6 +193,70 @@ fun AdvancedScreen(
             format = { v -> "${v.roundToInt()}" }
         )
 
+        Spacer(Modifier.height(20.dp))
+
+        // ── System Rate Override section ────────────────────────────
+        Text(
+            text = stringResource(R.string.system_rate_title),
+            style = MaterialTheme.typography.headlineMedium,
+            modifier = Modifier.semantics { heading() }
+        )
+
+        Spacer(Modifier.height(12.dp))
+
+        val overrideRate by viewModel.overrideSystemRate.collectAsState()
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .toggleable(
+                    value = overrideRate,
+                    onValueChange = { viewModel.onOverrideSystemRateChanged(it) },
+                    role = androidx.compose.ui.semantics.Role.Checkbox
+                )
+                .padding(vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Checkbox(
+                checked = overrideRate,
+                onCheckedChange = null
+            )
+            Column(modifier = Modifier.padding(start = 12.dp)) {
+                Text(
+                    text = stringResource(R.string.override_rate_label),
+                    style = MaterialTheme.typography.bodyLarge
+                )
+                Text(
+                    text = stringResource(R.string.override_rate_description),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
+        val globalRateVal by viewModel.globalRate.collectAsState()
+        val rateLabel = "${stringResource(R.string.global_rate_label)}: ${"%.1f".format(globalRateVal)}x"
+
+        Text(
+            text = rateLabel,
+            style = MaterialTheme.typography.bodyLarge,
+            color = if (overrideRate) MaterialTheme.colorScheme.onSurface
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.clearAndSetSemantics {}
+        )
+        Slider(
+            value = globalRateVal,
+            onValueChange = { viewModel.onGlobalRateChanged(it) },
+            valueRange = 0.3f..3.0f,
+            steps = 26,
+            enabled = overrideRate,
+            modifier = Modifier
+                .fillMaxWidth()
+                .semantics {
+                    contentDescription = rateLabel
+                    stateDescription = "${"%.1f".format(globalRateVal)}x"
+                }
+        )
+
         Spacer(Modifier.height(24.dp))
 
         // ── Engine Languages button ─────────────────────────────────
@@ -179,6 +275,84 @@ fun AdvancedScreen(
             snackbarHostState = snackbarHostState,
             onDismiss = { showLanguageDialog = false }
         )
+    }
+}
+
+/**
+ * Pitch mode dropdown — 5 options matching iOS/macOS.
+ * Uses Surface instead of OutlinedTextField so TalkBack announces
+ * it as a dropdown, not an "edit box".
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PitchModeDropdown(viewModel: TgsbViewModel) {
+    val pitchModes = listOf(
+        "espeak_style"   to stringResource(R.string.pitch_mode_espeak),
+        "legacy"         to stringResource(R.string.pitch_mode_legacy),
+        "fujisaki_style" to stringResource(R.string.pitch_mode_fujisaki),
+        "impulse_style"  to stringResource(R.string.pitch_mode_impulse),
+        "klatt_style"    to stringResource(R.string.pitch_mode_klatt),
+    )
+
+    val currentMode by viewModel.pitchMode.collectAsState()
+    val currentLabel = pitchModes.firstOrNull { it.first == currentMode }?.second
+        ?: pitchModes[0].second
+    val label = stringResource(R.string.pitch_mode_label)
+
+    var expanded by remember { mutableStateOf(false) }
+
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = it }
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                .semantics {
+                    role = androidx.compose.ui.semantics.Role.DropdownList
+                    contentDescription = "$label: $currentLabel"
+
+                },
+            shape = MaterialTheme.shapes.small,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.clearAndSetSemantics {}
+                    )
+                    Text(
+                        text = currentLabel,
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.clearAndSetSemantics {}
+                    )
+                }
+                ExposedDropdownMenuDefaults.TrailingIcon(expanded)
+            }
+        }
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            for ((modeId, modeLabel) in pitchModes) {
+                DropdownMenuItem(
+                    text = { Text(modeLabel) },
+                    onClick = {
+                        viewModel.onPitchModeChanged(modeId)
+                        expanded = false
+                    }
+                )
+            }
+        }
     }
 }
 

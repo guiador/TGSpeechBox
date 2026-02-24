@@ -195,6 +195,8 @@ class TgsbTtsService : TextToSpeechService() {
         shimmer: Double,
         sharpness: Double
     )
+    private external fun nativeSetPitchMode(handle: Long, mode: String): Int
+    private external fun nativeSetInflectionScale(handle: Long, scale: Double)
 
     override fun onCreate() {
         super.onCreate()
@@ -282,6 +284,13 @@ class TgsbTtsService : TextToSpeechService() {
             creak.toDouble(), breath.toDouble(),
             jit.toDouble(), shim.toDouble(), sharpness.toDouble()
         )
+
+        // Pitch mode + inflection scale
+        val pitchMode = prefs.getString("${p}pitchMode", "espeak_style") ?: "espeak_style"
+        nativeSetPitchMode(nativeHandle, pitchMode)
+
+        val inflScale = prefs.getFloat("${p}inflectionScale", 58f) / 100f
+        nativeSetInflectionScale(nativeHandle, inflScale.toDouble())
     }
 
     override fun onDestroy() {
@@ -491,8 +500,15 @@ class TgsbTtsService : TextToSpeechService() {
         }
 
         // Queue text through pipeline (fast: eSpeak IPA + frontend frames)
+        // Apply global rate override if enabled — some apps ignore user's
+        // TTS rate setting, so this forces a consistent rate.
+        var effectiveRate = request.speechRate
+        if (prefs.getBoolean("adv_overrideSystemRate", false)) {
+            val rate = prefs.getFloat("adv_globalRate", 1.0f)
+            effectiveRate = (rate * 100f).toInt()
+        }
         try {
-            nativeQueueText(nativeHandle, text, request.speechRate, request.pitch)
+            nativeQueueText(nativeHandle, text, effectiveRate, request.pitch)
         } catch (e: Exception) {
             Log.e(TAG, "Queue failed: ${e.message}")
             callback.error(TextToSpeech.ERROR_SYNTHESIS)

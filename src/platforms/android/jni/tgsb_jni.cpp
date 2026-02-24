@@ -189,6 +189,71 @@ static void onFrame(
 }
 
 /* ------------------------------------------------------------------ */
+/* Clause splitting + IPA synthesis                                    */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Pre-split text at clause boundaries (. ? ! , ; :) then feed each
+ * clause to eSpeak individually, tagging it with the correct clause
+ * type for prosody.  This mirrors the NVDA driver, which pre-splits
+ * rather than relying on eSpeak's opaque clause chunking.
+ */
+static void synthesizeClauses(TgsbEngine *engine,
+                              const char *text,
+                              double speed, double basePitch,
+                              nvspFrontend_FrameExCallback cb,
+                              FrameCtx *ctx)
+{
+    const char *p = text;
+    while (*p && !engine->stopRequested) {
+        /* skip leading whitespace */
+        while (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n') p++;
+        if (!*p) break;
+
+        /* scan forward to find next clause boundary */
+        const char *clauseStart = p;
+        char clauseType = '.';   /* default if no punctuation found */
+        while (*p) {
+            char c = *p;
+            if (c == '.' || c == '?' || c == '!' ||
+                c == ',' || c == ';' || c == ':') {
+                if (c == ';' || c == ':') clauseType = ',';
+                else clauseType = c;
+                p++;
+                break;
+            }
+            p++;
+        }
+        /* if we hit end-of-string without punctuation, p is at '\0' */
+
+        /* copy clause into a NUL-terminated buffer */
+        size_t len = (size_t)(p - clauseStart);
+        if (len == 0) continue;
+
+        char *clause = (char *)malloc(len + 1);
+        if (!clause) continue;
+        memcpy(clause, clauseStart, len);
+        clause[len] = '\0';
+
+        /* eSpeak → IPA for this clause */
+        const void *ePtr = clause;
+        while (ePtr && *(const char *)ePtr && !engine->stopRequested) {
+            const char *ipa = espeak_TextToPhonemes(
+                &ePtr, espeakCHARS_UTF8, 0x02 /* IPA */);
+            if (!ipa || !*ipa) continue;
+
+            char clauseStr[2] = { clauseType, 0 };
+            nvspFrontend_queueIPA_Ex(
+                engine->frontend, ipa,
+                speed, basePitch, 0.5, clauseStr, 0,
+                cb, ctx
+            );
+        }
+        free(clause);
+    }
+}
+
+/* ------------------------------------------------------------------ */
 /* JNI functions                                                       */
 /* ------------------------------------------------------------------ */
 
@@ -324,23 +389,11 @@ Java_com_tgspeechbox_tts_TgsbTtsService_nativeQueueText(
     if (basePitch < 40.0) basePitch = 40.0;
     if (basePitch > 500.0) basePitch = 500.0;
 
-    /* Text → IPA via eSpeak (clause by clause), then queue frames */
     FrameCtx ctx;
     ctx.engine = engine;
     ctx.frameCount = 0;
 
-    const void *textPtr = textChars;
-    while (textPtr && *(const char *)textPtr && !engine->stopRequested) {
-        const char *ipa = espeak_TextToPhonemes(
-            &textPtr, espeakCHARS_UTF8, 0x02 /* IPA */);
-        if (!ipa || !*ipa) continue;
-
-        nvspFrontend_queueIPA_Ex(
-            engine->frontend, ipa,
-            speed, basePitch, 0.5, ".", 0,
-            onFrame, &ctx
-        );
-    }
+    synthesizeClauses(engine, textChars, speed, basePitch, onFrame, &ctx);
     env->ReleaseStringUTFChars(text, textChars);
 }
 
@@ -496,6 +549,28 @@ Java_com_tgspeechbox_tts_TgsbTtsService_nativeSetFrameExDefaults(
     applyFrameExDefaults((TgsbEngine *)(intptr_t)handle, a,b,c,d,e);
 }
 
+JNIEXPORT jint JNICALL
+Java_com_tgspeechbox_tts_TgsbTtsService_nativeSetPitchMode(
+    JNIEnv *env, jobject thiz, jlong handle, jstring mode
+) {
+    TgsbEngine *engine = (TgsbEngine *)(intptr_t)handle;
+    if (!engine || !engine->frontend) return -1;
+    const char *modeStr = env->GetStringUTFChars(mode, NULL);
+    if (!modeStr) return -1;
+    int ret = nvspFrontend_setPitchMode(engine->frontend, modeStr);
+    env->ReleaseStringUTFChars(mode, modeStr);
+    return ret;
+}
+
+JNIEXPORT void JNICALL
+Java_com_tgspeechbox_tts_TgsbTtsService_nativeSetInflectionScale(
+    JNIEnv *env, jobject thiz, jlong handle, jdouble scale
+) {
+    TgsbEngine *engine = (TgsbEngine *)(intptr_t)handle;
+    if (!engine || !engine->frontend) return;
+    nvspFrontend_setLegacyPitchInflectionScale(engine->frontend, scale);
+}
+
 /* ------------------------------------------------------------------ */
 /* Standalone engine for MainActivity                                  */
 /*                                                                     */
@@ -572,18 +647,7 @@ Java_com_tgspeechbox_tts_TgsbSpeakEngine_nativeQueueText(
     ctx.engine = engine;
     ctx.frameCount = 0;
 
-    const void *textPtr = textChars;
-    while (textPtr && *(const char *)textPtr && !engine->stopRequested) {
-        const char *ipa = espeak_TextToPhonemes(
-            &textPtr, espeakCHARS_UTF8, 0x02);
-        if (!ipa || !*ipa) continue;
-
-        nvspFrontend_queueIPA_Ex(
-            engine->frontend, ipa,
-            sp, bp, 0.5, ".", 0,
-            onFrame, &ctx
-        );
-    }
+    synthesizeClauses(engine, textChars, sp, bp, onFrame, &ctx);
     env->ReleaseStringUTFChars(text, textChars);
     LOGI("SpeakEngine: queued %d frames (speed=%.2f pitch=%.0f)",
          ctx.frameCount, sp, bp);
@@ -642,6 +706,22 @@ Java_com_tgspeechbox_tts_TgsbSpeakEngine_nativeSetFrameExDefaults(
     jdouble a, jdouble b, jdouble c, jdouble d, jdouble e
 ) {
     applyFrameExDefaults((TgsbEngine *)(intptr_t)handle, a,b,c,d,e);
+}
+
+JNIEXPORT jint JNICALL
+Java_com_tgspeechbox_tts_TgsbSpeakEngine_nativeSetPitchMode(
+    JNIEnv *env, jobject thiz, jlong handle, jstring mode
+) {
+    return Java_com_tgspeechbox_tts_TgsbTtsService_nativeSetPitchMode(
+        env, thiz, handle, mode);
+}
+
+JNIEXPORT void JNICALL
+Java_com_tgspeechbox_tts_TgsbSpeakEngine_nativeSetInflectionScale(
+    JNIEnv *env, jobject thiz, jlong handle, jdouble scale
+) {
+    Java_com_tgspeechbox_tts_TgsbTtsService_nativeSetInflectionScale(
+        env, thiz, handle, scale);
 }
 
 } /* extern "C" */

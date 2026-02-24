@@ -20,6 +20,22 @@
     <string name="tts_not_ready">TTS engine not ready</string>
     <string name="tts_connecting">Connecting to TTS engine\u2026</string>
 
+    <!-- Advanced tab: Pitch -->
+    <string name="pitch_section_title">Pitch</string>
+    <string name="pitch_mode_label">Pitch Mode</string>
+    <string name="inflection_scale_label">Inflection Scale</string>
+    <string name="pitch_mode_espeak">eSpeak Style</string>
+    <string name="pitch_mode_legacy">Legacy</string>
+    <string name="pitch_mode_fujisaki">Fujisaki Style</string>
+    <string name="pitch_mode_impulse">Impulse Style</string>
+    <string name="pitch_mode_klatt">Klatt Style</string>
+
+    <!-- Advanced tab: System Rate Override -->
+    <string name="system_rate_title">System Rate</string>
+    <string name="override_rate_label">Override app speech rate</string>
+    <string name="override_rate_description">Use the rate below instead of what apps request. Useful when apps ignore your TTS rate setting.</string>
+    <string name="global_rate_label">Speech Rate</string>
+
     <!-- Advanced tab: Voice Quality (VoicingTone) -->
     <string name="voice_quality_title">Voice Quality</string>
     <string name="voice_tilt_label">Voice Tilt (brightness)</string>

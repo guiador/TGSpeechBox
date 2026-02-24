@@ -58,6 +58,16 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
     val cascadeBwScale = MutableStateFlow(loadSlider("cascadeBwScale", 50f))
     val voiceTremor = MutableStateFlow(loadSlider("voiceTremor", 0f))
 
+    // ── Pitch settings ──────────────────────────────────────────────
+
+    val pitchMode = MutableStateFlow(loadString("pitchMode", "espeak_style"))
+    val inflectionScale = MutableStateFlow(loadSlider("inflectionScale", 58f))
+
+    // ── System rate override ────────────────────────────────────────
+
+    val overrideSystemRate = MutableStateFlow(loadBool("overrideSystemRate", false))
+    val globalRate = MutableStateFlow(loadSlider("globalRate", 1.0f))
+
     // ── FrameEx sliders (0–100) ─────────────────────────────────────
 
     val creakiness = MutableStateFlow(loadSlider("creakiness", 0f))
@@ -109,6 +119,7 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
             engine.setVoice(voices[selectedVoiceIndex.value].id)
             applyVoicingTone()
             applyFrameExDefaults()
+            applyPitchSettings()
 
             engine.onSpeakingChanged = { speaking ->
                 isSpeaking.value = speaking
@@ -137,6 +148,7 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
         engine.setVoice(voices[selectedVoiceIndex.value].id)
         applyVoicingTone()
         applyFrameExDefaults()
+        applyPitchSettings()
 
         errorMessage.value = null
         engine.speak(text, speedRate.value.toDouble(), pitchHz.value.toDouble())
@@ -181,6 +193,11 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
     fun onShimmerChanged(v: Float)         { shimmer.value = v;         saveSlider("shimmer", v);         applyFrameExDefaults() }
     fun onGlottalSharpnessChanged(v: Float){ glottalSharpness.value = v; saveSlider("glottalSharpness", v); applyFrameExDefaults() }
 
+    fun onPitchModeChanged(mode: String)       { pitchMode.value = mode;       saveString("pitchMode", mode);       applyPitchSettings() }
+    fun onInflectionScaleChanged(v: Float)     { inflectionScale.value = v;    saveSlider("inflectionScale", v);    applyPitchSettings() }
+    fun onOverrideSystemRateChanged(v: Boolean){ overrideSystemRate.value = v;  saveBool("overrideSystemRate", v) }
+    fun onGlobalRateChanged(v: Float)          { globalRate.value = v;          saveSlider("globalRate", v) }
+
     // ── Slider → engine value mapping (matches NVDA driver math) ────
 
     private fun applyVoicingTone() {
@@ -222,6 +239,11 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
         )
     }
 
+    private fun applyPitchSettings() {
+        engine.setPitchMode(pitchMode.value)
+        engine.setInflectionScale((inflectionScale.value / 100f).toDouble())
+    }
+
     // ── Language filter ─────────────────────────────────────────────
 
     fun toggleLocaleKey(localeKey: String, enabled: Boolean): Boolean {
@@ -244,6 +266,20 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun saveSlider(key: String, value: Float) {
         prefs.edit().putFloat("${PREF_PREFIX}$key", value).apply()
+    }
+
+    private fun loadString(key: String, default: String): String =
+        prefs.getString("${PREF_PREFIX}$key", default) ?: default
+
+    private fun saveString(key: String, value: String) {
+        prefs.edit().putString("${PREF_PREFIX}$key", value).apply()
+    }
+
+    private fun loadBool(key: String, default: Boolean): Boolean =
+        prefs.getBoolean("${PREF_PREFIX}$key", default)
+
+    private fun saveBool(key: String, value: Boolean) {
+        prefs.edit().putBoolean("${PREF_PREFIX}$key", value).apply()
     }
 
     private fun buildLanguageList(): List<LanguageItem> {
