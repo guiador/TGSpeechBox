@@ -200,6 +200,11 @@ struct EngineSettingsView: View {
             glottalSharpness: glottalSharpness)
 
         engine.setInflectionScale(inflectionScale / 100.0)
+
+        // Bump version so AU extension knows to re-read settings
+        let d = defaults
+        let ver = (d?.integer(forKey: "adv_settingsVersion") ?? 0) + 1
+        d?.set(ver, forKey: "adv_settingsVersion")
     }
 
     // MARK: - UserDefaults loader

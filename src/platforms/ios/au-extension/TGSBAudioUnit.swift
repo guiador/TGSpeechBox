@@ -12,6 +12,7 @@
  */
 
 import AVFoundation
+import Accelerate
 import CoreMedia
 
 public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
@@ -26,6 +27,15 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
     private let outputMutex = DispatchSemaphore(value: 1)
 
     private let sampleRate: Double = 22050.0
+
+    // Cached state to avoid redundant bridge calls & UserDefaults reads
+    private var cachedVoice: String = ""
+    private var cachedEspeakLang: String = ""
+    private var cachedTgsbLang: String = ""
+    private var cachedSettingsVersion: Int = -1
+
+    // Reusable synthesis buffers to avoid per-utterance allocation
+    private var pullChunk = [Int16](repeating: 0, count: 4096)
 
     // Audio Unit output bus.
     private let outputBus: AUAudioUnitBus
@@ -152,8 +162,25 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
         _ speechRequest: AVSpeechSynthesisProviderRequest
     ) {
         let plainText = extractPlainText(from: speechRequest.ssmlRepresentation)
-        guard !plainText.isEmpty else { return }
-        guard let eng = engine else { return }
+        guard let eng = engine else {
+            // No engine — still need to signal render block to complete
+            // so VoiceOver doesn't hang waiting for audio.
+            outputMutex.wait()
+            output = [0]   // single silent frame
+            outputOffset = 0
+            outputMutex.signal()
+            return
+        }
+        guard !plainText.isEmpty else {
+            // Empty text — provide a single silent frame so the render
+            // block can signal offlineUnitRenderAction_Complete and
+            // VoiceOver proceeds to the next utterance (e.g. hint).
+            outputMutex.wait()
+            output = [0]
+            outputOffset = 0
+            outputMutex.signal()
+            return
+        }
 
         let parts = speechRequest.voice.identifier.split(separator: ".")
         let voiceName = parts.count >= 3 ? String(parts[2]) : "adam"
@@ -176,23 +203,51 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
             vol *= Float32(savedVol)
         }
 
-        // Synchronous: generate all audio, then hand to render block.
-        tgsb_set_voice(eng, voiceName)
-        tgsb_set_language(eng, espeakLang, tgsbLang)
-        applyEngineSettings(eng)
+        // Only call bridge setters when voice/language actually changed
+        if voiceName != cachedVoice {
+            tgsb_set_voice(eng, voiceName)
+            cachedVoice = voiceName
+        }
+        if espeakLang != cachedEspeakLang || tgsbLang != cachedTgsbLang {
+            tgsb_set_language(eng, espeakLang, tgsbLang)
+            cachedEspeakLang = espeakLang
+            cachedTgsbLang = tgsbLang
+        }
+
+        // Re-read engine settings only when version changes
+        let curVersion = UserDefaults(suiteName: "group.com.tgspeechbox.app")?
+            .integer(forKey: "adv_settingsVersion") ?? 0
+        if curVersion != cachedSettingsVersion {
+            applyEngineSettings(eng)
+            cachedSettingsVersion = curVersion
+        }
+
         tgsb_queue_text(eng, plainText, speed, pitch)
 
+        // Pull PCM and convert Int16 → Float32 using vDSP
         var samples: [Float32] = []
-        samples.reserveCapacity(22050 * 5)
-
-        let chunkSize = 4096
-        var chunk = [Int16](repeating: 0, count: chunkSize)
+        samples.reserveCapacity(22050 * 2)
 
         while true {
-            let n = Int(tgsb_pull_audio(eng, &chunk, Int32(chunkSize)))
+            let n = Int(tgsb_pull_audio(eng, &pullChunk, Int32(pullChunk.count)))
             if n <= 0 { break }
-            for i in 0..<n {
-                samples.append(Float32(chunk[i]) / 32768.0)
+            let startIdx = samples.count
+            samples.append(contentsOf: repeatElement(Float32(0), count: n))
+            pullChunk.withUnsafeBufferPointer { srcBuf in
+                samples.withUnsafeMutableBufferPointer { dstBuf in
+                    // vDSP: convert Int16 → Float32 in one call
+                    vDSP_vflt16(
+                        srcBuf.baseAddress!, 1,
+                        dstBuf.baseAddress! + startIdx, 1,
+                        vDSP_Length(n))
+                    // vDSP: divide by 32768.0 to normalize
+                    var scale = Float32(1.0 / 32768.0)
+                    vDSP_vsmul(
+                        dstBuf.baseAddress! + startIdx, 1,
+                        &scale,
+                        dstBuf.baseAddress! + startIdx, 1,
+                        vDSP_Length(n))
+                }
             }
         }
 
@@ -232,11 +287,13 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
 
             if toCopy > 0 {
                 let start = self.outputOffset
-                let vol = self.volume
+                var vol = self.volume
                 self.output.withUnsafeBufferPointer { buf in
-                    for i in 0..<toCopy {
-                        outFrames[i] = buf[start + i] * vol
-                    }
+                    // vDSP: copy + scale in one vectorized call
+                    vDSP_vsmul(buf.baseAddress! + start, 1,
+                               &vol,
+                               outFrames, 1,
+                               vDSP_Length(toCopy))
                 }
                 self.outputOffset += toCopy
             }
@@ -248,13 +305,14 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
             outputAudioBufferList.pointee.mBuffers.mDataByteSize =
                 UInt32(toCopy * MemoryLayout<Float32>.size)
 
-            // Signal complete when buffer is fully drained
-            if self.outputOffset >= self.output.count && !self.output.isEmpty {
-                self.output.removeAll()
-                self.outputOffset = 0
-                self.outputMutex.signal()
+            // Signal completion when buffer is fully drained, matching
+            // eSpeak-NG's render pattern.  This tells VoiceOver the
+            // current utterance is done; it will issue a new
+            // synthesizeSpeechRequest for subsequent text (e.g. hints).
+            if self.outputOffset >= self.output.count {
                 actionFlags.pointee = .offlineUnitRenderAction_Complete
-                return noErr
+                self.output.removeAll(keepingCapacity: true)
+                self.outputOffset = 0
             }
 
             self.outputMutex.signal()

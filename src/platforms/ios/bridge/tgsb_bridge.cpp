@@ -304,13 +304,26 @@ void tgsb_queue_text(TgsbEngine *engine,
 
     const void *textPtr = text;
     while (textPtr && *(const char *)textPtr && !engine->stopRequested) {
+        const char *clauseStart = (const char *)textPtr;
         const char *ipa = espeak_TextToPhonemes(
             &textPtr, espeakCHARS_UTF8, 0x02 /* IPA */);
         if (!ipa || !*ipa) continue;
 
+        /* Detect clause type from consumed text (same as SAPI driver) */
+        const char *clauseEnd = textPtr
+            ? (const char *)textPtr : clauseStart + strlen(clauseStart);
+        char clauseType = '.';
+        for (const char *p = clauseEnd - 1; p >= clauseStart; --p) {
+            char c = *p;
+            if (c == ' ' || c == '\t' || c == '\r' || c == '\n') continue;
+            if (c == '.' || c == ',' || c == '?' || c == '!') clauseType = c;
+            break;
+        }
+        char clauseStr[2] = { clauseType, 0 };
+
         nvspFrontend_queueIPA_Ex(
             engine->frontend, ipa,
-            speed, pitch, 0.5, ".", 0,
+            speed, pitch, 0.5, clauseStr, 0,
             onFrame, &ctx
         );
     }
