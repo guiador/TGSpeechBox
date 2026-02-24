@@ -215,6 +215,9 @@ class LanguagePack:
     fujisaki_accent_len: float = 0.0
     fujisaki_accent_dur: float = 0.0
     fujisaki_declination_rate: float = 0.0003
+    fujisaki_pitch_curve_exponent: float = 1.0
+    fujisaki_mono_accent_dur_scale: float = 1.0
+    fujisaki_compound_declin_step: float = 0.0
     fujisaki_phrase_decay: float = 0.75
     fujisaki_declination_scale: float = 25.0
     fujisaki_declination_max: float = 1.25
@@ -712,6 +715,9 @@ def _merge_settings(lp: LanguagePack, s: dict):
     lp.fujisaki_accent_len = gn("fujisakiAccentLen", lp.fujisaki_accent_len)
     lp.fujisaki_accent_dur = gn("fujisakiAccentDur", lp.fujisaki_accent_dur)
     lp.fujisaki_declination_rate = gn("fujisakiDeclinationRate", lp.fujisaki_declination_rate)
+    lp.fujisaki_pitch_curve_exponent = gn("fujisakiPitchCurveExponent", lp.fujisaki_pitch_curve_exponent)
+    lp.fujisaki_mono_accent_dur_scale = gn("fujisakiMonoAccentDurScale", lp.fujisaki_mono_accent_dur_scale)
+    lp.fujisaki_compound_declin_step = gn("fujisakiCompoundDeclinStep", lp.fujisaki_compound_declin_step)
     lp.fujisaki_phrase_decay = gn("fujisakiPhraseDecay", lp.fujisaki_phrase_decay)
     lp.fujisaki_declination_scale = gn("fujisakiDeclinationScale", lp.fujisaki_declination_scale)
     lp.fujisaki_declination_max = gn("fujisakiDeclinationMax", lp.fujisaki_declination_max)
