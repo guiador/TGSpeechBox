@@ -42,7 +42,7 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
     val selectedLanguageIndex = MutableStateFlow(0)
     val selectedVoiceIndex = MutableStateFlow(0)
     val speedRate = MutableStateFlow(1.0f)        // 0.3 – 3.0
-    val pitchHz = MutableStateFlow(120f)           // 40 – 300 Hz
+    val pitchHz = MutableStateFlow(110f)           // 40 – 300 Hz
     val isSpeaking = MutableStateFlow(false)
     val engineReady = MutableStateFlow(false)
     val errorMessage = MutableStateFlow<String?>(null)

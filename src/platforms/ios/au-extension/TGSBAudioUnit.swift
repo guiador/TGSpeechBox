@@ -367,7 +367,7 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
     }
 
     private func extractPitch(from ssml: String) -> Double {
-        let defaultPitch = 120.0
+        let defaultPitch = 110.0
         guard let match = ssml.range(
             of: #"<prosody[^>]*\bpitch="([^"]+)""#,
             options: .regularExpression

@@ -54,7 +54,7 @@ class TgsbEngine: ObservableObject {
     @Published var selectedLanguage: TgsbLanguage
     @Published var selectedVoice: TgsbVoice
     @Published var speed: Double = 1.0
-    @Published var pitch: Double = 120.0
+    @Published var pitch: Double = 110.0
 
     let voices: [TgsbVoice]
 

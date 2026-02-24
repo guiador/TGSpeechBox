@@ -320,7 +320,7 @@ Java_com_tgspeechbox_tts_TgsbTtsService_nativeQueueText(
     if (speed < 0.1) speed = 0.1;
     if (speed > 5.0) speed = 5.0;
 
-    double basePitch = 120.0 * ((double)pitch / 100.0);
+    double basePitch = 110.0 * ((double)pitch / 100.0);
     if (basePitch < 40.0) basePitch = 40.0;
     if (basePitch > 500.0) basePitch = 500.0;
 
