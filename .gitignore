@@ -32,6 +32,7 @@ src/platforms/ios/*.xcodeproj/project.xcworkspace/xcuserdata/
 src/platforms/ios/build/
 *.mobileprovision
 ExportOptions.plist
+AuthKey_*.p8
 
 # Shared mobile
 *.raw
