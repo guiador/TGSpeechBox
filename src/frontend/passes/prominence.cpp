@@ -281,11 +281,13 @@ bool runProminence(PassContext& ctx, std::vector<Token>& tokens, std::string& ou
 
   // ── Pass 2: Duration realization ──
   //
-  // Threshold-based vowel duration scaling:
-  //   prominence >= 0.9 → primary stress   → multiply by primaryStressWeight
-  //   prominence >= 0.4 → secondary stress → multiply by secondaryStressWeight
-  //   prominence <  0.3 → unstressed       → apply reducedCeiling
-  //   prominence >= 0.4 → apply floor (safety net)
+  // Continuous prominence-to-duration scaling (lerp):
+  //   prominence >= 0.3 → lerp between secondaryStressWeight and primaryStressWeight
+  //   prominence <  0.3 → unstressed → apply reducedCeiling
+  //
+  // This eliminates the cliff between primary (0.9) and secondary (0.4)
+  // brackets.  At any prominence level the scale is proportional, so
+  // relative contrast is preserved even at high rates.
 
   const double floorMs        = lang.prominenceDurationProminentFloorMs;
   const double primaryFloorMs = lang.prominenceDurationPrimaryFloorMs;
@@ -299,11 +301,12 @@ bool runProminence(PassContext& ctx, std::vector<Token>& tokens, std::string& ou
     // Skip tiedFrom tokens (diphthong offglides) — their short duration IS the glide.
     if (t.tiedFrom) continue;
 
-    // Stress-based duration scaling (replaces old primaryStressDiv).
-    if (t.prominence >= 0.9) {
-      t.durationMs *= primaryW;
-    } else if (t.prominence >= 0.4) {
-      t.durationMs *= secondaryW;
+    // Continuous stress-based duration scaling.
+    // Prominence 0.0→1.0 maps linearly to secondaryW→primaryW.
+    // Below 0.3 the reducedCeiling path handles reduction instead.
+    if (t.prominence >= 0.3) {
+      double scale = secondaryW + t.prominence * (primaryW - secondaryW);
+      t.durationMs *= scale;
     }
 
     // Primary stress floor — prevents short monophthongs like /ɒ/ in
