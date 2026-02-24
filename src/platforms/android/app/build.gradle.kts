@@ -3,6 +3,7 @@ import java.util.Properties
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    id("org.jetbrains.kotlin.plugin.compose")
 }
 
 val sigProps = Properties()
@@ -69,6 +70,10 @@ android {
         jvmTarget = "17"
     }
 
+    buildFeatures {
+        compose = true
+    }
+
     sourceSets {
         getByName("main") {
             kotlin.srcDirs("src/main/kotlin")
@@ -104,4 +109,24 @@ tasks.named("preBuild") {
 
 dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
+
+    // Compose BOM pins all Compose library versions together
+    val composeBom = platform("androidx.compose:compose-bom:2024.12.01")
+    implementation(composeBom)
+
+    implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.ui:ui")
+    implementation("androidx.compose.foundation:foundation")
+
+    // Activity integration (setContent {})
+    implementation("androidx.activity:activity-compose:1.9.3")
+
+    // Navigation for bottom tabs
+    implementation("androidx.navigation:navigation-compose:2.8.5")
+
+    // ViewModel + Compose integration
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
+
+    debugImplementation("androidx.compose.ui:ui-tooling")
 }

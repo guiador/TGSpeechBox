@@ -418,4 +418,135 @@ Java_com_tgspeechbox_tts_TgsbTtsService_nativeSetLanguage(
     return result;
 }
 
+/* ------------------------------------------------------------------ */
+/* Standalone engine for MainActivity                                  */
+/*                                                                     */
+/* Separate engine instance so the consumer "Speak" UI doesn't fight   */
+/* TalkBack for the TextToSpeechService audio path.  Same pipeline,    */
+/* different JNI class prefix.                                         */
+/* ------------------------------------------------------------------ */
+
+JNIEXPORT jlong JNICALL
+Java_com_tgspeechbox_tts_TgsbSpeakEngine_nativeCreate(
+    JNIEnv *env, jobject thiz,
+    jstring espeakDataPath, jstring packDirPath, jint sampleRate
+) {
+    return Java_com_tgspeechbox_tts_TgsbTtsService_nativeCreate(
+        env, thiz, espeakDataPath, packDirPath, sampleRate);
+}
+
+JNIEXPORT void JNICALL
+Java_com_tgspeechbox_tts_TgsbSpeakEngine_nativeDestroy(
+    JNIEnv *env, jobject thiz, jlong handle
+) {
+    Java_com_tgspeechbox_tts_TgsbTtsService_nativeDestroy(env, thiz, handle);
+}
+
+JNIEXPORT void JNICALL
+Java_com_tgspeechbox_tts_TgsbSpeakEngine_nativeSetVoice(
+    JNIEnv *env, jobject thiz, jlong handle, jstring voiceName
+) {
+    Java_com_tgspeechbox_tts_TgsbTtsService_nativeSetVoice(
+        env, thiz, handle, voiceName);
+}
+
+JNIEXPORT jint JNICALL
+Java_com_tgspeechbox_tts_TgsbSpeakEngine_nativeSetLanguage(
+    JNIEnv *env, jobject thiz, jlong handle,
+    jstring espeakLang, jstring tgsbLang
+) {
+    return Java_com_tgspeechbox_tts_TgsbTtsService_nativeSetLanguage(
+        env, thiz, handle, espeakLang, tgsbLang);
+}
+
+/*
+ * nativeQueueTextDirect — same as nativeQueueText but takes speed as
+ * a float multiplier (1.0 = normal) and pitch as Hz, matching the iOS
+ * tgsb_queue_text() API.  No Android TTS 100-based int conversion.
+ */
+JNIEXPORT void JNICALL
+Java_com_tgspeechbox_tts_TgsbSpeakEngine_nativeQueueText(
+    JNIEnv *env, jobject thiz,
+    jlong handle, jstring text, jdouble speed, jdouble pitchHz
+) {
+    TgsbEngine *engine = (TgsbEngine *)(intptr_t)handle;
+    if (!engine || !engine->player || !engine->frontend) return;
+
+    engine->stopRequested = 0;
+
+    speechPlayer_queueFrame(engine->player, NULL, 0, 0, -1, true);
+
+    const char *textChars = env->GetStringUTFChars(text, NULL);
+    if (!textChars || !*textChars) {
+        if (textChars) env->ReleaseStringUTFChars(text, textChars);
+        return;
+    }
+
+    double sp = speed;
+    if (sp < 0.1) sp = 0.1;
+    if (sp > 5.0) sp = 5.0;
+
+    double bp = pitchHz;
+    if (bp < 40.0) bp = 40.0;
+    if (bp > 500.0) bp = 500.0;
+
+    FrameCtx ctx;
+    ctx.engine = engine;
+    ctx.frameCount = 0;
+
+    const void *textPtr = textChars;
+    while (textPtr && *(const char *)textPtr && !engine->stopRequested) {
+        const char *ipa = espeak_TextToPhonemes(
+            &textPtr, espeakCHARS_UTF8, 0x02);
+        if (!ipa || !*ipa) continue;
+
+        nvspFrontend_queueIPA_Ex(
+            engine->frontend, ipa,
+            sp, bp, 0.5, ".", 0,
+            onFrame, &ctx
+        );
+    }
+    env->ReleaseStringUTFChars(text, textChars);
+    LOGI("SpeakEngine: queued %d frames (speed=%.2f pitch=%.0f)",
+         ctx.frameCount, sp, bp);
+}
+
+JNIEXPORT jint JNICALL
+Java_com_tgspeechbox_tts_TgsbSpeakEngine_nativePullAudio(
+    JNIEnv *env, jobject thiz,
+    jlong handle, jshortArray outBuffer, jint maxSamples
+) {
+    TgsbEngine *engine = (TgsbEngine *)(intptr_t)handle;
+    if (!engine || !engine->player || engine->stopRequested) return 0;
+
+    int count = maxSamples;
+    if (count <= 0) return 0;
+    if (count > 4096) count = 4096;
+
+    sample buf[4096];
+    int n = speechPlayer_synthesize(engine->player,
+                                     (unsigned int)count, buf);
+    if (n <= 0) return 0;
+
+    static const double kGain = 3.0;
+    int16_t pcm[4096];
+    for (int i = 0; i < n; i++) {
+        double s = buf[i].value * kGain;
+        if (s > 32767.0) s = 32767.0;
+        if (s < -32767.0) s = -32767.0;
+        pcm[i] = (int16_t)s;
+    }
+
+    env->SetShortArrayRegion(outBuffer, 0, n, pcm);
+    return n;
+}
+
+JNIEXPORT void JNICALL
+Java_com_tgspeechbox_tts_TgsbSpeakEngine_nativeStop(
+    JNIEnv *env, jobject thiz, jlong handle
+) {
+    TgsbEngine *engine = (TgsbEngine *)(intptr_t)handle;
+    if (engine) engine->stopRequested = 1;
+}
+
 } /* extern "C" */
