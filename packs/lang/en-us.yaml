@@ -159,6 +159,45 @@ settings:
     durationPrimaryFloorMs: 95
     durationReducedCeiling: 0.85
 
+    # Monosyllable floor: "box", "top", "lock" need near-full prominence
+    # even when eSpeak omits the stress mark.  Separate from fullVowelFloor
+    # so we don't over-promote lax vowels in polysyllabic words.
+    monosyllableFloor: 0.9
+
+    # Function words that should NOT get the monosyllable floor boost.
+    # Matched against the baseChar sequence of the word's tokens.
+    monosyllableExclude:
+      - "ðə"      # the
+      - "ðɪ"      # the (prevocalic)
+      - "ə"       # a
+      - "ən"      # an
+      - "ɒv"      # of
+      - "ʌv"      # of
+      - "əv"      # of (reduced)
+      - "tə"      # to
+      - "tuː"     # to (strong)
+      - "fə"      # for (reduced)
+      - "fɔː"     # for
+      - "fɚ"      # for (rhotic reduced)
+      - "ɪn"      # in
+      - "ɒn"      # on
+      - "ɔn"      # on (variant)
+      - "æt"      # at
+      - "ɪz"      # is
+      - "ɪt"      # it
+      - "wɒz"     # was
+      - "wʌz"     # was
+      - "hæz"     # has
+      - "hæd"     # had
+      - "bʌt"     # but
+      - "ɔː"      # or
+      - "ɔɹ"      # or (rhotic)
+      - "æz"      # as
+      - "ænd"     # and
+      - "ənd"     # and (reduced)
+      - "nɒt"     # not
+      - "ðæt"     # that (conjunction)
+
     # Full-vowel protection: non-schwa vowels with 0 prominence get
     # boosted to this floor. Prevents compound word second elements
     # (firefox, laptop, desktop) from being reduced like schwas.

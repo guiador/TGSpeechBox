@@ -192,7 +192,9 @@ bool runProminence(PassContext& ctx, std::vector<Token>& tokens, std::string& ou
   // This prevents reduction without over-promoting — the vowel gets
   // secondary-stress treatment (adequate duration) rather than primary.
 
-  const double monoFloor = secondaryLevel;  // 0.6 by default
+  const double monoFloor = (lang.prominenceMonosyllableFloor > 0.0)
+                             ? lang.prominenceMonosyllableFloor
+                             : secondaryLevel;  // fallback to 0.6
 
   for (size_t w = 0; w < words.size(); ++w) {
     const size_t wStart = words[w].start;
@@ -211,6 +213,21 @@ bool runProminence(PassContext& ctx, std::vector<Token>& tokens, std::string& ou
     }
 
     if (vowelCount == 1 && monoVowelIdx >= 0) {
+      // Check function word exclusion list before boosting.
+      if (!lang.prominenceMonosyllableExclude.empty()) {
+        std::u32string wordShape;
+        for (size_t i = wStart; i < wEnd; ++i) {
+          const Token& t = tokens[i];
+          if (isSilenceOrMissing(t)) continue;
+          if (t.baseChar != 0) wordShape.push_back(t.baseChar);
+        }
+        bool excluded = false;
+        for (const auto& pat : lang.prominenceMonosyllableExclude) {
+          if (wordShape == pat) { excluded = true; break; }
+        }
+        if (excluded) continue;
+      }
+
       Token& v = tokens[monoVowelIdx];
       if (v.prominence >= 0.0 && v.prominence < monoFloor) {
         v.prominence = monoFloor;
@@ -246,6 +263,9 @@ bool runProminence(PassContext& ctx, std::vector<Token>& tokens, std::string& ou
           case U'\u1D4A':  // ᵊ  modifier schwa
           case U'\u0268':  // ɨ  barred-i
           case U'\u1D7B':  // ᵻ  barred-ɪ
+          case U'\u026A':  // ɪ  kit vowel (reduced in "crystal", "rabbit")
+          case U'\u028A':  // ʊ  foot vowel (reduced in unstressed positions)
+          case U'\u028C':  // ʌ  strut vowel ("of" /ʌv/ shouldn't be boosted)
             isReduced = true;
             break;
           default:

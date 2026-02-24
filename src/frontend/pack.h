@@ -933,6 +933,15 @@ double liquidDynamicsLabialGlideTransitionPct = 0.60;
   double prominenceDurationPrimaryFloorMs = 0.0;  // Floor for primary-stressed vowels only
   double prominenceDurationReducedCeiling = 1.0;
 
+  // Monosyllable floor: separate from fullVowelFloor so monosyllables
+  // like "box", "top" can be boosted to ~0.9 without over-promoting lax
+  // vowels in polysyllabic words.  0 = use secondaryLevel (old behavior).
+  double prominenceMonosyllableFloor = 0.0;
+
+  // Function word exclusion: IPA baseChar sequences that should NOT
+  // receive the monosyllable floor boost (e.g. "of", "the", "in").
+  std::vector<std::u32string> prominenceMonosyllableExclude;
+
   // Full-vowel protection: boost non-schwa vowels that score 0.0
   double prominenceFullVowelFloor = 0.0;  // 0 = disabled; recommended: 0.4
 

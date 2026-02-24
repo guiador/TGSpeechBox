@@ -774,6 +774,17 @@ getNum("liquidDynamicsLabialGlideTransitionPct", lp.liquidDynamicsLabialGlideTra
     getNumFrom(*pr, "durationProminentFloorMs", lp.prominenceDurationProminentFloorMs);
     getNumFrom(*pr, "durationPrimaryFloorMs", lp.prominenceDurationPrimaryFloorMs);
     getNumFrom(*pr, "durationReducedCeiling", lp.prominenceDurationReducedCeiling);
+    getNumFrom(*pr, "monosyllableFloor", lp.prominenceMonosyllableFloor);
+    {
+      std::vector<std::string> excStrs;
+      getStrListFrom(*pr, "monosyllableExclude", excStrs);
+      if (!excStrs.empty()) {
+        lp.prominenceMonosyllableExclude.clear();
+        for (const auto& s : excStrs) {
+          if (!s.empty()) lp.prominenceMonosyllableExclude.push_back(utf8ToU32(s));
+        }
+      }
+    }
     getNumFrom(*pr, "fullVowelFloor", lp.prominenceFullVowelFloor);
     getNumFrom(*pr, "amplitudeBoostDb", lp.prominenceAmplitudeBoostDb);
     getNumFrom(*pr, "amplitudeReductionDb", lp.prominenceAmplitudeReductionDb);
@@ -791,6 +802,7 @@ getNum("liquidDynamicsLabialGlideTransitionPct", lp.liquidDynamicsLabialGlideTra
   getNum("prominenceDurationProminentFloorMs", lp.prominenceDurationProminentFloorMs);
   getNum("prominenceDurationPrimaryFloorMs", lp.prominenceDurationPrimaryFloorMs);
   getNum("prominenceDurationReducedCeiling", lp.prominenceDurationReducedCeiling);
+  getNum("prominenceMonosyllableFloor", lp.prominenceMonosyllableFloor);
   getNum("prominenceFullVowelFloor", lp.prominenceFullVowelFloor);
   getNum("prominenceAmplitudeBoostDb", lp.prominenceAmplitudeBoostDb);
   getNum("prominenceAmplitudeReductionDb", lp.prominenceAmplitudeReductionDb);
