@@ -309,15 +309,20 @@ void tgsb_queue_text(TgsbEngine *engine,
             &textPtr, espeakCHARS_UTF8, 0x02 /* IPA */);
         if (!ipa || !*ipa) continue;
 
-        /* Detect clause type from consumed text (same as SAPI driver) */
+        /* Detect clause type from consumed text.
+         * eSpeak may consume a few chars of the NEXT clause (e.g.
+         * "Hello? H" for "Hello?"), so we scan backwards through the
+         * entire consumed range looking for sentence-ending punctuation
+         * rather than stopping at the first non-whitespace char. */
         const char *clauseEnd = textPtr
             ? (const char *)textPtr : clauseStart + strlen(clauseStart);
         char clauseType = '.';
         for (const char *p = clauseEnd - 1; p >= clauseStart; --p) {
             char c = *p;
-            if (c == ' ' || c == '\t' || c == '\r' || c == '\n') continue;
-            if (c == '.' || c == ',' || c == '?' || c == '!') clauseType = c;
-            break;
+            if (c == '.' || c == ',' || c == '?' || c == '!') {
+                clauseType = c;
+                break;
+            }
         }
         char clauseStr[2] = { clauseType, 0 };
 
