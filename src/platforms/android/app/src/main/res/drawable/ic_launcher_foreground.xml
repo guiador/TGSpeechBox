@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- "TG" text, centered in the 66dp safe zone (21-87) -->
+    <!-- T -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M28,38 L52,38 L52,43 L43,43 L43,70 L37,70 L37,43 L28,43 Z" />
+    <!-- G -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M56,38 L78,38 L78,43 L62,43 L62,51 L74,51 L74,70 L56,70 Z
+                          M62,56 L62,65 L68,65 L68,56 Z" />
+</vector>

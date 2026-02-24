@@ -62,6 +62,25 @@ class TgsbSpeakEngine(private val context: Context) {
         handle: Long, outBuffer: ShortArray, maxSamples: Int
     ): Int
     private external fun nativeStop(handle: Long)
+    private external fun nativeSetVoicingTone(
+        handle: Long,
+        voicedTiltDbPerOct: Double,
+        noiseGlottalModDepth: Double,
+        pitchSyncF1DeltaHz: Double,
+        pitchSyncB1DeltaHz: Double,
+        speedQuotient: Double,
+        aspirationTiltDbPerOct: Double,
+        cascadeBwScale: Double,
+        tremorDepth: Double
+    )
+    private external fun nativeSetFrameExDefaults(
+        handle: Long,
+        creakiness: Double,
+        breathiness: Double,
+        jitter: Double,
+        shimmer: Double,
+        sharpness: Double
+    )
 
     // ── Lifecycle ────────────────────────────────────────────────────
 
@@ -95,6 +114,42 @@ class TgsbSpeakEngine(private val context: Context) {
             nativeDestroy(nativeHandle)
             nativeHandle = 0L
         }
+    }
+
+    // ── Voice quality settings ─────────────────────────────────────
+
+    fun setVoicingTone(
+        voicedTiltDbPerOct: Double,
+        noiseGlottalModDepth: Double,
+        pitchSyncF1DeltaHz: Double,
+        pitchSyncB1DeltaHz: Double,
+        speedQuotient: Double,
+        aspirationTiltDbPerOct: Double,
+        cascadeBwScale: Double,
+        tremorDepth: Double
+    ) {
+        if (nativeHandle == 0L) return
+        nativeSetVoicingTone(
+            nativeHandle,
+            voicedTiltDbPerOct, noiseGlottalModDepth,
+            pitchSyncF1DeltaHz, pitchSyncB1DeltaHz,
+            speedQuotient, aspirationTiltDbPerOct,
+            cascadeBwScale, tremorDepth
+        )
+    }
+
+    fun setFrameExDefaults(
+        creakiness: Double,
+        breathiness: Double,
+        jitter: Double,
+        shimmer: Double,
+        sharpness: Double
+    ) {
+        if (nativeHandle == 0L) return
+        nativeSetFrameExDefaults(
+            nativeHandle,
+            creakiness, breathiness, jitter, shimmer, sharpness
+        )
     }
 
     // ── Speak / Stop ─────────────────────────────────────────────────

@@ -176,6 +176,25 @@ class TgsbTtsService : TextToSpeechService() {
     private external fun nativeSetLanguage(
         handle: Long, espeakLang: String, tgsbLang: String
     ): Int
+    private external fun nativeSetVoicingTone(
+        handle: Long,
+        voicedTiltDbPerOct: Double,
+        noiseGlottalModDepth: Double,
+        pitchSyncF1DeltaHz: Double,
+        pitchSyncB1DeltaHz: Double,
+        speedQuotient: Double,
+        aspirationTiltDbPerOct: Double,
+        cascadeBwScale: Double,
+        tremorDepth: Double
+    )
+    private external fun nativeSetFrameExDefaults(
+        handle: Long,
+        creakiness: Double,
+        breathiness: Double,
+        jitter: Double,
+        shimmer: Double,
+        sharpness: Double
+    )
 
     override fun onCreate() {
         super.onCreate()
@@ -212,6 +231,57 @@ class TgsbTtsService : TextToSpeechService() {
             Log.e(TAG, "setNativeLanguage FAILED: ${ld.espeakLang}/${ld.tgsbLang}")
             false
         }
+    }
+
+    /**
+     * Read Advanced tab sliders from SharedPreferences and apply to the
+     * native engine.  Called before each synthesis so TalkBack picks up
+     * any changes the user made in the consumer UI.
+     */
+    private fun applyAdvancedSettings() {
+        if (nativeHandle == 0L) return
+        val p = "adv_"
+
+        // VoicingTone (slider 0-100 → real range, same math as TgsbViewModel)
+        val tiltSlider   = prefs.getFloat("${p}voiceTilt", 50f)
+        val noiseMod     = prefs.getFloat("${p}noiseGlottalMod", 0f) / 100f
+        val psF1         = (prefs.getFloat("${p}pitchSyncF1", 50f) - 50f) * 1.2f
+        val psB1         = (prefs.getFloat("${p}pitchSyncB1", 50f) - 50f) * 1.0f
+        val sqSlider     = prefs.getFloat("${p}speedQuotient", 50f)
+        val aspTilt      = (prefs.getFloat("${p}aspirationTilt", 50f) - 50f) * 0.24f
+        val bwSlider     = prefs.getFloat("${p}cascadeBwScale", 50f)
+        val tremorSlider = prefs.getFloat("${p}voiceTremor", 0f)
+
+        val tilt = (tiltSlider - 50f) * (24f / 50f)
+        val sq = if (sqSlider <= 50f)
+            0.5 + (sqSlider / 50.0) * 1.5
+        else
+            2.0 + ((sqSlider - 50.0) / 50.0) * 2.0
+        val bw = if (bwSlider <= 50f)
+            2.0 - (bwSlider / 50.0) * 1.1
+        else
+            0.9 - ((bwSlider - 50.0) / 50.0) * 0.6
+        val tremor = (tremorSlider / 100f) * 0.4f
+
+        nativeSetVoicingTone(
+            nativeHandle,
+            tilt.toDouble(), noiseMod.toDouble(),
+            psF1.toDouble(), psB1.toDouble(),
+            sq, aspTilt.toDouble(), bw, tremor.toDouble()
+        )
+
+        // FrameEx defaults
+        val creak     = prefs.getFloat("${p}creakiness", 0f) / 100f
+        val breath    = prefs.getFloat("${p}breathiness", 0f) / 100f
+        val jit       = prefs.getFloat("${p}jitter", 0f) / 100f
+        val shim      = prefs.getFloat("${p}shimmer", 0f) / 100f
+        val sharpness = prefs.getFloat("${p}glottalSharpness", 50f) / 50f
+
+        nativeSetFrameExDefaults(
+            nativeHandle,
+            creak.toDouble(), breath.toDouble(),
+            jit.toDouble(), shim.toDouble(), sharpness.toDouble()
+        )
     }
 
     override fun onDestroy() {
@@ -338,11 +408,12 @@ class TgsbTtsService : TextToSpeechService() {
     override fun onLoadVoice(voiceName: String): Int {
         val ld = parseVoiceName(voiceName) ?: return TextToSpeech.ERROR
 
-        // Re-read preset in case the user changed it in settings
+        // Re-read preset and advanced voice quality settings
         loadPresetFromPrefs()
         if (nativeHandle != 0L) {
             nativeSetVoice(nativeHandle, currentPreset)
         }
+        applyAdvancedSettings()
 
         // Always set language (don't skip even if ld == currentLang —
         // the native side may be out of sync from a prior failure)
@@ -389,9 +460,10 @@ class TgsbTtsService : TextToSpeechService() {
             }
         }
 
-        // Re-read timbre preset
+        // Re-read timbre preset + advanced voice quality settings
         loadPresetFromPrefs()
         nativeSetVoice(nativeHandle, currentPreset)
+        applyAdvancedSettings()
 
         // Ensure the native side has the right language loaded.
         // If a prior setLanguage failed (confirmedNativeLang == null)

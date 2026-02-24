@@ -28,6 +28,7 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
 
     companion object {
         private const val TAG = "TgsbUI"
+        private const val PREF_PREFIX = "adv_"
     }
 
     private val prefs: SharedPreferences =
@@ -35,7 +36,7 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
 
     private val engine = TgsbSpeakEngine(application)
 
-    // ── UI state ──────────────────────────────────────────────────────
+    // ── UI state (Speak tab) ────────────────────────────────────────
 
     val textToSpeak = MutableStateFlow("Hello world. This is TGSpeechBox.")
     val selectedLanguageIndex = MutableStateFlow(0)
@@ -46,25 +47,39 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
     val engineReady = MutableStateFlow(false)
     val errorMessage = MutableStateFlow<String?>(null)
 
+    // ── VoicingTone sliders (0–100, mapped to real ranges) ──────────
+
+    val voiceTilt = MutableStateFlow(loadSlider("voiceTilt", 50f))
+    val noiseGlottalMod = MutableStateFlow(loadSlider("noiseGlottalMod", 0f))
+    val pitchSyncF1 = MutableStateFlow(loadSlider("pitchSyncF1", 50f))
+    val pitchSyncB1 = MutableStateFlow(loadSlider("pitchSyncB1", 50f))
+    val speedQuotient = MutableStateFlow(loadSlider("speedQuotient", 50f))
+    val aspirationTilt = MutableStateFlow(loadSlider("aspirationTilt", 50f))
+    val cascadeBwScale = MutableStateFlow(loadSlider("cascadeBwScale", 50f))
+    val voiceTremor = MutableStateFlow(loadSlider("voiceTremor", 0f))
+
+    // ── FrameEx sliders (0–100) ─────────────────────────────────────
+
+    val creakiness = MutableStateFlow(loadSlider("creakiness", 0f))
+    val breathiness = MutableStateFlow(loadSlider("breathiness", 0f))
+    val jitter = MutableStateFlow(loadSlider("jitter", 0f))
+    val shimmer = MutableStateFlow(loadSlider("shimmer", 0f))
+    val glottalSharpness = MutableStateFlow(loadSlider("glottalSharpness", 50f))
+
     // ── Data lists ────────────────────────────────────────────────────
 
-    /** Deduplicated, sorted language list for the dropdown. */
     val languages: List<LanguageItem> = buildLanguageList()
-
     val voices: List<TgsbTtsService.Companion.VoiceDef> = TgsbTtsService.VOICES
 
-    // ── Language filter state (Advanced tab) ──────────────────────────
+    // ── Language filter state ────────────────────────────────────────
 
     private val _enabledLocaleKeys = MutableStateFlow(loadEnabledKeys())
     val enabledLocaleKeys: StateFlow<Set<String>> = _enabledLocaleKeys
-
-    /** All unique locale keys for the checkbox list. */
     val allLocaleEntries: List<Pair<String, String>> = buildLocaleEntries()
 
-    // ── Init ──────────────────────────────────────────────────────────
+    // ── Init ────────────────────────────────────────────────────────
 
     init {
-        // Voice preset
         val savedPreset = prefs.getString(
             TgsbTtsService.PREF_VOICE_PRESET,
             TgsbTtsService.DEFAULT_PRESET
@@ -72,7 +87,6 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
         val idx = voices.indexOfFirst { it.id == savedPreset }
         if (idx >= 0) selectedVoiceIndex.value = idx
 
-        // Default language: match device locale
         val deviceLocale = Locale.getDefault()
         val langMatch = languages.indexOfFirst { item ->
             val ld = item.langDef.displayLocale
@@ -86,15 +100,15 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
             Log.i(TAG, "Default language: ${languages[langFallback].displayName}")
         }
 
-        // Start the standalone engine
         if (engine.start()) {
             engineReady.value = true
             errorMessage.value = null
 
-            // Set initial language + voice
             val ld = languages[selectedLanguageIndex.value].langDef
             engine.setLanguage(ld.espeakLang, ld.tgsbLang)
             engine.setVoice(voices[selectedVoiceIndex.value].id)
+            applyVoicingTone()
+            applyFrameExDefaults()
 
             engine.onSpeakingChanged = { speaking ->
                 isSpeaking.value = speaking
@@ -112,16 +126,17 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
         super.onCleared()
     }
 
-    // ── Speak / Stop ──────────────────────────────────────────────────
+    // ── Speak / Stop ────────────────────────────────────────────────
 
     fun speak() {
         val text = textToSpeak.value
         if (text.isBlank()) return
 
-        // Apply current settings
         val ld = languages[selectedLanguageIndex.value].langDef
         engine.setLanguage(ld.espeakLang, ld.tgsbLang)
         engine.setVoice(voices[selectedVoiceIndex.value].id)
+        applyVoicingTone()
+        applyFrameExDefaults()
 
         errorMessage.value = null
         engine.speak(text, speedRate.value.toDouble(), pitchHz.value.toDouble())
@@ -132,7 +147,7 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
         engine.stop()
     }
 
-    // ── Selection handlers ────────────────────────────────────────────
+    // ── Selection handlers ──────────────────────────────────────────
 
     fun onLanguageSelected(index: Int) {
         selectedLanguageIndex.value = index
@@ -145,10 +160,69 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
         selectedVoiceIndex.value = index
         val voiceId = voices[index].id
         engine.setVoice(voiceId)
+        applyVoicingTone()
         prefs.edit().putString(TgsbTtsService.PREF_VOICE_PRESET, voiceId).apply()
     }
 
-    // ── Language filter (Advanced tab) ────────────────────────────────
+    // ── Voice quality: slider change handlers ───────────────────────
+
+    fun onVoiceTiltChanged(v: Float)       { voiceTilt.value = v;       saveSlider("voiceTilt", v);       applyVoicingTone() }
+    fun onNoiseGlottalModChanged(v: Float) { noiseGlottalMod.value = v; saveSlider("noiseGlottalMod", v); applyVoicingTone() }
+    fun onPitchSyncF1Changed(v: Float)     { pitchSyncF1.value = v;     saveSlider("pitchSyncF1", v);     applyVoicingTone() }
+    fun onPitchSyncB1Changed(v: Float)     { pitchSyncB1.value = v;     saveSlider("pitchSyncB1", v);     applyVoicingTone() }
+    fun onSpeedQuotientChanged(v: Float)   { speedQuotient.value = v;   saveSlider("speedQuotient", v);   applyVoicingTone() }
+    fun onAspirationTiltChanged(v: Float)  { aspirationTilt.value = v;  saveSlider("aspirationTilt", v);  applyVoicingTone() }
+    fun onCascadeBwScaleChanged(v: Float)  { cascadeBwScale.value = v;  saveSlider("cascadeBwScale", v);  applyVoicingTone() }
+    fun onVoiceTremorChanged(v: Float)     { voiceTremor.value = v;     saveSlider("voiceTremor", v);     applyVoicingTone() }
+
+    fun onCreakinessChanged(v: Float)      { creakiness.value = v;      saveSlider("creakiness", v);      applyFrameExDefaults() }
+    fun onBreathinessChanged(v: Float)     { breathiness.value = v;     saveSlider("breathiness", v);     applyFrameExDefaults() }
+    fun onJitterChanged(v: Float)          { jitter.value = v;          saveSlider("jitter", v);          applyFrameExDefaults() }
+    fun onShimmerChanged(v: Float)         { shimmer.value = v;         saveSlider("shimmer", v);         applyFrameExDefaults() }
+    fun onGlottalSharpnessChanged(v: Float){ glottalSharpness.value = v; saveSlider("glottalSharpness", v); applyFrameExDefaults() }
+
+    // ── Slider → engine value mapping (matches NVDA driver math) ────
+
+    private fun applyVoicingTone() {
+        val tilt = (voiceTilt.value - 50f) * (24f / 50f)          // -24..+24 dB/oct
+        val noiseMod = noiseGlottalMod.value / 100f               // 0..1
+        val psF1 = (pitchSyncF1.value - 50f) * 1.2f               // -60..+60 Hz
+        val psB1 = (pitchSyncB1.value - 50f) * 1.0f               // -50..+50 Hz
+
+        val sqSlider = speedQuotient.value
+        val sq = if (sqSlider <= 50f)
+            0.5 + (sqSlider / 50.0) * 1.5                         // 0.5..2.0
+        else
+            2.0 + ((sqSlider - 50.0) / 50.0) * 2.0                // 2.0..4.0
+
+        val aspTilt = (aspirationTilt.value - 50f) * 0.24f         // -12..+12 dB/oct
+
+        val bwSlider = cascadeBwScale.value
+        val bw = if (bwSlider <= 50f)
+            2.0 - (bwSlider / 50.0) * 1.1                         // 2.0..0.9
+        else
+            0.9 - ((bwSlider - 50.0) / 50.0) * 0.6                // 0.9..0.3
+
+        val tremor = (voiceTremor.value / 100f) * 0.4f             // 0..0.4
+
+        engine.setVoicingTone(
+            tilt.toDouble(), noiseMod.toDouble(),
+            psF1.toDouble(), psB1.toDouble(),
+            sq, aspTilt.toDouble(), bw, tremor.toDouble()
+        )
+    }
+
+    private fun applyFrameExDefaults() {
+        engine.setFrameExDefaults(
+            (creakiness.value / 100f).toDouble(),
+            (breathiness.value / 100f).toDouble(),
+            (jitter.value / 100f).toDouble(),
+            (shimmer.value / 100f).toDouble(),
+            (glottalSharpness.value / 50f).toDouble()   // 0..2.0, 50=1.0
+        )
+    }
+
+    // ── Language filter ─────────────────────────────────────────────
 
     fun toggleLocaleKey(localeKey: String, enabled: Boolean): Boolean {
         val current = _enabledLocaleKeys.value.toMutableSet()
@@ -163,7 +237,14 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
         return true
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────
+    // ── Helpers ─────────────────────────────────────────────────────
+
+    private fun loadSlider(key: String, default: Float): Float =
+        prefs.getFloat("${PREF_PREFIX}$key", default)
+
+    private fun saveSlider(key: String, value: Float) {
+        prefs.edit().putFloat("${PREF_PREFIX}$key", value).apply()
+    }
 
     private fun buildLanguageList(): List<LanguageItem> {
         val seen = mutableSetOf<String>()

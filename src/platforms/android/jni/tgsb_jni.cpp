@@ -127,6 +127,18 @@ typedef struct {
     int sampleRate;
     volatile int stopRequested;
     int voiceIndex;
+
+    /* User VoicingTone overrides (deltas from voice preset defaults).
+     * Applied on top of the preset in nativeApplyVoicingTone(). */
+    int hasUserTone;
+    double userVoicedTiltDbPerOct;
+    double userNoiseGlottalModDepth;
+    double userPitchSyncF1DeltaHz;
+    double userPitchSyncB1DeltaHz;
+    double userSpeedQuotient;
+    double userAspirationTiltDbPerOct;
+    double userCascadeBwScale;
+    double userTremorDepth;
 } TgsbEngine;
 
 /* Frame callback context */
@@ -419,6 +431,72 @@ Java_com_tgspeechbox_tts_TgsbTtsService_nativeSetLanguage(
 }
 
 /* ------------------------------------------------------------------ */
+/* Voice quality settings (shared by Service + Standalone)              */
+/* ------------------------------------------------------------------ */
+
+static void applyVoicingTone(TgsbEngine *engine,
+    double voicedTiltDbPerOct, double noiseGlottalModDepth,
+    double pitchSyncF1DeltaHz, double pitchSyncB1DeltaHz,
+    double speedQuotient, double aspirationTiltDbPerOct,
+    double cascadeBwScale, double tremorDepth)
+{
+    if (!engine || !engine->player) return;
+
+    engine->hasUserTone = 1;
+    engine->userVoicedTiltDbPerOct = voicedTiltDbPerOct;
+    engine->userNoiseGlottalModDepth = noiseGlottalModDepth;
+    engine->userPitchSyncF1DeltaHz = pitchSyncF1DeltaHz;
+    engine->userPitchSyncB1DeltaHz = pitchSyncB1DeltaHz;
+    engine->userSpeedQuotient = speedQuotient;
+    engine->userAspirationTiltDbPerOct = aspirationTiltDbPerOct;
+    engine->userCascadeBwScale = cascadeBwScale;
+    engine->userTremorDepth = tremorDepth;
+
+    speechPlayer_voicingTone_t tone = speechPlayer_getDefaultVoicingTone();
+    const VoicePreset *vp = &kPresets[engine->voiceIndex];
+    if (vp->hasVoicedTilt)
+        tone.voicedTiltDbPerOct = vp->voicedTiltDbPerOct;
+
+    tone.voicedTiltDbPerOct += voicedTiltDbPerOct;
+    tone.noiseGlottalModDepth = noiseGlottalModDepth;
+    tone.pitchSyncF1DeltaHz = pitchSyncF1DeltaHz;
+    tone.pitchSyncB1DeltaHz = pitchSyncB1DeltaHz;
+    tone.speedQuotient = speedQuotient;
+    tone.aspirationTiltDbPerOct = aspirationTiltDbPerOct;
+    tone.cascadeBwScale = cascadeBwScale;
+    tone.tremorDepth = tremorDepth;
+
+    speechPlayer_setVoicingTone(engine->player, &tone);
+}
+
+static void applyFrameExDefaults(TgsbEngine *engine,
+    double creakiness, double breathiness,
+    double jitter, double shimmer, double sharpness)
+{
+    if (!engine || !engine->frontend) return;
+    nvspFrontend_setFrameExDefaults(
+        engine->frontend,
+        creakiness, breathiness, jitter, shimmer, sharpness);
+}
+
+JNIEXPORT void JNICALL
+Java_com_tgspeechbox_tts_TgsbTtsService_nativeSetVoicingTone(
+    JNIEnv *env, jobject thiz, jlong handle,
+    jdouble a, jdouble b, jdouble c, jdouble d,
+    jdouble e, jdouble f, jdouble g, jdouble h
+) {
+    applyVoicingTone((TgsbEngine *)(intptr_t)handle, a,b,c,d,e,f,g,h);
+}
+
+JNIEXPORT void JNICALL
+Java_com_tgspeechbox_tts_TgsbTtsService_nativeSetFrameExDefaults(
+    JNIEnv *env, jobject thiz, jlong handle,
+    jdouble a, jdouble b, jdouble c, jdouble d, jdouble e
+) {
+    applyFrameExDefaults((TgsbEngine *)(intptr_t)handle, a,b,c,d,e);
+}
+
+/* ------------------------------------------------------------------ */
 /* Standalone engine for MainActivity                                  */
 /*                                                                     */
 /* Separate engine instance so the consumer "Speak" UI doesn't fight   */
@@ -547,6 +625,23 @@ Java_com_tgspeechbox_tts_TgsbSpeakEngine_nativeStop(
 ) {
     TgsbEngine *engine = (TgsbEngine *)(intptr_t)handle;
     if (engine) engine->stopRequested = 1;
+}
+
+JNIEXPORT void JNICALL
+Java_com_tgspeechbox_tts_TgsbSpeakEngine_nativeSetVoicingTone(
+    JNIEnv *env, jobject thiz, jlong handle,
+    jdouble a, jdouble b, jdouble c, jdouble d,
+    jdouble e, jdouble f, jdouble g, jdouble h
+) {
+    applyVoicingTone((TgsbEngine *)(intptr_t)handle, a,b,c,d,e,f,g,h);
+}
+
+JNIEXPORT void JNICALL
+Java_com_tgspeechbox_tts_TgsbSpeakEngine_nativeSetFrameExDefaults(
+    JNIEnv *env, jobject thiz, jlong handle,
+    jdouble a, jdouble b, jdouble c, jdouble d, jdouble e
+) {
+    applyFrameExDefaults((TgsbEngine *)(intptr_t)handle, a,b,c,d,e);
 }
 
 } /* extern "C" */
