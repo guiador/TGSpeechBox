@@ -134,6 +134,7 @@ struct Token {
   bool fujisakiReset = false;         // Reset model state (at clause start)
   double fujisakiPhraseAmp = 0.0;     // Phrase command amplitude (0 = no command)
   double fujisakiAccentAmp = 0.0;     // Accent command amplitude (0 = no command)
+  double fujisakiAccentDurScale = 1.0; // Per-token accent duration multiplier (monosyllable shortening)
 
   // Prominence score (0.0–1.0), set by the prominence pass.
   // Used by pitch_fujisaki for accent scaling when prominencePitchFromProminence is true.

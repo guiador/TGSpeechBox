@@ -1432,6 +1432,11 @@ msgstr "Fujisaki Tasa de Declinación"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fujisaki Compound Declin Step"
+msgstr "Fujisaki Paso de Declinación Compuesta"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Fujisaki Declination Scale"
 msgstr "Fujisaki Escala de Declinación"
 
@@ -1449,6 +1454,16 @@ msgstr "Fujisaki Decaimiento de Frase"
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Fujisaki Phrase Len"
 msgstr "Fujisaki Longitud de Frase"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fujisaki Mono Accent Dur Scale"
+msgstr "Fujisaki Escala de Duración Monosílabo"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fujisaki Pitch Curve Exponent"
+msgstr "Fujisaki Exponente de Curva de Tono"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
@@ -2067,6 +2082,11 @@ msgstr "Prominencia Piso de Vocal Plena"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Prominence Monosyllable Floor"
+msgstr "Prominencia Piso de Monosílabo"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Prominence Long Vowel Mode"
 msgstr "Prominencia Modo de Vocal Larga"
 
@@ -2139,6 +2159,11 @@ msgstr "Prominencia: Habilitado"
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Prominence: Full Vowel Floor"
 msgstr "Prominencia: Piso de Vocal Plena"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Prominence: Monosyllable Floor"
+msgstr "Prominencia: Piso de Monosílabo"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py

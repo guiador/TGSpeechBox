@@ -426,73 +426,137 @@ std::string runTextParser(
 
   if (textWords.empty() || ipaChunks.empty()) return ipa;
 
-  // When word counts don't match, skip stress correction (which needs
-  // text↔IPA alignment), but still apply syllable boundaries to each IPA
-  // chunk independently.  Without dots, downstream autoTieDiphthongs can
-  // misfire across syllable boundaries.
+  // When word counts don't match, try greedy IPA chunk merging first:
+  // eSpeak often splits compound words into separate IPA "words"
+  // (e.g. "lockbox" → "lɒk bɒks"), causing a text↔IPA count mismatch.
+  // Walk text words and greedily consume IPA chunks until the joined
+  // IPA's nucleus count matches the stress dictionary pattern.  If a
+  // text word isn't in the dict or no merge works, leave it alone.
+  //
+  // Fall back to syllable-boundary-only mode for any remaining chunks.
   if (textWords.size() != ipaChunks.size()) {
-    if (legalOnsets.empty()) return ipa;
-
     bool anyChange = false;
-    for (size_t i = 0; i < ipaChunks.size(); ++i) {
-      std::u32string u32 = utf8ToU32(ipaChunks[i]);
-      std::u32string stripped = stripStress(u32);
-      auto nuclei = findNuclei(stripped);
-      if (nuclei.size() < 2) continue;
 
-      std::u32string dotted = applySyllableBoundaries(stripped, nuclei, legalOnsets);
-      if (dotted == stripped) continue;
+    // Phase 1: Greedy merge — try to align text words to IPA chunks.
+    // Build a merged IPA chunk list that parallels textWords.
+    if (textWords.size() < ipaChunks.size()) {
+      size_t ipaIdx = 0;
+      for (size_t tw = 0; tw < textWords.size() && ipaIdx < ipaChunks.size(); ++tw) {
+        const std::string key = asciiLower(stripPunct(textWords[tw]));
+        auto dictIt = key.empty() ? stressDict.end() : stressDict.find(key);
 
-      // Re-insert eSpeak's original stress marks on the dotted string.
-      // Extract the per-nucleus stress pattern from the original.
-      auto dottedNuclei = findNuclei(dotted);
-      std::vector<int> pattern(dottedNuclei.size(), 0);
-      {
-        size_t nIdx = 0;
-        bool pendingStress = false;
-        int pendingLevel = 0;
-        bool inVowel = false;
-        for (size_t j = 0; j < u32.size(); ++j) {
-          char32_t c = u32[j];
-          if (isStressMark(c)) {
-            pendingStress = true;
-            pendingLevel = (c == U'\u02C8') ? 1 : 2;
-            inVowel = false;
-          } else if (isIpaVowel(c)) {
-            if (!inVowel && nIdx < pattern.size()) {
-              // First vowel of a new nucleus.
-              if (pendingStress) {
-                pattern[nIdx] = pendingLevel;
-                pendingStress = false;
-              }
-              inVowel = true;
+        if (dictIt != stressDict.end() && dictIt->second.size() >= 2) {
+          // We have a stress pattern — try consuming 1..N IPA chunks.
+          const size_t expectedNuclei = dictIt->second.size();
+          std::string joined;
+          size_t bestEnd = 0;
+
+          for (size_t tryEnd = ipaIdx; tryEnd < ipaChunks.size(); ++tryEnd) {
+            if (!joined.empty()) joined += ' ';  // preserve space for correctStress
+            joined += ipaChunks[tryEnd];
+
+            // Count nuclei in the joined string.
+            std::u32string u32j = utf8ToU32(joined);
+            std::u32string strippedj = stripStress(u32j);
+            auto nucleij = findNuclei(strippedj);
+
+            if (nucleij.size() == expectedNuclei) {
+              bestEnd = tryEnd + 1;
+              break;
             }
-          } else if (isLengthMark(c) && inVowel) {
-            // Extends current nucleus — stay in vowel.
-          } else if (isTieBar(c) && inVowel) {
-            if (j + 1 < u32.size()) ++j;  // skip tied char
-          } else {
-            if (inVowel) {
-              nIdx++;  // exited a nucleus
+            if (nucleij.size() > expectedNuclei) break;  // overshot
+          }
+
+          if (bestEnd > ipaIdx) {
+            // Rebuild the joined chunk without spaces (single IPA word).
+            std::string merged;
+            for (size_t k = ipaIdx; k < bestEnd; ++k) {
+              merged += ipaChunks[k];
+            }
+
+            std::string corrected = correctStress(textWords[tw], merged, stressDict, legalOnsets);
+            // Always merge the chunks into one, even if stress didn't change.
+            // The merge itself is the fix — it reunites split compound IPA.
+            ipaChunks[ipaIdx] = (corrected != merged) ? std::move(corrected) : std::move(merged);
+            for (size_t k = ipaIdx + 1; k < bestEnd; ++k) {
+              ipaChunks[k].clear();
+            }
+            anyChange = true;
+            ipaIdx = bestEnd;
+            continue;
+          }
+        }
+
+        // No dict match or merge failed — skip this text word, consume one chunk.
+        ++ipaIdx;
+      }
+    }
+
+    // Phase 2: Apply syllable boundaries to any chunks that weren't
+    // stress-corrected above (including single-chunk words and leftovers).
+    if (!legalOnsets.empty()) {
+      for (size_t i = 0; i < ipaChunks.size(); ++i) {
+        if (ipaChunks[i].empty()) continue;
+
+        std::u32string u32 = utf8ToU32(ipaChunks[i]);
+        std::u32string stripped = stripStress(u32);
+        auto nuclei = findNuclei(stripped);
+        if (nuclei.size() < 2) continue;
+
+        std::u32string dotted = applySyllableBoundaries(stripped, nuclei, legalOnsets);
+        if (dotted == stripped) continue;
+
+        // Re-insert eSpeak's original stress marks on the dotted string.
+        auto dottedNuclei = findNuclei(dotted);
+        std::vector<int> pattern(dottedNuclei.size(), 0);
+        {
+          size_t nIdx = 0;
+          bool pendingStress = false;
+          int pendingLevel = 0;
+          bool inVowel = false;
+          for (size_t j = 0; j < u32.size(); ++j) {
+            char32_t c = u32[j];
+            if (isStressMark(c)) {
+              pendingStress = true;
+              pendingLevel = (c == U'\u02C8') ? 1 : 2;
               inVowel = false;
+            } else if (isIpaVowel(c)) {
+              if (!inVowel && nIdx < pattern.size()) {
+                if (pendingStress) {
+                  pattern[nIdx] = pendingLevel;
+                  pendingStress = false;
+                }
+                inVowel = true;
+              }
+            } else if (isLengthMark(c) && inVowel) {
+              // Extends current nucleus.
+            } else if (isTieBar(c) && inVowel) {
+              if (j + 1 < u32.size()) ++j;
+            } else {
+              if (inVowel) {
+                nIdx++;
+                inVowel = false;
+              }
             }
           }
         }
-      }
 
-      std::u32string result = applyStressPattern(dotted, dottedNuclei, pattern);
-      std::string utf8Result = u32ToUtf8(result);
-      if (utf8Result != ipaChunks[i]) {
-        ipaChunks[i] = std::move(utf8Result);
-        anyChange = true;
+        std::u32string result = applyStressPattern(dotted, dottedNuclei, pattern);
+        std::string utf8Result = u32ToUtf8(result);
+        if (utf8Result != ipaChunks[i]) {
+          ipaChunks[i] = std::move(utf8Result);
+          anyChange = true;
+        }
       }
     }
 
     if (!anyChange) return ipa;
 
+    // Reassemble, skipping blanked-out chunks from the merge phase.
     std::string result;
     for (size_t i = 0; i < ipaChunks.size(); ++i) {
-      if (i > 0) result.push_back(' ');
+      if (ipaChunks[i].empty()) continue;
+      if (!result.empty()) result.push_back(' ');
       result += ipaChunks[i];
     }
     return result;

@@ -1411,6 +1411,11 @@ msgstr "Fujisaki Deklináció mértéke"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fujisaki Compound Declin Step"
+msgstr "Fujisaki Összetett szó deklinációs lépés"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Fujisaki Declination Scale"
 msgstr "Fujisaki Deklináció skála"
 
@@ -1428,6 +1433,16 @@ msgstr "Fujisaki Frázis lecsengés"
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Fujisaki Phrase Len"
 msgstr "Fujisaki Frázis hossz"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fujisaki Mono Accent Dur Scale"
+msgstr "Fujisaki Egyszótagú hangsúly időtartam skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fujisaki Pitch Curve Exponent"
+msgstr "Fujisaki Hangmagasság görbe kitevő"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
@@ -2046,6 +2061,11 @@ msgstr "Prominencia Teljes magánhangzó alsó határ"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Prominence Monosyllable Floor"
+msgstr "Prominencia Egyszótagú alsó határ"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Prominence Long Vowel Mode"
 msgstr "Prominencia Hosszú magánhangzó mód"
 
@@ -2118,6 +2138,11 @@ msgstr "Prominencia: Engedélyezve"
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Prominence: Full Vowel Floor"
 msgstr "Prominencia: Teljes magánhangzó alsó határ"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Prominence: Monosyllable Floor"
+msgstr "Prominencia: Egyszótagú alsó határ"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py

@@ -476,17 +476,26 @@ getNum("primaryStressDiv", lp.primaryStressDiv);
   getNum("fujisakiAccentLen", lp.fujisakiAccentLen);
   getNum("fujisakiAccentDur", lp.fujisakiAccentDur);
   getNum("fujisakiDeclinationRate", lp.fujisakiDeclinationRate);
+  getNum("fujisakiPitchCurveExponent", lp.fujisakiPitchCurveExponent);
+  getNum("fujisakiMonoAccentDurScale", lp.fujisakiMonoAccentDurScale);
+  getNum("fujisakiCompoundDeclinStep", lp.fujisakiCompoundDeclinStep);
   getNum("fujisakiPhraseDecay", lp.fujisakiPhraseDecay);  // deprecated, kept for YAML compat
   getNum("fujisakiDeclinationScale", lp.fujisakiDeclinationScale);
   getNum("fujisakiDeclinationMax", lp.fujisakiDeclinationMax);
   getNum("fujisakiDeclinationPostFloor", lp.fujisakiDeclinationPostFloor);
 
   // Impulse pitch model parameters (used when legacyPitchMode = "impulse_style")
+  getNum("impulseDeclinationRangeHz", lp.impulseDeclinationRangeHz);
   getNum("impulseDeclinationHzPerSec", lp.impulseDeclinationHzPerSec);
+  getNum("impulseRiseHz", lp.impulseRiseHz);
+  getNum("impulseHatFallScale", lp.impulseHatFallScale);
   getNum("impulseFirstStressBoostHz", lp.impulseFirstStressBoostHz);
   getNum("impulseSecondStressBoostHz", lp.impulseSecondStressBoostHz);
   getNum("impulseThirdStressBoostHz", lp.impulseThirdStressBoostHz);
   getNum("impulseFourthStressBoostHz", lp.impulseFourthStressBoostHz);
+  getNum("impulseStressGain", lp.impulseStressGain);
+  getNum("impulseSecondaryStressScale", lp.impulseSecondaryStressScale);
+  getNum("impulseTerminalStressHz", lp.impulseTerminalStressHz);
   getNum("impulseQuestionReduction", lp.impulseQuestionReduction);
   getNum("impulseTerminalFallHz", lp.impulseTerminalFallHz);
   getNum("impulseContinuationRiseHz", lp.impulseContinuationRiseHz);
@@ -774,6 +783,17 @@ getNum("liquidDynamicsLabialGlideTransitionPct", lp.liquidDynamicsLabialGlideTra
     getNumFrom(*pr, "durationProminentFloorMs", lp.prominenceDurationProminentFloorMs);
     getNumFrom(*pr, "durationPrimaryFloorMs", lp.prominenceDurationPrimaryFloorMs);
     getNumFrom(*pr, "durationReducedCeiling", lp.prominenceDurationReducedCeiling);
+    getNumFrom(*pr, "monosyllableFloor", lp.prominenceMonosyllableFloor);
+    {
+      std::vector<std::string> excStrs;
+      getStrListFrom(*pr, "monosyllableExclude", excStrs);
+      if (!excStrs.empty()) {
+        lp.prominenceMonosyllableExclude.clear();
+        for (const auto& s : excStrs) {
+          if (!s.empty()) lp.prominenceMonosyllableExclude.push_back(utf8ToU32(s));
+        }
+      }
+    }
     getNumFrom(*pr, "fullVowelFloor", lp.prominenceFullVowelFloor);
     getNumFrom(*pr, "amplitudeBoostDb", lp.prominenceAmplitudeBoostDb);
     getNumFrom(*pr, "amplitudeReductionDb", lp.prominenceAmplitudeReductionDb);
@@ -791,6 +811,7 @@ getNum("liquidDynamicsLabialGlideTransitionPct", lp.liquidDynamicsLabialGlideTra
   getNum("prominenceDurationProminentFloorMs", lp.prominenceDurationProminentFloorMs);
   getNum("prominenceDurationPrimaryFloorMs", lp.prominenceDurationPrimaryFloorMs);
   getNum("prominenceDurationReducedCeiling", lp.prominenceDurationReducedCeiling);
+  getNum("prominenceMonosyllableFloor", lp.prominenceMonosyllableFloor);
   getNum("prominenceFullVowelFloor", lp.prominenceFullVowelFloor);
   getNum("prominenceAmplitudeBoostDb", lp.prominenceAmplitudeBoostDb);
   getNum("prominenceAmplitudeReductionDb", lp.prominenceAmplitudeReductionDb);

@@ -552,31 +552,54 @@ class SynthDriver(SynthDriver):
     def _resolveAutoLang() -> str:
         """Map NVDA's UI language to the closest available TGSpeechBox language tag.
 
-        Uses getWindowsLanguage() for regional variant detection (e.g. en_US
-        vs en_GB), falling back to getLanguage() if unavailable.
+        Primary source: getLanguage() — the NVDA UI language the user chose.
+        Secondary source: getWindowsLanguage() — used only for regional variant
+        disambiguation when the NVDA language is a bare tag (e.g. "en" → use
+        OS locale to pick "en-us" vs "en-gb").
         """
         try:
             import languageHandler
-            # Prefer the OS locale — it has the regional variant (e.g. "en_US").
-            nvdaLang = ""
-            winLang = getattr(languageHandler, "getWindowsLanguage", None)
-            if winLang:
-                nvdaLang = (winLang() or "").strip().lower().replace("_", "-")
-            if not nvdaLang:
-                nvdaLang = (languageHandler.getLanguage() or "en").strip().lower().replace("_", "-")
+            # Primary: NVDA UI language (e.g. "hu", "en", "es").
+            nvdaLang = (languageHandler.getLanguage() or "en").strip().lower().replace("_", "-")
+
+            # Secondary: OS locale for regional variant (e.g. "en-us", "pt-br").
+            winLang = ""
+            getWinLang = getattr(languageHandler, "getWindowsLanguage", None)
+            if getWinLang:
+                winLang = (getWinLang() or "").strip().lower().replace("_", "-")
         except Exception:
             return "en-us"
-        # Exact match first (e.g. "en-us", "en-gb", "es-mx", "pt-br")
-        if nvdaLang in languages and nvdaLang != "auto":
-            return nvdaLang
-        # Try base language (e.g. "en" from "en-au")
-        base = nvdaLang.split("-", 1)[0] if "-" in nvdaLang else nvdaLang
-        if base in languages and base != "auto":
-            return base
-        # Check if any language tag starts with the base (e.g. "hu" -> "hu")
-        for tag in languages:
-            if tag != "auto" and tag.startswith(base + "-"):
+
+        # Helper: find best match for a language tag in our pack list.
+        def _findMatch(tag: str) -> str:
+            if tag in languages and tag != "auto":
                 return tag
+            base = tag.split("-", 1)[0] if "-" in tag else tag
+            if base in languages and base != "auto":
+                return base
+            for t in languages:
+                if t != "auto" and t.startswith(base + "-"):
+                    return t
+            return ""
+
+        # 1. Try NVDA UI language directly (exact or base match).
+        match = _findMatch(nvdaLang)
+        if match:
+            # If the match is a bare base tag (e.g. "en") and the OS locale
+            # gives a more specific regional variant, prefer that.
+            if match == nvdaLang.split("-", 1)[0] and winLang.startswith(match + "-"):
+                regional = _findMatch(winLang)
+                if regional:
+                    return regional
+            return match
+
+        # 2. Fall back to OS locale (covers cases where NVDA returns an
+        #    unusual tag that doesn't match but the OS locale does).
+        if winLang:
+            match = _findMatch(winLang)
+            if match:
+                return match
+
         return "en-us"
 
     def _set_language(self, langCode):

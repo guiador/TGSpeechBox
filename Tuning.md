@@ -541,6 +541,11 @@ When `legacyPitchMode: "fujisaki_style"` is enabled, these settings control the 
   - `0.0003` = natural conversational declination (default)
   - `0.0005` = steep fall for dramatic effect
 
+**Prominence-to-pitch shaping (used when `pitchFromProminence: true`):**
+- `fujisakiPitchCurveExponent` (number, default `1.0`): Power curve applied to prominence before scaling accent amplitude. Values >1.0 compress secondary stress for better audible contrast between primary and secondary syllables. At 1.0 the mapping is linear (original behavior). Recommended: `1.4` — maps prominence 0.6 → 0.49 instead of 0.60, giving real separation between "LOCK" and "box" in compounds.
+- `fujisakiMonoAccentDurScale` (number, default `1.0`): Scales `fujisakiAccentDur` for single-nucleus content words. Monosyllable words benefit from a shorter, punchier accent pulse — a quick pitch pop that rises and falls within the single vowel. Recommended: `0.7` (30% shorter accent pulse).
+- `fujisakiCompoundDeclinStep` (number, default `0.0`): Log-F0 step-down applied when a secondary-stressed vowel follows a primary-stressed one in the same word. Reinforces primary-secondary contrast beyond just the accent amplitude difference. `0.0` = off, `0.04-0.08` = subtle, `0.10+` = strong. Recommended: `0.05`.
+
 **Deprecated declination settings** (kept for YAML backward compatibility, no longer used):
 - `fujisakiDeclinationScale`, `fujisakiDeclinationMax`, `fujisakiDeclinationPostFloor`, `fujisakiPhraseDecay` — these were used by earlier linear and multi-phrase implementations. Existing YAML files referencing them will parse without warnings but the values have no effect.
 
@@ -561,6 +566,9 @@ settings:
   fujisakiPrimaryAccentAmp: 0.24
   fujisakiSecondaryAccentAmp: 0.12
   fujisakiDeclinationRate: 0.0003
+  fujisakiPitchCurveExponent: 1.4
+  fujisakiMonoAccentDurScale: 0.7
+  fujisakiCompoundDeclinStep: 0.05
 ```
 
 *Note: The Fujisaki pitch model implementation was developed with assistance from Rommix, whose extensive testing and feedback on timing parameters helped shape the final behavior.*
@@ -570,7 +578,14 @@ settings:
 When `legacyPitchMode: "impulse_style"` is enabled, these settings control the intonation:
 
 **Declination:**
-- `impulseDeclinationHzPerSec` (number, default `12.0`): Linear pitch fall rate in Hz per second. Higher values = steeper declination across the utterance.
+- `impulseDeclinationRangeHz` (number, default `0`): Proportional declination range in Hz. When > 0, pitch starts at +range/2 and ends at -range/2, distributed across the voiced duration. This replaces the fixed Hz/sec slope for more natural-sounding decline on any length utterance.
+- `impulseDeclinationHzPerSec` (number, default `12.0`): Legacy fixed-rate pitch fall in Hz per second. Only used when `impulseDeclinationRangeHz` is 0.
+
+**Hat pattern (rise/fall at word boundaries):**
+- `impulseRiseHz` (number, default `10.0`): Pitch rise at the onset of a word containing a primary-stressed vowel.
+- `impulseHatFallScale` (number, default `2.0`): Multiplier on the fall at word exit (fall = riseHz * hatFallScale). Since fall > rise, each cycle contributes a net decline that reinforces the baseline ramp.
+- The hat offset decays by 15% at each word boundary (leaky integrator), preventing unbounded pitch accumulation over long phrases.
+- Pitch is floored at `basePitch * 0.75` to prevent unnaturally low values.
 
 **Stress peaks (count-based diminishing boosts):**
 - `impulseFirstStressBoostHz` (number, default `20.0`): Pitch boost (Hz) on the first primary-stressed vowel.
@@ -585,8 +600,13 @@ When `legacyPitchMode: "impulse_style"` is enabled, these settings control the i
 - `impulseContinuationRiseHz` (number, default `12.0`): Pitch rise for commas/continuations.
 - `impulseAssertiveness` (number, default `1.0`): Multiplier on the terminal fall. Values > 1 make statements sound more emphatic.
 
+**Stress scaling:**
+- `impulseStressGain` (number, default `1.0`): Global multiplier on all stress peaks.
+- `impulseSecondaryStressScale` (number, default `0.5`): How much secondary stress peaks are reduced relative to primary.
+- `impulseTerminalStressHz` (number, default `-8.0`): Pitch drop (Hz) on the terminal primary-stressed vowel in statements. Creates the characteristic falling intonation at clause end.
+
 **Smoothing:**
-- `impulseSmoothAlpha` (number, default `0.3`): IIR low-pass filter coefficient (0..1). Lower = smoother contour with more rounded bumps; higher = more responsive to individual stress peaks. Applied in two consecutive forward passes for a second-order effect.
+- `impulseSmoothAlpha` (number, default `0.55`): Single-pass forward IIR filter coefficient (0..1). Lower = smoother contour with more rounded bumps; higher = more responsive to individual stress peaks.
 
 Example configuration:
 ```yaml
@@ -1167,11 +1187,27 @@ settings:
     durationReducedCeiling: 1.0     # non-prominent vowels (score < 0.3) scaled
                                     # toward this (1.0 = no reduction, 0.7 = 70%)
 
+    # Monosyllable floor (Pass 1b)
+    # Dedicated prominence floor for content monosyllables like "box",
+    # "top", "lock" that need near-full prominence even when eSpeak
+    # omits the stress mark.  Separate from fullVowelFloor so we don't
+    # over-promote lax vowels in polysyllabic words.
+    # 0 = use secondaryStressLevel as before.
+    monosyllableFloor: 0.0          # en-us uses 0.9.
+
+    # Function word exclusion list for monosyllable floor.
+    # IPA baseChar sequences that should NOT receive the monoFloor boost.
+    # English has ~30 monosyllabic function words ("of", "the", "in", etc.)
+    # that are phonetically indistinguishable from content monosyllables
+    # at the token level — this closed list is the only reliable signal.
+    monosyllableExclude:             # en-us: ~30 entries (ðə, ʌv, ɪn, ...)
+      - "..."                        # (see en-us.yaml for the full list)
+
     # Full-vowel protection (Pass 1c)
     # Non-schwa vowels with zero prominence get boosted to this floor.
     # Prevents compound word second elements (firefox, laptop, desktop)
     # from being reduced like schwas when eSpeak omits secondary stress.
-    # Excluded vowels: ə, ɐ, ᵊ, ɨ, ᵻ (true reduced vowels).
+    # Excluded vowels: ə, ɐ, ᵊ, ɨ, ᵻ, ɪ, ʊ, ʌ (reduced + lax vowels).
     fullVowelFloor: 0.0             # 0 = disabled. en-us uses 0.4.
 
     # Amplitude: prominence → voiceAmplitude adjustment (dB)

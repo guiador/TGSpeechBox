@@ -215,6 +215,9 @@ class LanguagePack:
     fujisaki_accent_len: float = 0.0
     fujisaki_accent_dur: float = 0.0
     fujisaki_declination_rate: float = 0.0003
+    fujisaki_pitch_curve_exponent: float = 1.0
+    fujisaki_mono_accent_dur_scale: float = 1.0
+    fujisaki_compound_declin_step: float = 0.0
     fujisaki_phrase_decay: float = 0.75
     fujisaki_declination_scale: float = 25.0
     fujisaki_declination_max: float = 1.25
@@ -396,6 +399,7 @@ class LanguagePack:
     prominence_duration_prominent_floor_ms: float = 0.0
     prominence_duration_primary_floor_ms: float = 0.0
     prominence_duration_reduced_ceiling: float = 1.0
+    prominence_monosyllable_floor: float = 0.0
     prominence_full_vowel_floor: float = 0.0
     prominence_amplitude_boost_db: float = 0.0
     prominence_amplitude_reduction_db: float = 0.0
@@ -711,6 +715,9 @@ def _merge_settings(lp: LanguagePack, s: dict):
     lp.fujisaki_accent_len = gn("fujisakiAccentLen", lp.fujisaki_accent_len)
     lp.fujisaki_accent_dur = gn("fujisakiAccentDur", lp.fujisaki_accent_dur)
     lp.fujisaki_declination_rate = gn("fujisakiDeclinationRate", lp.fujisaki_declination_rate)
+    lp.fujisaki_pitch_curve_exponent = gn("fujisakiPitchCurveExponent", lp.fujisaki_pitch_curve_exponent)
+    lp.fujisaki_mono_accent_dur_scale = gn("fujisakiMonoAccentDurScale", lp.fujisaki_mono_accent_dur_scale)
+    lp.fujisaki_compound_declin_step = gn("fujisakiCompoundDeclinStep", lp.fujisaki_compound_declin_step)
     lp.fujisaki_phrase_decay = gn("fujisakiPhraseDecay", lp.fujisaki_phrase_decay)
     lp.fujisaki_declination_scale = gn("fujisakiDeclinationScale", lp.fujisaki_declination_scale)
     lp.fujisaki_declination_max = gn("fujisakiDeclinationMax", lp.fujisaki_declination_max)
@@ -877,6 +884,7 @@ def _merge_settings(lp: LanguagePack, s: dict):
     lp.prominence_duration_prominent_floor_ms = gn("prominenceDurationProminentFloorMs", lp.prominence_duration_prominent_floor_ms)
     lp.prominence_duration_primary_floor_ms = gn("prominenceDurationPrimaryFloorMs", lp.prominence_duration_primary_floor_ms)
     lp.prominence_duration_reduced_ceiling = gn("prominenceDurationReducedCeiling", lp.prominence_duration_reduced_ceiling)
+    lp.prominence_monosyllable_floor = gn("prominenceMonosyllableFloor", lp.prominence_monosyllable_floor)
     lp.prominence_full_vowel_floor = gn("prominenceFullVowelFloor", lp.prominence_full_vowel_floor)
     lp.prominence_amplitude_boost_db = gn("prominenceAmplitudeBoostDb", lp.prominence_amplitude_boost_db)
     lp.prominence_amplitude_reduction_db = gn("prominenceAmplitudeReductionDb", lp.prominence_amplitude_reduction_db)
@@ -1033,6 +1041,7 @@ def _merge_settings(lp: LanguagePack, s: dict):
         lp.prominence_duration_prominent_floor_ms = _gn_from(_pr, "durationProminentFloorMs", lp.prominence_duration_prominent_floor_ms)
         lp.prominence_duration_primary_floor_ms = _gn_from(_pr, "durationPrimaryFloorMs", lp.prominence_duration_primary_floor_ms)
         lp.prominence_duration_reduced_ceiling = _gn_from(_pr, "durationReducedCeiling", lp.prominence_duration_reduced_ceiling)
+        lp.prominence_monosyllable_floor = _gn_from(_pr, "monosyllableFloor", lp.prominence_monosyllable_floor)
         lp.prominence_full_vowel_floor = _gn_from(_pr, "fullVowelFloor", lp.prominence_full_vowel_floor)
         lp.prominence_amplitude_boost_db = _gn_from(_pr, "amplitudeBoostDb", lp.prominence_amplitude_boost_db)
         lp.prominence_amplitude_reduction_db = _gn_from(_pr, "amplitudeReductionDb", lp.prominence_amplitude_reduction_db)
