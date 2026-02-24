@@ -6758,6 +6758,7 @@ bacino	0 1 0
 back-up	1 2
 backache	1 2
 backaches	1 2
+backbeat	1 2
 backbite	1 2
 backbiting	1 2 0
 backboard	1 2
@@ -6784,6 +6785,7 @@ backfire	1 2
 backfired	1 2 0
 backfires	1 2 0
 backfiring	1 2 0 0
+backflip	1 2
 backgammon	1 2 0
 background	1 2
 backgrounds	1 2
@@ -6833,6 +6835,7 @@ backsliding	1 2 0
 backspin	1 0
 backstage	1 1
 backstairs	1 2
+backstep	1 2
 backstitch	1 0
 backstitches	1 0 0
 backstop	1 2
@@ -6840,6 +6843,7 @@ backstreet	1 2
 backstreets	1 2
 backstroke	1 2
 backstrom	1 0
+backswing	1 2
 backtrack	1 2
 backtracked	1 2
 backtracking	1 2 0
@@ -7628,6 +7632,8 @@ bardsley	1 0
 bardulf	1 0
 bardulph	1 0
 bardwell	1 2
+bareback	1 2
+barebones	1 0 2 0
 barefield	1 0 0
 barefoot	1 2
 bareis	1 0
@@ -7962,6 +7968,7 @@ baseball's	1 1
 baseballs	1 1
 baseboard	1 2
 baseboards	1 2
+basecamp	1 2
 basehore	1 0 0
 basel	1 0
 baseless	1 0
@@ -8371,6 +8378,7 @@ beamer	1 0
 beaming	1 0
 beamish	1 0
 beamon	1 0
+beanbag	1 2
 beanblossom	1 0 0
 beantown	1 2
 beara	1 0
@@ -8585,10 +8593,12 @@ bedouins	1 0 0
 bedoya	0 1 0
 bedpan	1 2
 bedpans	1 2
+bedpost	1 2
 bedraggle	0 1 0
 bedraggled	0 1 0
 bedridden	1 2 0
 bedrock	1 2
+bedroll	1 2
 bedroom	1 2
 bedrooms	1 2
 bedrosian	0 1 0
@@ -8644,6 +8654,7 @@ beers's	1 0
 beery	1 0
 beesley	1 0
 beeson	1 0
+beeswax	1 2
 beethoven	1 0 0
 beethoven's	1 0 0
 beethovenian	2 0 1 0 0
@@ -10289,6 +10300,7 @@ birchfield	1 2
 birchler	1 0 0
 birchmeier	1 0 0
 birckhead	1 0
+birdbath	1 2
 birdbrain	1 2
 birdcage	1 0
 birddog	1 2
@@ -10350,6 +10362,7 @@ biron	1 0
 biros	1 0
 birren	1 0
 birtcher	1 0
+birthdate	1 2
 birthday	1 2
 birthdays	1 2
 birthing	1 0
@@ -10498,6 +10511,7 @@ blackbird	1 0
 blackbirds	1 0
 blackboard	1 2
 blackboards	1 2
+blackbox	1 2
 blackburn	1 0
 blacken	1 0
 blackened	1 0
@@ -10548,6 +10562,7 @@ blackstock	1 2
 blackston	1 0
 blackstone	1 2
 blackstone's	1 2
+blackthorn	1 2
 blacktop	1 2
 blackwelder	1 2 0
 blackwell	1 2
@@ -10751,6 +10766,7 @@ blindly	1 0
 blindness	1 0
 blindside	1 2
 blindsided	1 2 0
+blindspot	1 2
 blinken	1 0
 blinking	1 0
 bliscoll	1 0
@@ -10828,6 +10844,7 @@ bloodletting	1 2 0
 bloodline	1 2
 bloodlines	1 2
 bloodshed	1 2
+bloodshot	1 2
 bloodstain	1 2
 bloodstained	1 2
 bloodstains	1 2
@@ -11133,6 +11150,7 @@ body	1 0
 body's	1 0
 bodyguard	1 0 2
 bodyguards	1 0 2
+bodywork	1 0 2
 bodziak	1 0 0
 bodziak's	1 0 0
 boeckel	1 0
@@ -12774,6 +12792,7 @@ bricklin	1 0
 bricklin's	1 0
 brickman	1 0
 brickner	1 0
+brickwork	1 2
 brickyard	1 2
 bricom	1 0
 bridal	1 0
@@ -12806,6 +12825,7 @@ bridgetown	1 2
 bridgett	1 0
 bridgette	1 0
 bridgewater	1 2 0
+bridgework	1 2
 bridgham	1 0
 bridging	1 0
 bridgman	1 0
@@ -13677,9 +13697,11 @@ bugaj	1 0
 bugarin	1 0 0
 bugatti	0 1 0
 bugay	1 0
+bugbear	1 2
 bugbee	1 2
 bugeye	1 2
 bugeyed	1 2
+bugfix	1 2
 bugger	1 0
 buggers	1 0
 buggies	1 0
@@ -13803,6 +13825,7 @@ bullock	1 0
 bullock's	1 0
 bullocks	1 0
 bullpen	1 2
+bullring	1 2
 bullseye	1 0
 bullshit	1 2
 bullshitter	1 2 0
@@ -13881,6 +13904,7 @@ bungled	1 0
 bungler	1 0
 bunglers	1 0
 bungling	1 0 0
+bunkbed	1 2
 bunker	1 0
 bunkers	1 0
 bunkley	1 0
@@ -14219,6 +14243,7 @@ bushels	1 0
 busher	1 0
 bushes	1 0
 bushey	1 0
+bushfire	1 2
 bushings	1 0
 bushkin	1 2
 bushman	1 0
@@ -14297,6 +14322,7 @@ busty	1 0
 busulaki	1 0 2 0
 buswell	1 2
 busy	1 0
+busywork	1 0 2
 butala	0 1 0
 butan	1 2
 butane	0 1
@@ -15846,6 +15872,7 @@ carousing	0 1 0
 carow	1 0
 carozza	0 1 0
 carpal	1 0
+carpark	1 2
 carpe-diem	1 0 1 0
 carpencic	0 1 0
 carpencic's	0 1 0
@@ -16085,6 +16112,8 @@ caseze	0 1 0
 caseze's	0 1 0
 casgrain	1 2
 cashatt	1 0
+cashback	1 2
+cashbox	1 2
 cashdollar	1 2 0
 cashen	1 0
 casher	1 0
@@ -16986,6 +17015,7 @@ chainsaw	1 2
 chainsaws	1 2
 chairez	0 1 0
 chairing	1 0
+chairlift	1 2
 chairman	1 0
 chairman's	1 0
 chairmanship	1 0 2
@@ -17006,6 +17036,7 @@ chalfant	1 0
 chalfin	1 0
 chalice	1 0
 chalifoux	1 0 0
+chalkboard	1 2
 chalker	1 0
 chalking	1 0
 chalkley	1 0
@@ -17401,6 +17432,7 @@ chechnyans	1 0 0
 check-up	1 2
 checkbook	1 2
 checkbooks	1 2
+checkbox	1 2
 checker	1 0
 checkerboard	1 0 2
 checkerboarding	1 0 2 0
@@ -17419,6 +17451,7 @@ checkout	1 2
 checkouts	1 2
 checkpoint	1 2
 checkpoints	1 2
+checkroom	1 2
 checkup	1 2
 checkups	1 2
 cheddar	1 0
@@ -17872,6 +17905,7 @@ choicest	1 0
 choiniere	1 0 0
 choinski	1 0
 choir	1 0
+choirboy	1 2
 chojnacki	0 1 0
 chojnowski	0 1 0
 chokehold	1 2
@@ -17896,6 +17930,7 @@ choosy	1 0
 chop-chop	1 1
 chop-suey	1 1 0
 choper	1 0
+chophouse	1 2
 chopin	1 0
 choplin	1 0
 chopper	1 0
@@ -18380,6 +18415,7 @@ city	1 0
 city's	1 0
 cityfed	1 0 2
 cityplace	1 0 2
+cityscape	1 0 2
 citysearch	1 0 2
 cityside	1 0 2
 citytrust	1 0 2
@@ -18791,6 +18827,7 @@ clobbering	1 0 0
 clocker	1 0
 clockers	1 0
 clocking	1 0
+clocktower	1 2
 clockwise	1 2
 clockwork	1 2
 clodfelter	1 2 0
@@ -18820,6 +18857,7 @@ closedown	1 2
 closedowns	1 2
 closely	1 0
 closeness	1 0
+closeout	1 2
 closer	1 0
 closes	1 0
 closest	1 0
@@ -18852,6 +18890,7 @@ clouded	1 0
 cloudiness	1 0 0
 clouding	1 0
 cloudless	1 0
+cloudscape	1 2
 cloudy	1 0
 clougherty	1 0 0
 clouser	1 0
@@ -18928,6 +18967,7 @@ coach's	1 0
 coaches	1 0
 coaching	1 0
 coachman	1 0
+coachwork	1 2
 coady	1 0
 coagulate	0 1 0 2
 coagulating	0 1 0 2 0
@@ -18938,9 +18978,11 @@ coalesced	2 0 1
 coalescence	2 0 1 0
 coalesces	2 0 1 0
 coalescing	2 0 1 0
+coalfield	1 2
 coalition	2 0 1 0
 coalition's	2 0 1 0
 coalitions	2 0 1 0
+coalmine	1 2
 coalson	1 0
 coarsening	1 0 0
 coarser	1 0
@@ -18956,6 +18998,7 @@ coastamerica's	2 0 1 0 0
 coasted	1 0
 coaster	1 0
 coasters	1 0
+coastguard	1 2
 coasting	1 0
 coastline	1 2
 coastlines	1 2
@@ -19246,6 +19289,7 @@ coitus	1 0
 cojimar	1 0 2
 cojimar's	1 0 2
 cojuangco	0 1 0
+cokehead	1 2
 coker	1 0
 cokie	1 0
 cokie's	1 0
@@ -19297,6 +19341,7 @@ coldiron	1 0 0
 coldly	1 0
 coldness	1 0
 coldren	1 0 0
+coldsnap	1 2
 coldwater	1 2 0
 coldwell	1 2
 colebank	1 2
@@ -19638,6 +19683,7 @@ combines	0 1
 combing	1 0
 combining	0 1 0
 combo	1 2
+combobox	1 0 2
 combust	0 1
 combustable	0 1 0 0
 combustion	0 1 0
@@ -21188,6 +21234,7 @@ cookware	1 2
 coolant	1 0
 coolants	1 0
 coolbaugh	1 2
+cooldown	1 2
 cooler	1 0
 coolers	1 0
 coolest	1 0
@@ -21504,6 +21551,7 @@ corney	1 0
 cornfeld	1 2
 cornfield	1 2
 cornfields	1 1
+cornflake	1 2
 cornflower	1 2 0
 cornflowers	1 2 0
 cornforth	1 0
@@ -22341,6 +22389,7 @@ crawfordsville	1 0 2
 crawler	1 0
 crawley	1 0
 crawling	1 0
+crawlspace	1 2
 crawly	1 0
 crawmer	1 0
 crawshaw	1 2
@@ -22724,12 +22773,14 @@ cross-country	1 2 0
 cross-pollinate	1 2 0 2
 cross-reference	1 2 0 0
 crossan	1 0
+crossbar	1 2
 crossbill	1 2
 crossbills	1 2
 crossbones	1 2
 crossborder	1 2 0
 crossbow	1 2
 crossbows	1 2
+crosscheck	1 2
 crosscurrent	1 2 0
 crosscurrents	1 2 0
 crossen	1 0
@@ -22739,6 +22790,7 @@ crossett	1 0
 crossfield	1 2
 crossfire	1 0
 crossfire's	1 0
+crosshatch	1 2
 crossin	1 0
 crossing	1 0
 crossings	1 0
@@ -22760,6 +22812,7 @@ crossville	1 0
 crosswalk	1 2
 crosswalks	1 2
 crosswhite	1 0
+crosswind	1 2
 crosswise	1 2
 crossword	1 2
 crosswords	1 2
@@ -24264,6 +24317,7 @@ deafness	1 0
 deakin	1 0
 deakins	1 0
 dealba	2 1 0
+dealbreaker	1 2 0
 dealer	1 0
 dealer's	1 0
 dealerline	1 0 2
@@ -24313,6 +24367,7 @@ deathbed	1 2
 deatherage	1 0 0
 deathly	1 0
 deathshot	1 0
+deathtrap	1 2
 deathwatch	1 2
 deatley	1 0
 deaton	1 0
@@ -24556,6 +24611,7 @@ decisive	0 1 0
 decisively	0 1 0 0
 decisiveness	0 1 0 0
 deckard	0 1
+deckchair	1 2
 decker	1 0
 decker's	1 0
 deckert	1 0
@@ -26150,6 +26206,7 @@ desjarlais	1 0 0
 deskin	1 0
 deskins	1 0
 deskjet	1 2
+deskjob	1 2
 deskpro	1 2
 desktop	1 2
 desktops	1 2
@@ -26533,6 +26590,7 @@ dewayne	0 1
 dewberry	1 2 0
 dewbre	1 0
 dewclaw	1 2
+dewdrop	1 2
 deweerd	1 0
 dewees	1 0
 deweese	1 0
@@ -27543,6 +27601,7 @@ disgusts	0 1
 disharmony	0 1 0 0
 disharoon	0 0 1
 dishaw	1 2
+dishcloth	1 2
 disheartened	0 1 0
 disheartening	0 1 0 0
 disher	1 0
@@ -27560,6 +27619,8 @@ dishong	1 0
 dishonor	0 1 0
 dishonorable	0 1 0 0 0
 dishonored	0 1 0
+dishpan	1 2
+dishrag	1 2
 dishwasher	1 2 0
 dishwashers	1 2 0
 dishwashing	1 2 0
@@ -28238,6 +28299,7 @@ dogma	1 0
 dogmatic	0 1 0
 dogmatically	0 1 0 0
 dogmatism	1 0 2 0
+dogsled	1 2
 dogwood	1 2
 dogwoods	1 2
 doha	1 2
@@ -28530,6 +28592,8 @@ doonesbury	1 2 0
 doorbell	1 2
 doordarshan	2 1 0
 doorenbos	1 0 1
+doorframe	1 2
+doorjam	1 2
 doorkeeper	1 2 0
 doorknob	1 0
 doorknobs	1 0
@@ -28538,9 +28602,11 @@ doormat	1 2
 doormats	1 2
 doornail	1 2
 doornbos	1 0
+doorpost	1 2
 doorsill	1 0
 doorstep	1 2
 doorsteps	1 2
+doorstop	1 2
 doorway	1 2
 doorways	1 2
 doozy	1 0
@@ -28824,6 +28890,7 @@ downsized	1 2
 downsizes	1 2 0
 downsizing	1 2 0
 downsizings	1 2 0
+downslope	1 2
 downstage	1 2
 downstairs	1 1
 downstate	1 2
@@ -28905,6 +28972,7 @@ dragon	1 0
 dragon's	1 0
 dragonair	1 0 2
 dragone	0 1
+dragonfly	1 0 2
 dragonhead	1 0 2
 dragonheart	1 0 2
 dragons	1 0
@@ -28965,6 +29033,7 @@ dreaded	1 0
 dreadful	1 0
 dreadfully	1 0 0
 dreading	1 0
+dreadlock	1 2
 dreadnought	1 2
 dreamer	1 0
 dreamers	1 0
@@ -29080,6 +29149,7 @@ driver's	1 0
 driverless	1 0 0
 drivers	1 0
 drivers'	1 0
+driveshaft	1 2
 driveway	1 2
 driveways	1 2
 driving	1 0
@@ -29112,6 +29182,8 @@ droopy	1 0
 drop-off	1 2
 drop-offs	1 2
 dropbox	1 2
+dropdown	1 2
+dropkick	1 2
 dropkin	1 0
 droplet	1 0
 droplets	1 0
@@ -29271,12 +29343,14 @@ duchon	1 0
 duchossois	0 1 2
 duchow	1 0
 duchy	1 0
+duckbill	1 2
 ducker	1 0
 duckett	1 0
 duckies	1 2
 ducking	1 0
 duckling	1 0
 ducklings	1 0
+duckpond	1 2
 ducksworth	1 2
 duckwall	1 2
 duckweed	1 2
@@ -29681,6 +29755,9 @@ dustin	1 0
 dusting	1 0
 dustman	1 0
 duston	1 0
+dustpan	1 2
+dustproof	1 2
+dustup	1 2
 dusty	1 0
 dusza	1 0
 duszynski	0 1 0
@@ -29863,7 +29940,9 @@ eamer	1 0
 eamon	1 0
 eap	1 1 1
 eappen	1 0
+earbud	1 2
 eardley	1 0
+eardrum	1 2
 earful	1 2
 earfull	1 2
 eargle	1 0
@@ -33922,10 +34001,14 @@ facciola	2 0 1 0
 face-to-face	1 0 1
 facebook	1 2
 facebook's	1 2
+facecloth	1 2
 facedown	1 1
 faceless	1 0
 facelift	1 2
+facemask	1 2
 facemire	0 0 1 0
+faceoff	1 2
+faceplate	1 2
 facer	1 0
 faces	1 0
 facet	1 0
@@ -34026,6 +34109,7 @@ failing	1 0
 failings	1 0
 failla	1 0
 failor	1 0
+failover	1 2 0
 failsafe	1 2
 failure	1 0
 failures	1 0
@@ -34428,6 +34512,7 @@ fassnacht	1 0
 fassulo	0 1 0
 fast-forward	2 1 0
 fast-paced	2 1
+fastback	1 2
 fastball	1 2
 fastballs	1 2
 fasted	1 0
@@ -34857,6 +34942,7 @@ femsa	1 0
 femur	1 0
 fenagle	0 1 0
 fenceless	1 0
+fencepost	1 2
 fences	1 0
 fencing	1 0
 fencl	1 0
@@ -35341,6 +35427,7 @@ filename	1 2
 filene	0 1
 filene's	0 1
 filenet	1 2
+filepath	1 2
 filer	1 0
 filers	1 0
 filet	0 1
@@ -35616,6 +35703,7 @@ firebombing	1 0 2 0
 firebombs	1 2
 firebrand	1 0 2
 firebrands	1 0 2
+firebreak	1 2
 firebrick	1 0 2
 firebug	1 0 2
 firebush	1 0 2
@@ -35643,6 +35731,7 @@ firenza	0 1 0
 firenzas	0 1 0
 fireplace	1 0 2
 fireplaces	1 0 2 0
+fireplug	1 2
 firepower	1 2 0
 fireproof	1 0 2
 fireproofing	1 0 2 0
@@ -35654,6 +35743,7 @@ firestine	0 1 0
 firestone	1 2
 firestone's	1 2
 firestorm	1 2
+firetruck	1 2
 firewall	1 0
 fireweed	1 0 2
 firewood	1 0 2
@@ -35710,6 +35800,7 @@ fishbaine	1 2
 fishbaugh	1 2
 fishbeck	1 2
 fishbein	1 2
+fishbone	1 2
 fishbowl	1 2
 fishburn	1 2
 fishburne	1 0
@@ -35726,12 +35817,16 @@ fishermen	1 0 0
 fishers	1 0
 fishery	1 0 0
 fishes	1 0
+fishhook	1 2
 fishing	1 0
 fishkill	1 2
 fishkin	1 0
 fishlow	1 2
 fishman	1 2
 fishmonger	1 2 0
+fishnet	1 2
+fishpond	1 2
+fishtail	1 2
 fishy	1 0
 fisler	1 0 0
 fisons	1 0
@@ -35850,6 +35945,7 @@ flamboyant	0 1 0
 flamboyantly	0 1 0 0
 flamemaster	1 2 0
 flamenco	0 1 2
+flameproof	1 2
 flamer	1 0
 flaming	1 0
 flamingo	0 1 0
@@ -35918,6 +36014,7 @@ flaten	1 0
 flater	1 0
 flatfish	1 2
 flatfishes	1 2 0
+flatfoot	1 2
 flathead	1 2
 flatheads	1 2
 flathers	1 0
@@ -36096,6 +36193,7 @@ floodwaters	1 2 0
 floorboard	1 2
 floorboards	1 2
 flooring	1 0
+flophouse	1 2
 flopping	1 0
 floppy	1 0
 floptical	1 0 0
@@ -36165,6 +36263,7 @@ flouting	1 0
 flowchart	1 2
 flowcharts	1 2
 flower	1 0
+flowerbed	1 2
 flowered	1 0
 flowering	1 0 0
 flowerpot	1 0 2
@@ -36277,6 +36376,7 @@ fogerty	1 0 0
 fogerty's	1 0 0
 foggiest	1 0 0
 foggy	1 0
+foghorn	1 2
 fogle	1 0
 fogleman	1 0 0
 fogler	1 0 0
@@ -36314,6 +36414,7 @@ foliation	2 0 1 0
 folic	1 0
 folino	0 1 2
 folio	1 2 0
+folkart	1 2
 folker	1 0
 folkers	1 0
 folkert	1 0
@@ -36322,6 +36423,7 @@ folkish	1 0
 folklore	1 2
 folkman	1 0
 folkrock	1 2
+folksong	1 2
 folkstone	1 2
 folkstone's	1 2
 folksy	1 0
@@ -36422,6 +36524,7 @@ footage	1 0
 football	1 2
 football's	1 2
 footballs	1 2
+footbridge	1 2
 footed	1 0
 footer	1 0
 footfall	1 2
@@ -36443,8 +36546,10 @@ footpath	1 2
 footprint	1 2
 footprints	1 2
 footrace	1 2
+footrest	1 2
 footstep	1 2
 footsteps	1 2
+footstool	1 2
 footwall	1 2
 footware	1 2
 footwear	1 2
@@ -36566,6 +36671,7 @@ forestalls	0 1
 forested	1 0 0
 forester	1 0 0
 foresters	1 0 0
+forestland	1 0 2
 forestry	1 0 0
 forests	1 0
 forestville	1 0 2
@@ -36633,6 +36739,7 @@ forister	1 0 0
 fork-lift	1 1
 forker	1 0
 forkey	1 2
+forkfork	1 2
 forking	1 0
 forklift	1 2
 forklifts	1 2
@@ -37157,6 +37264,7 @@ freeberg	1 0
 freeberg's	1 0
 freebie	1 0
 freebies	1 0
+freeboard	1 2
 freeborn	1 0
 freeburg	1 0
 freeburn	1 2
@@ -37213,6 +37321,7 @@ freetown	1 2
 freeware	1 2
 freeway	1 2
 freeways	1 2
+freewheel	1 2
 freewheeling	1 2 0
 freewing	1 0
 freezer	1 0
@@ -37476,6 +37585,7 @@ froning	1 0
 frontage	1 0
 frontal	1 0
 fronted	1 0
+frontend	1 2
 frontera	0 1 0
 fronterhouse	1 0 2
 frontier	0 1
@@ -37572,6 +37682,7 @@ fueling	1 0
 fuelled	1 0
 fuelling	1 0
 fuels	1 0
+fuelwood	1 2
 fuente	1 2
 fuentes	1 2
 fuentez	1 2
@@ -37663,6 +37774,7 @@ fullington	1 0 0
 fullman	1 0
 fullmer	1 0
 fullness	1 0
+fullstack	1 2
 fulltime	1 2
 fullwood	1 2
 fully	1 0
@@ -38221,6 +38333,7 @@ gamel	1 0
 gamelin	1 0 0
 gamello	0 1 0
 gamely	1 0
+gameplan	1 2
 gameplay	1 2
 gamer	1 0
 gamers	1 0
@@ -38291,6 +38404,7 @@ gangrene	1 0
 gangsta	1 0
 gangster	1 0
 gangsters	1 0
+gangway	1 2
 gangwer	1 0
 ganic	1 0
 ganim	1 0
@@ -38618,6 +38732,7 @@ gastrulation	2 0 1 0
 gatchel	1 0
 gatchell	1 0
 gateau	0 1
+gatecrash	1 2
 gated	1 0
 gatekeeper	1 2 0
 gatekeepers	1 2 0
@@ -38790,6 +38905,7 @@ gearhart	1 0
 gearheart	1 0
 gearin	1 0
 gearing	1 0
+gearshift	1 2
 geary	1 0
 gebauer	1 0 0
 gebbia	1 0 0
@@ -40185,6 +40301,7 @@ goading	1 0
 goalie	1 0
 goalkeeper	1 2 0
 goalpost	1 2
+goaltender	1 0 2
 goatee	1 1
 goates	1 0
 goatley	1 0
@@ -40228,6 +40345,7 @@ godbold	1 2
 godbolt	1 2
 godbout	1 2
 godby	1 0
+godchild	1 2
 goddam	1 2
 goddammit	1 2 0
 goddamn	1 2
@@ -40244,6 +40362,7 @@ godette	0 1
 godfather	1 2 0
 godfather's	1 2 0
 godfathers	1 2 0
+godforsaken	1 0 2 0
 godfrey	1 0
 godfrey's	1 0
 godhead	1 2
@@ -41695,6 +41814,7 @@ groupie	1 0
 groupies	1 0
 grouping	1 0
 groupings	1 0
+groupthink	1 2
 groupware	1 2
 grouses	1 0
 grousing	1 0
@@ -41849,6 +41969,7 @@ guarded	1 0
 guardedly	1 0 0
 guardfish	1 2
 guardfish's	1 2 0
+guardhouse	1 2
 guardia	1 0 0
 guardian	1 0 0
 guardian's	1 0 0
@@ -42162,8 +42283,10 @@ gunship	1 2
 gunships	1 2
 gunshot	1 2
 gunshots	1 2
+gunsling	1 2
 gunslinger	1 2 0
 gunslingers	1 2 0
+gunsmith	1 2
 gunsmoke	1 2
 gunter	1 0
 gunther	1 0
@@ -42973,6 +43096,7 @@ handbill	1 2
 handbills	1 2
 handbook	1 2
 handbooks	1 2
+handbrake	1 2
 handclasp	1 2
 handcraft	1 2
 handcrafted	1 2 0
@@ -42997,6 +43121,7 @@ handers	1 0
 handford	1 0
 handful	1 2
 handfuls	1 2
+handgrip	1 2
 handgun	1 2
 handguns	1 2
 handheld	1 1
@@ -43052,10 +43177,12 @@ handshakes	1 2
 handshaking	1 2 0
 handsome	1 0
 handsomely	1 0 0
+handspring	1 2
 handstand	1 2
 handstands	1 2
 handwerk	1 0
 handwerker	1 0 0
+handwork	1 2
 handwoven	1 1 0
 handwriting	1 2 0
 handwritten	1 2 0
@@ -43289,6 +43416,7 @@ hardball	1 2
 hardboard	1 2
 hardcastle	1 2 0
 hardcastle's	1 2 0
+hardcopy	1 0 2
 hardcore	1 1
 hardcover	1 2 0
 hardcovers	1 2 0
@@ -43337,12 +43465,16 @@ hardly	1 0
 hardman	1 0
 hardness	1 0
 hardnett	1 0
+hardnose	1 2
+hardpan	1 2
 hardpressed	1 2
 hardrick	1 0
 hardscrabble	1 2 0
 hardship	1 0
 hardships	1 0
+hardtack	1 2
 hardtke	1 0
+hardtop	1 2
 hardware	1 2
 hardway	1 2
 hardwick	1 2
@@ -43773,6 +43905,7 @@ haton	1 0
 hatred	1 0
 hatreds	1 0
 hatrick	1 0
+hatstand	1 2
 hattabaugh	1 0 0
 hattan	1 0
 hattaway	1 0 0
@@ -43858,6 +43991,7 @@ haverford	1 0 0
 haverkamp	1 0 2
 haverland	1 0 0
 haverly	1 0 0
+haversack	1 0 2
 haverstick	1 0 0
 haverstock	1 0 0
 haverty	1 0 0
@@ -44008,11 +44142,14 @@ header	1 0
 headers	1 0
 headfirst	1 1
 headgear	1 2
+headhunt	1 2
 headhunter	1 2 0
 headhunters	1 2 0
 heading	1 0
 headings	1 0
 headington	1 0 0
+headlamp	1 2
+headland	1 2
 headlee	1 2
 headless	1 0
 headley	1 0
@@ -44024,6 +44161,7 @@ headliner	1 2 0
 headliners	1 2 0
 headlines	1 2
 headlining	1 2 0
+headlock	1 2
 headlong	1 2
 headlund	1 0
 headman	1 0
@@ -44033,6 +44171,7 @@ headmistress	1 2 0
 headmistresses	1 2 0 0
 headphone	1 2
 headphones	1 2
+headpiece	1 2
 headquarter	1 2 0
 headquartered	1 2 0
 headquarters	1 2 0
@@ -44046,6 +44185,7 @@ headsets	1 2
 headship	1 2
 headshot	1 2
 headsman	1 0
+headstand	1 2
 headstart	1 2
 headstarts	1 2
 headstone	1 2
@@ -44056,6 +44196,7 @@ headwaters	1 2 0
 headway	1 2
 headwind	1 2
 headwinds	1 2
+headword	1 2
 heady	1 0
 heafner	1 0
 heagle	1 0
@@ -44148,6 +44289,8 @@ heathwood	1 2
 heating	1 0
 heatley	1 0
 heaton	1 0
+heatstroke	1 2
+heatwave	1 2
 heatwole	1 2
 heaven	1 0
 heaven's	1 0
@@ -44231,6 +44374,7 @@ hedgehogs	1 2
 hedgepath	1 2
 hedgepeth	1 0 0
 hedger	1 0
+hedgerow	1 2
 hedgers	1 0
 hedges	1 0
 hedging	1 0
@@ -44501,6 +44645,7 @@ helionetics	2 0 0 1 0
 heliopolis	2 0 1 0 0
 helios	1 0 2
 heliotrope	1 0 0 2
+helipad	1 0 2
 helium	1 0 0
 helix	1 0
 hellacious	2 1 0
@@ -44572,6 +44717,7 @@ helot	1 0
 helotism	1 0 2 0
 helotry	1 0 0
 helots	1 0
+helpdesk	1 2
 helper	1 0
 helpers	1 0
 helpful	1 0
@@ -44863,6 +45009,7 @@ herder	1 0
 herders	1 0
 herding	1 0
 herdman	1 0
+herdsmanship	1 0 2
 herdsmen	1 0
 hereabout	1 0 2
 hereabouts	1 0 2
@@ -45271,6 +45418,7 @@ high-spirited	2 1 0 0
 high-spiritedness	2 1 0 0 0
 high-tech	2 1
 higham	1 0
+highball	1 2
 highberger	1 2 0
 highboy	1 2
 highbrow	1 2
@@ -45936,6 +46084,7 @@ holcomb	1 0
 holcombe	1 0
 holda	1 0
 holdaway	1 0 2
+holdback	1 2
 holdeman	1 0
 holden	1 0
 holden's	1 0
@@ -46650,6 +46799,7 @@ hostilities	0 1 0 0
 hostility	0 1 0 0
 hosting	1 0
 hostler	1 0
+hostname	1 2
 hostutler	1 0 0 0
 hot-cross	1 1
 hot-line	1 1
@@ -46660,6 +46810,7 @@ hotaling's	1 0 0
 hotard	1 0
 hotbed	1 2
 hotbeds	1 2
+hotbox	1 2
 hotcake	1 2
 hotcakes	1 2
 hotchkin	1 0
@@ -46673,6 +46824,7 @@ hoteliers	0 1 0
 hotels	0 1
 hotels'	0 1
 hoten	1 0
+hotfix	1 2
 hothouse	1 2
 hothouses	1 2 0
 hotlanta	0 1 0
@@ -46680,7 +46832,9 @@ hotline	1 2
 hotlines	1 2
 hotly	1 0
 hotmail	1 2
+hotplate	1 2
 hotpot	1 2
+hotrod	1 2
 hotshot	1 2
 hotshots	1 2
 hotspot	1 2
@@ -46732,8 +46886,11 @@ house's	1 0
 houseal	1 0
 houseboat	1 2
 houseboats	1 2
+housebound	1 2
+housebreak	1 2
 housebroken	1 2 0
 housecleaning	1 2 0
+housecoat	1 2
 houseful	1 0
 houseguest	1 0
 houseguests	1 0
@@ -46747,13 +46904,16 @@ housekeepers	1 2 0
 housekeeping	1 2 0
 houseknecht	1 0
 housel	1 0
+housemaid	1 2
 houseman	1 0
 houseman's	1 0
 housen	1 0
+houseplant	1 2
 houser	1 0
 houseraising	1 2 0
 houses	1 0
 houses'	1 0
+housetop	1 2
 houseware	1 2
 housewares	1 2
 housewarming	1 2 0
@@ -47659,9 +47819,12 @@ ice-cream	1 2
 ice-nine	1 1
 iceberg	1 0
 icebergs	1 0
+icebound	1 2
 icebox	1 2
 icebreaker	1 2 0
 icebreakers	1 2 0
+icecap	1 2
+icefield	1 2
 icefish	1 2
 iceland	1 0
 icelandair	2 0 1
@@ -49164,6 +49327,7 @@ inkatha's	2 1 0
 inkblot	1 2
 inkjet	1 2
 inkling	1 0
+inkwell	1 2
 inky	1 0
 inlaid	1 2
 inland	1 2
@@ -50504,6 +50668,7 @@ ito's	1 0
 itochu	2 1 2
 itoh	1 0
 itself	2 1
+itsself	1 2
 itstee	1 0
 itsy	1 0
 itsy-bitsy	2 0 1 0
@@ -50617,6 +50782,7 @@ jacki's	1 0
 jackie	1 0
 jackie's	1 0
 jacking	1 0
+jackknife	1 2
 jackley	1 0
 jacklin	1 0
 jacklyn	1 0
@@ -50715,6 +50881,7 @@ jaguar's	1 2
 jaguars	1 2
 jahanian	0 1 2 0
 jahner	1 0
+jailbird	1 2
 jailbreak	1 2
 jailer	1 0
 jailers	1 0
@@ -50981,6 +51148,7 @@ jaworski	0 1 0
 jaya	1 0
 jayachandra	2 0 1 0
 jayashankar	2 0 1 0
+jaybird	1 2
 jaycee	1 1
 jaycees	1 1
 jaycox	1 2
@@ -51209,6 +51377,7 @@ jesup	1 0
 jesus	1 0
 jesus'	1 0
 jesus's	1 0 0
+jetblack	1 2
 jetborne	1 2
 jeter	1 0
 jethro	1 0
@@ -51340,6 +51509,7 @@ jobina	0 1 0
 jobless	1 0
 joblessness	1 0 0
 jobs's	1 0
+jobshare	1 2
 jobson	1 0
 jobyna	0 1 0
 jocelin	1 2
@@ -53008,6 +53178,7 @@ key-west	2 1
 keyboard	1 2
 keyboarding	1 2 0
 keyboards	1 2
+keychain	1 2
 keycorp	1 0
 keycorp's	1 0
 keyhole	1 2
@@ -53022,6 +53193,7 @@ keynotes	1 2
 keypad	1 2
 keypad's	1 2
 keypads	1 2
+keyring	1 2
 keyser	1 0
 keysor	1 0
 keystone	1 2
@@ -53092,11 +53264,13 @@ kichline	1 2
 kick-ass	1 2
 kickback	1 2
 kickbacks	1 2
+kickbox	1 2
 kicker	1 0
 kickers	1 0
 kicking	1 0
 kicklighter	1 2 0
 kickoff	1 2
+kickstand	1 2
 kickstarter	1 1 0
 kida	1 0
 kidded	1 0
@@ -53370,6 +53544,7 @@ kingdoms	1 0
 kingdon	1 0
 kingen	1 0
 kingery	1 0 0
+kingfish	1 2
 kingfisher	1 2 0
 kingfishers	1 2 0
 kingham	1 2
@@ -53390,6 +53565,7 @@ kingsbury	1 2 0
 kingsey	1 0
 kingsford	1 0
 kingship	1 0
+kingsize	1 2
 kingsland	1 0
 kingsley	1 0
 kingsley's	1 0
@@ -53820,6 +53996,7 @@ knechtel	1 0
 kneebone	1 2
 kneecap	1 2
 kneecaps	1 2
+kneedeep	1 2
 kneeing	1 0
 kneeland	1 0
 kneeling	1 0
@@ -53891,6 +54068,7 @@ knoebel	1 0
 knoedler	1 0 0
 knogo	1 0
 knotek	1 0
+knothole	1 2
 knotted	1 0
 knotty	1 0
 know-how	1 2
@@ -55068,6 +55246,7 @@ labatt	0 1
 labatt's	0 1
 labauve	0 1
 labay	1 0
+labcoat	1 2
 labeau	0 1
 label	1 0
 label's	1 0
@@ -55337,6 +55516,7 @@ lahue	1 0
 laible	1 0
 laibowitz	1 0 0
 laibrook	1 2
+laidback	1 2
 laidig	1 0
 laidlaw	1 2
 laidlaw's	1 1
@@ -55509,6 +55689,7 @@ lamotte	0 1
 lamountain	1 0 0
 lamoureaux	1 0 0
 lamoureux	1 0 0
+lampblack	1 2
 lampert	1 2
 lamphear	1 0
 lamphere	1 0
@@ -55534,6 +55715,7 @@ lamprey	1 0
 lampreys	1 0
 lampron	1 0
 lampros	1 0
+lampshade	1 2
 lampson	1 0
 lampton	1 0
 lamson	1 0
@@ -56185,6 +56367,7 @@ launchers	1 0
 launches	1 0
 launching	1 0
 launchings	1 0
+launchpad	1 2
 launder	1 0
 laundered	1 0
 launderer	1 0 0
@@ -56707,6 +56890,7 @@ left-hand	2 1
 left-handed	2 1 0
 left-winger	2 1 0
 left-wingers	2 1 0
+leftfield	1 2
 lefthand	2 1
 lefthanded	2 1 0
 lefties	1 0
@@ -57237,6 +57421,7 @@ letsinger	1 0 0
 letson	1 0
 lettau	0 1
 letter	1 0
+letterbox	1 0 2
 lettered	1 0
 letterhead	1 0 2
 lettering	1 0 0
@@ -57642,6 +57827,7 @@ lifestyles	1 2
 lifetime	1 2
 lifetime's	1 2
 lifetimes	1 2
+lifework	1 2
 lifland	1 0
 lifo	1 0
 liford	1 0
@@ -58405,6 +58591,7 @@ lockaby	1 0 0
 lockamy	1 0 0
 lockard	1 0
 lockart	1 2
+lockbox	1 2
 lockdown	1 2
 locke-ober	2 1 0
 locken	1 0
@@ -58424,6 +58611,7 @@ lockheed	1 2
 lockheed's	1 2
 lockie	1 0
 locking	1 0
+lockjaw	1 2
 locklair	1 0
 locklar	1 0
 locklear	1 0
@@ -58721,6 +58909,7 @@ looby	1 0
 lookabaugh	1 0 0
 lookabill	1 0 2
 lookalike	1 0 2
+lookback	1 2
 looker	1 0
 lookers	1 0
 lookin'	1 0
@@ -58970,6 +59159,7 @@ lovas	1 0
 lovastatin	0 1 0 0
 lovato	0 1 0
 loveall	1 2
+lovebird	1 2
 lovecchio	0 1 0 0
 loveday	1 2
 lovegrove	1 2
@@ -58990,6 +59180,7 @@ lovering	1 0 0
 lovern	1 0
 lovers	1 0
 lovers'	1 0
+lovesick	1 2
 lovett	1 0
 lovette	1 1
 lovewell	1 2
@@ -59371,6 +59562,7 @@ lunatic	1 0 2
 lunatics	1 0 2
 lunberg	1 0
 lunceford	1 0 0
+lunchbox	1 2
 luncheon	1 0
 luncheonette	2 0 1
 luncheonettes	2 0 1
@@ -60220,6 +60412,7 @@ mainly	1 0
 maino	1 0
 mainor	1 0
 mainord	0 1
+mainspring	1 2
 mainstay	1 2
 mainstays	1 2
 mainstream	1 2
@@ -61894,6 +62087,7 @@ matchlocks	1 2
 matchmaker	1 2 0
 matchmakers	1 2 0
 matchmaking	1 2 0
+matchstick	1 2
 matchup	1 0
 matchups	1 0
 matecki	0 1 0
@@ -63590,6 +63784,7 @@ meese's	1 0
 meester	1 0
 meeting	1 0
 meeting's	1 0
+meetinghouse	1 0 2
 meetings	1 0
 meetup	1 2
 meeuwsen	2 1 0
@@ -64773,6 +64968,7 @@ middlesex	1 0 2
 middlesworth	1 0 2
 middleton	1 0 0
 middletown	1 0 2
+middleware	1 0 2
 middleweight	1 0 2
 middling	1 0 0
 mideast	1 2
@@ -66643,6 +66839,7 @@ moonstone	1 2
 moonstones	1 2
 moonstruck	1 2
 moonves	1 0
+moonwalk	1 2
 mooradian	0 1 0 0
 moorco	1 0
 moorefield	1 0 0
@@ -67307,9 +67504,11 @@ muddles	1 0
 muddling	1 0 0
 muddy	1 0
 muddying	1 0 0
+mudflat	1 2
 mudgett	1 0
 mudra	1 0
 mudrick	1 0
+mudroom	1 2
 mudry	1 0
 mudslide	1 0
 mudslides	1 0
@@ -68412,6 +68611,7 @@ navarrete	1 0 2
 navarrette	1 0 2
 navarro	0 1 0
 navas	1 0
+navbar	1 2
 navcom	1 2
 navel	1 0
 navellier	0 1 0
@@ -68509,10 +68709,12 @@ necessities	0 1 0 0
 necessity	0 1 0 0
 nechayev	2 1 0
 nechyba	2 1 0
+neckband	1 2
 necker	1 0
 necklace	1 0
 necklaces	1 0 0
 necklacing	1 0 0
+neckline	1 2
 necktie	1 2
 neckties	1 2
 neckwear	1 2
@@ -69383,6 +69585,7 @@ nigger	1 0
 nigger's	1 0
 niggers	1 0
 nighswonger	1 0 0
+nightcap	1 2
 nightclub	1 2
 nightclubs	1 2
 nightengale	1 0 0
@@ -69391,6 +69594,7 @@ nightengales	1 0 0
 nighter	1 0
 nighters	1 0
 nightfall	1 2
+nightgown	1 2
 nighthawk	1 2
 nighthawks	1 2
 nighthorse	1 0
@@ -69404,6 +69608,7 @@ nightmare	1 2
 nightmares	1 2
 nightmarish	1 2 0
 nightshade	1 2
+nightshift	1 2
 nightshirt	1 2
 nightshirts	1 2
 nightstage	1 2
@@ -70254,6 +70459,7 @@ nosal	1 0
 nosebleed	1 2
 nosedive	1 2
 nosedived	1 2
+noseguard	1 2
 nosek	1 0
 noses	1 0
 noseworthy	1 2 0
@@ -71272,6 +71478,8 @@ offshoots	1 2
 offshorable	1 1 2 0
 offshore	1 1
 offshored	1 1
+offside	1 2
+offsite	1 2
 offspring	1 2
 offstage	1 1
 offutt	1 0
@@ -72593,6 +72801,7 @@ outboard	1 2
 outboard's	1 2
 outboards	1 2
 outbound	1 2
+outbox	1 2
 outbreak	1 2
 outbreaks	1 2
 outburst	1 2
@@ -72607,6 +72816,7 @@ outclassing	1 2 0
 outcome	1 2
 outcomes	1 2
 outcries	1 2
+outcrop	1 2
 outcry	1 2
 outdate	1 2
 outdated	1 2 0
@@ -72631,6 +72841,7 @@ outfield	1 2
 outfielder	1 2 0
 outfielders	1 2 0
 outfields	1 2
+outfight	1 2
 outfit	1 2
 outfits	1 2
 outfitted	1 2 0
@@ -72708,8 +72919,10 @@ outmaneuvered	0 0 1 0
 outmaneuvering	0 0 1 0 0
 outmaneuvers	0 0 1 0
 outmanned	2 1
+outmatch	1 2
 outmode	2 1
 outmoded	2 1 0
+outmost	1 2
 outnumber	0 1 0
 outnumbered	2 1 0
 outnumbering	1 2 0 0
@@ -72729,6 +72942,7 @@ outperformers	2 0 1 0
 outperforming	1 0 2 0
 outperforms	1 0 1
 outplacement	1 2 0
+outplay	1 2
 outpost	1 2
 outposts	1 2
 outpouch	1 2
@@ -72767,6 +72981,7 @@ outshine	1 2
 outshines	1 2
 outshining	1 2 0
 outshone	0 1
+outshoot	1 2
 outside	1 1
 outsider	0 1 0
 outsider's	0 1 0
@@ -72794,6 +73009,7 @@ outspoken	1 1 0
 outspokenness	0 1 0 0
 outstanding	2 1 0
 outstandingly	2 1 0 0
+outstep	1 2
 outstretch	0 1
 outstretched	0 1
 outstrip	0 1
@@ -72819,6 +73035,7 @@ outwit	1 2
 outwits	1 2
 outwitted	1 2 0
 outwitting	1 2 0
+outwork	1 2
 ova	1 0
 oval	1 0
 ovalle	1 0
@@ -74471,6 +74688,7 @@ pathetically	0 1 0 0 0
 pathfinder	1 2 0
 pathmark	1 2
 pathmark's	1 2
+pathname	1 2
 pathogen	1 0 0
 pathogenesis	2 0 1 0 0
 pathogenic	2 0 1 0
@@ -74900,6 +75118,7 @@ peeking	1 0
 peeler	1 0
 peelers	1 0
 peeling	1 0
+peephole	1 2
 peeping	1 0
 peeples	1 0
 peer-to-peer	1 0 1
@@ -75095,6 +75314,7 @@ penja	1 0
 penja's	1 0
 penkala	0 1 0
 penkava	0 1 0
+penknife	1 2
 penland	1 0
 penley	1 0
 penman	1 0
@@ -76488,6 +76708,7 @@ pigott	1 0
 pigskin	1 2
 pigskins	1 2
 pigsty	1 2
+pigtail	1 2
 piker	1 0
 pikers	1 0
 pikul	1 0
@@ -76542,6 +76763,7 @@ pillar	1 0
 pillard	1 0
 pillared	1 0
 pillars	1 0
+pillbox	1 2
 piller	1 0
 pilley	1 0
 pilling	1 0
@@ -76549,6 +76771,7 @@ pillion	1 0
 pilloried	1 0 0
 pillory	1 0 0
 pillow	1 0
+pillowcase	1 0 2
 pillows	1 0
 pillowtex	1 0 2
 pillsbury	1 2 0
@@ -77186,6 +77409,7 @@ plucker	1 0
 plucking	1 0
 plucky	1 0
 plugging	1 0
+plughole	1 2
 plugin	1 0
 plugins	1 0
 plumage	1 0
@@ -77270,6 +77494,7 @@ pocketbooks	1 0 2
 pocketed	1 0 0
 pocketful	1 0 2
 pocketing	1 0 0
+pocketknife	1 0 2
 pockets	1 0
 pocklington	1 0 0
 pockmark	1 2
@@ -77344,6 +77569,7 @@ poinot	1 2
 poinsett	1 0
 poinsettia	2 1 2 0
 poinsettias	2 1 2 0
+pointblank	1 2
 pointed	1 0
 pointedly	1 0 2
 pointenoire	1 0 2
@@ -77508,6 +77734,7 @@ pollan	1 0
 polland	1 0
 pollard	1 0
 pollard's	1 0
+pollbook	1 2
 pollen	1 0
 pollens	1 0
 pollet	1 0
@@ -77735,6 +77962,7 @@ poolas	1 0
 pooler	1 0
 pooley	1 0
 pooling	1 0
+poolroom	1 2
 poolside	1 2
 pooper	1 0
 poopers	1 0
@@ -77899,6 +78127,7 @@ porters	1 0
 portfolio	0 1 0 2
 portfolio's	0 1 0 2
 portfolios	0 1 0 2
+porthole	1 2
 porthos	0 1
 portia	1 0
 portico	1 0 2
@@ -77928,6 +78157,7 @@ portrayals	0 1 0
 portrayed	0 1
 portraying	0 1 0
 portrays	0 1
+portside	1 2
 portsmouth	1 0
 portugal	1 0 0
 portugal's	1 0 0
@@ -77993,6 +78223,7 @@ post-traumatic	2 0 1 0
 postage	1 0
 postal	1 0
 postal's	1 0
+postbox	1 2
 postcard	1 2
 postcards	1 2
 postcrash	1 2
@@ -80023,12 +80254,15 @@ pusateri	0 0 1 0
 pusey	1 0
 push-up	1 2
 push-ups	1 2
+pushback	1 2
+pushcart	1 2
 pusher	1 0
 pushers	1 0
 pushes	1 0
 pushing	1 0
 pushkin	1 0
 pushover	1 2 0
+pushpin	1 2
 pushup	1 2
 pushups	1 2
 pushy	1 0
@@ -80995,6 +81229,7 @@ ranee	1 1
 raneri	0 1 0
 raney	1 0
 rangel	1 1
+rangeland	1 2
 ranger	1 0
 ranger's	1 0
 rangers	1 0
@@ -81183,6 +81418,7 @@ rathjen	1 0
 rathke	1 0
 rathman	1 0
 rathmann	1 0
+rathole	1 2
 rathskeller	1 2 0
 ratican	1 0 0
 ratieni	0 1 0
@@ -81505,6 +81741,7 @@ reappraise	2 0 1
 reappraised	0 0 1
 rearden	1 0
 reardon	1 0
+rearguard	1 2
 rearick	1 0
 rearing	1 0
 rearm	1 1
@@ -84585,6 +84822,7 @@ riotous	1 0 0
 riots	1 0
 riots'	1 0
 ripa	1 0
+ripcord	1 2
 ripen	1 0
 ripened	1 0
 ripening	1 0 0
@@ -84613,6 +84851,7 @@ rippling	1 0 0
 ripplinger	1 0 0 0
 rippon	1 0
 rippy	1 0
+ripsaw	1 2
 risa	1 0
 risberg	1 0
 risden	1 0
@@ -84769,11 +85008,13 @@ rizzuto	0 1 0
 rna	2 2 1
 roa	1 0
 roaches	1 0
+roadbed	1 2
 roadblock	1 2
 roadblocks	1 2
 roadcap	1 2
 roadhouse	1 2
 roadie	1 0
+roadkill	1 2
 roadmap	1 2
 roadmaster	1 2 0
 roadrailer	1 2 0
@@ -84924,6 +85165,7 @@ rock-and-roll	1 1 1
 rockabilly	1 0 2 0
 rockafellow	1 0 2 0
 rockaway	1 0 2
+rockbed	1 2
 rockefeller	1 0 2 0
 rockefeller's	1 0 2 0
 rockefellers	1 0 2 0
@@ -84962,6 +85204,7 @@ rockport	1 2
 rockresort	1 0 2
 rockresorts	1 0 2
 rockrose	1 2
+rockslide	1 2
 rockstar	1 2
 rockville	1 2
 rockwell	1 2
@@ -86113,6 +86356,7 @@ runnion	1 0
 runny	1 0
 runoff	1 2
 runquist	1 2
+runtime	1 2
 runup	1 2
 runups	1 2
 runway	1 2
@@ -86690,6 +86934,7 @@ salema	0 1 0
 salemi	0 1 0
 salemme	1 0
 salerno	0 1 0
+salesclerk	1 2
 salesforce	1 2
 salesman	1 0
 salesman's	1 0
@@ -86999,6 +87244,7 @@ sandblast	1 2
 sandblasted	1 2 0
 sandbox	1 2
 sandburg	1 0
+sandcastle	1 2 0
 sanded	1 0
 sandeen	1 0
 sandefer	1 0 0
@@ -87051,6 +87297,7 @@ sandow	1 0
 sandoz	1 0
 sandoz's	1 0 0
 sandpaper	1 2 0
+sandpit	1 2
 sandpoint	1 2
 sandquist	1 2
 sandra	1 0
@@ -88629,6 +88876,7 @@ seabees	1 0
 seaberg	1 0
 seaberry	1 2 0
 seabert	1 0
+seabird	1 2
 seaboard	1 2
 seabold	1 2
 seabolt	1 2
@@ -88674,6 +88922,7 @@ seagulls	1 2
 seahawk	1 2
 seahawks	1 2
 seaholm	1 2
+seahorse	1 2
 sealand	1 2
 sealand's	1 2
 sealant	1 0
@@ -88721,6 +88970,7 @@ searight	1 0
 searing	1 0
 sears's	1 0
 searson	1 0
+seascape	1 2
 seashell	1 2
 seashells	1 2
 seashore	1 2
@@ -89480,10 +89730,10 @@ septic	1 0
 septima	0 1 0
 septimus	1 0 0
 septuagenarian	0 2 0 0 1 0 0
-sepulvado	0 0 1 0
-sepulveda	0 0 1 0
 sepultura	1 0 1 0
 sepultura's	1 0 1 0
+sepulvado	0 0 1 0
+sepulveda	0 0 1 0
 sequa	1 0
 sequa's	1 0
 sequeira	0 1 0
@@ -90149,6 +90399,7 @@ sheerer	1 0
 sheerin	1 0
 sheesley	1 0
 sheeting	1 0
+sheetrock	1 2
 sheffer	1 0
 sheffey	1 0
 sheffield	1 0
@@ -90190,6 +90441,7 @@ shellenberger	1 0 0 0
 sheller	1 0
 shelley	1 0
 shelley's	1 0
+shellfire	1 2
 shellfish	1 2
 shellhammer	1 2 0
 shellhorn	1 0
@@ -90608,6 +90860,7 @@ short-winded	1 1 0
 shortage	1 0
 shortages	1 0 0
 shortall	1 0
+shortbread	1 2
 shortcake	1 2
 shortchange	2 1
 shortchanged	2 1
@@ -90633,6 +90886,7 @@ shorthair	1 2
 shorthaired	1 2
 shorthand	1 2
 shorting	1 0
+shortlist	1 2
 shortlived	1 1
 shortly	1 0
 shortness	1 0
@@ -90891,6 +91145,9 @@ sidearm	1 0
 sidearms	1 0
 sidebar	1 2
 sidebars	1 2
+sideboard	1 2 0
+sideburn	1 2
+sidecar	1 2
 sided	1 0
 sidek	1 2
 sidekick	1 2
@@ -90914,10 +91171,12 @@ sidestepped	1 2
 sidestepping	1 2 0
 sidesteps	1 2
 sidestream	1 2
+sideswipe	1 2
 sidetrack	1 2
 sidetracked	1 2
 sidewalk	1 2
 sidewalks	1 2
+sideward	1 2
 sidewater	1 2 0
 sideways	1 2
 sidewinder	1 2 0
@@ -91076,6 +91335,7 @@ signorelli	0 0 1 0
 signori	0 1 0
 signpost	1 2
 signposts	1 2
+signup	1 2
 sigoloff	1 0 0
 sigourney	0 1 0
 sigrid	1 0
@@ -91473,6 +91733,7 @@ sitar	0 1
 sitars	0 1
 sitcom	1 2
 sitcoms	1 0
+sitdown	1 2
 sited	1 0
 sitek	1 0
 sitenski	0 1 0
@@ -91598,6 +91859,7 @@ sketchbook	1 2
 sketchbooks	1 2
 sketches	1 0
 sketching	1 0
+sketchpad	1 2
 sketchy	1 0
 skewer	1 0
 skewered	1 0
@@ -91892,12 +92154,15 @@ slinker	1 0
 slinky	1 0
 slip-on	1 2
 slip-ons	1 2
+slipcover	1 0 2
+slipknot	1 2
 slippage	1 0
 slipper	1 0
 slippers	1 0
 slippery	1 0 0
 slipping	1 0
 slipshod	1 2
+slipstream	1 2
 sliter	1 0
 slither	1 0
 slithering	1 0 0
@@ -92303,6 +92568,7 @@ snowball's	1 2
 snowballed	1 2
 snowballing	1 2 0
 snowballs	1 2
+snowbank	1 2
 snowberger	1 0 0
 snowbird	1 2
 snowbirds	1 2
@@ -92311,20 +92577,26 @@ snowboarder	1 2 0
 snowboarders	1 2 0
 snowboards	1 2
 snowbound	1 2
+snowcap	1 2
 snowden	1 0
 snowdon	1 0
+snowdrift	1 2
+snowdrop	1 2
 snowfall	1 0
 snowfalls	1 0
+snowfield	1 2
 snowflake	1 2
 snowflakes	1 2
 snowing	1 0
 snowman	1 2
+snowmelt	1 2
 snowmobile	1 0 2
 snowmobiles	1 0 2
 snowplow	1 2
 snowplows	1 2
 snowshoe	1 2
 snowshoes	1 2
+snowslide	1 2
 snowstorm	1 2
 snowstorms	1 2
 snowy	1 0
@@ -93695,6 +93967,7 @@ squander	1 0
 squandered	1 0
 squandering	1 0 0
 squanders	1 0
+squareback	1 2
 squarely	1 0
 squaring	1 0
 squashing	1 0
@@ -94307,6 +94580,7 @@ steamier	1 0 0
 steamiest	1 0 0
 steamily	1 0 0
 steaming	1 0
+steamroll	1 2
 steamroller	1 2 0
 steamrollered	1 2 0
 steamship	1 2
@@ -94343,11 +94617,13 @@ steelmakers	1 2 0
 steelmakers'	1 0 0
 steelmaking	1 2 0
 steelman	1 0
+steelwork	1 2
 steelworker	1 2 0
 steelworkers	1 2 0
 steelworkers'	1 0 0
 steelworks	1 2
 steely	1 0
+steelyard	1 2
 steenbergen	1 0 0
 steenburgen	1 0 0
 steenkamp	1 2
@@ -94739,6 +95015,7 @@ stiffer	1 0
 stiffest	1 0
 stiffler	1 0
 stiffly	1 0
+stiffneck	1 2
 stiffness	1 0
 stifle	1 0
 stifled	1 0
@@ -94776,9 +95053,9 @@ stillwater	1 2 0
 stillwell	1 2
 stillwell's	1 2
 stilson	1 0
-stilton	1 0
 stilted	1 0
 stiltner	1 0
+stilton	1 0
 stilwell	1 2
 stimac	1 0
 stimmel	1 0
@@ -94996,6 +95273,7 @@ stonewall	1 2
 stonewalled	1 2
 stonewalling	1 2 0
 stoneware	1 2
+stonework	1 2
 stoney	1 0
 stoning	1 0
 stony	1 0
@@ -95078,6 +95356,7 @@ stoutenburg	1 0 0
 stoutly	1 0
 stoutness	1 0
 stovall	1 0
+stovepipe	1 2
 stover	1 0
 stowaway	1 0 2
 stowaway's	1 0 2
@@ -95210,6 +95489,7 @@ strayhorn	1 0
 straying	1 0
 streaker	1 0
 streaking	1 0
+streambed	1 2
 streamer	1 0
 streamers	1 0
 streaming	1 0
@@ -95224,6 +95504,7 @@ streeper	1 0
 streetcar	1 2
 streeter	1 0
 streeters	1 0
+streetlight	1 2
 streetman	1 0
 streetwise	1 2
 streety	1 0
@@ -95349,6 +95630,7 @@ stromgren	1 0
 strommen	1 0
 stromquist	1 2
 stronach	1 0
+strongbox	1 2
 stronger	1 0
 strongest	1 0
 stronghold	1 2
@@ -95514,6 +95796,7 @@ stuyvesant	1 0 0
 styer	1 0
 styers	1 0
 stygian	1 0 0
+stylesheet	1 2
 styling	1 0
 stylish	1 0
 stylishly	1 0 0
@@ -96042,6 +96325,7 @@ sunbelt	1 2
 sunbelt's	1 2
 sunbird	1 2
 sunbirds	1 2
+sunblock	1 2
 sunburn	1 2
 sunburned	1 2
 suncoast	1 2
@@ -96123,6 +96407,7 @@ sunspots	1 2
 sunstar	1 2
 sunstate	1 2
 sunstates	1 2
+sunstroke	1 2
 sunsweet	1 2
 sunsweet's	1 2
 suntan	1 2
@@ -96337,6 +96622,7 @@ surber	1 0
 surcease	2 1
 surcharge	0 1
 surcharges	1 2 0
+surefire	1 2
 surely	1 0
 suren	1 0
 surer	1 0
@@ -96592,6 +96878,7 @@ swampbuster	1 2 0
 swamper	1 0
 swampers	1 0
 swamping	1 0
+swampland	1 2
 swampy	1 0
 swanberg	1 0
 swanda	1 0
@@ -96650,6 +96937,7 @@ swearengin	1 0 0
 swearing	1 0
 swearingen	1 0 0
 swearingin	1 0 0
+sweatband	1 2
 sweated	1 0
 sweater	1 0
 sweaters	1 0
@@ -96762,6 +97050,7 @@ swindles	1 0
 swindling	1 0
 swineford	1 0 0
 swinehart	1 2
+swineherd	1 2
 swiney	1 0
 swinford	1 0
 swinger	1 0
@@ -97185,6 +97474,8 @@ tahmassebi	2 0 1 0
 tahoe	1 0
 taibi	1 0
 taiko	1 0
+tailback	1 2
+tailbone	1 2
 tailgate	1 2
 tailhook	1 2
 tailing	1 0
@@ -97196,6 +97487,7 @@ tailoring	1 0 0
 tailors	1 0
 tailpipe	1 2
 tailspin	1 2
+tailwind	1 2
 taima	1 0
 tainer	1 0
 taing	1 0
@@ -97234,6 +97526,7 @@ takeaway	1 0 2
 takeaways	1 0 2
 takecare	1 1
 takeda	0 1 0
+takedown	1 2
 takei	1 2
 takemoto	0 0 1 2
 takemura	2 0 1 2
@@ -97506,6 +97799,7 @@ tapering	1 0 0
 tapers	1 0
 tapestries	1 0 0
 tapestry	1 0 0
+tapeworm	1 2
 tapia	1 0 0
 tapias	0 1 0
 tapie	1 0
@@ -97611,6 +97905,7 @@ tashin	1 0
 tashiro	0 1 0
 tashjian	1 0 0
 tashkent	2 1
+taskbar	1 2
 tasker	1 0
 taskforce	1 2
 tasking	1 0
@@ -98494,6 +98789,7 @@ texstar	1 2
 texstyrene	1 1 2
 textbook	1 2
 textbooks	1 2
+textbox	1 2
 texted	1 0
 texter	1 0
 texters	1 0
@@ -98960,6 +99256,7 @@ thuman	1 0
 thumann	1 0
 thumbing	1 0
 thumbnail	1 2
+thumbtack	1 2
 thumma	1 0
 thumper	1 0
 thumping	1 0
@@ -98970,7 +99267,9 @@ thunderbirds	1 0 2
 thunderbolt	1 0 2
 thundercat	1 0 2
 thundercats	1 0 2
+thunderclap	1 0 2
 thundered	1 0
+thunderhead	1 0 2
 thundering	1 0 0
 thunderous	1 0 0
 thunders	1 0
@@ -99178,6 +99477,7 @@ timer	1 0
 timers	1 0
 times's	1 0
 timeshare	1 2
+timestamp	1 2
 timetable	1 2 0
 timetables	1 2 0
 timewise	1 2
@@ -99230,6 +99530,7 @@ tinderbox	1 0 2
 tindle	1 0
 tindol	1 0
 tiner	1 0
+tinfoil	1 2
 tingen	1 0
 tingey	1 0
 tingle	1 0
@@ -99300,6 +99601,7 @@ tiptoe	1 2
 tiptoed	1 2
 tiptoeing	1 2 0
 tipton	1 0
+tiptop	1 2
 tirade	0 1
 tirades	0 1
 tirado	0 1 0
@@ -99379,6 +99681,7 @@ tlingit	1 0
 to-do	2 1
 to-dos	2 1
 toa	1 0
+toadstool	1 2
 toalson	1 0
 toalster	1 0
 toasted	1 0
@@ -99656,9 +99959,12 @@ toolbar	1 2
 toolbox	1 2
 tooley	1 0
 tooling	1 0
+toolkit	1 2
 toolmaker	1 2 0
 toolmakers	1 2 0
 toolroom	1 2
+toolshed	1 2
+tooltip	1 2
 toolworks	1 2
 tooman	1 0
 toomer	1 0
@@ -99683,6 +99989,7 @@ top-up	1 2
 topalian	0 1 0 0
 topanga	0 1 2
 topaz	1 2
+topcoat	1 2
 topeka	0 1 0
 topeka's	0 1 0
 topekan	0 1 0
@@ -99699,6 +100006,7 @@ topkapi	2 1 0
 topknot	1 2
 topless	1 0
 topliff	1 0
+topnotch	1 2
 topographic	2 0 1 0
 topography	0 1 0 0
 topol	1 0
@@ -99716,6 +100024,7 @@ topple	1 0
 toppled	1 0
 topples	1 0
 toppling	1 0 0
+topside	1 2
 topsoil	1 2
 topsy	1 0
 topsy-turvy	1 0 1 0
@@ -99892,12 +100201,14 @@ totty	1 0
 totzke	1 0
 touareg	1 0 0
 touchable	1 0 0
+touchback	1 2
 touchdown	1 2
 touchdowns	1 2
 touches	1 0
 touchet	0 1
 touchette	2 1
 touching	1 0
+touchscreen	1 2
 touchstone	1 2
 touchton	1 0
 touchy	1 0
@@ -100051,6 +100362,7 @@ trackballs	1 2
 tracker	1 0
 trackers	1 0
 tracking	1 0
+tracksuit	1 2
 tracor	1 0
 tractable	1 0 0
 tractebel	1 0 0
@@ -100126,6 +100438,7 @@ training	1 0
 trainings	1 0
 trainmen	1 0
 trainor	1 0
+trainwreck	1 2
 traipsing	1 0
 traister	1 0
 traitor	1 0
@@ -100340,6 +100653,7 @@ tranum	1 0
 tranzonic	0 1 0
 trapani	0 1 0
 trapasso	0 1 0
+trapdoor	1 2
 trapelo	0 1 0
 trapeze	0 1
 traphagen	1 0 0
@@ -100459,6 +100773,7 @@ treblinka	0 1 0
 trecker	1 0
 treder	1 0
 tredway	1 2
+treehouse	1 2
 treeless	1 0
 treesweet	1 2
 treetop	1 2
@@ -100710,6 +101025,7 @@ tripple	1 0
 trippy	1 2
 triptych	1 0
 triptychs	1 0
+tripwire	1 2
 trireme	1 2
 triremes	1 2
 trisha	1 0
@@ -100770,6 +101086,7 @@ trojans	1 0
 trokel	1 0
 trolinger	1 0 0
 trolley	1 0
+trolleybus	1 0 2
 trolleys	1 0
 trolling	1 0
 trollinger	1 0 0
@@ -101068,6 +101385,7 @@ tuman	1 0
 tumazos	0 1 0
 tumble	1 0
 tumbled	1 0
+tumbledown	1 0 2
 tumbler	1 0
 tumbler's	1 0
 tumblers	1 0
@@ -101211,6 +101529,7 @@ turnbo	1 0
 turnbough	1 2
 turnbow	1 0
 turnbridge	1 2
+turnbuckle	1 0 2
 turnbull	1 2
 turncoat	1 2
 turndown	1 2
@@ -102821,6 +103140,8 @@ updike's	1 2
 updraft	1 2
 updrafts	1 2
 updyke	1 2
+upend	1 2
+upfield	1 2
 upfront	1 2
 upgrade	0 1
 upgraded	0 1 0
@@ -102859,7 +103180,9 @@ upmanship	1 0 2
 upmarket	1 2 0
 upon	0 1
 upper	1 0
+uppercase	1 0 2
 upperclass	1 0 2
+uppercut	1 0 2
 upperman	1 0 0
 uppermost	1 0 2
 uppers	1 0
@@ -102902,9 +103225,11 @@ upswings	1 2
 uptain	0 1
 uptake	1 2
 uptegrove	1 0 0
+upthrust	1 2
 uptick	1 2
 upticks	1 2
 uptight	0 1
+uptime	1 2
 upton	1 0
 uptown	1 1
 uptrend	1 2
@@ -102917,6 +103242,7 @@ upvoting	1 1 0
 upward	1 0
 upwardly	1 0 0
 upwards	1 0
+upwind	1 2
 upwood	1 2
 ural	1 0
 urals	1 0
@@ -104486,6 +104812,7 @@ viewfinder	1 2 0
 viewing	1 0
 viewpoint	1 2
 viewpoints	1 2
+viewport	1 2
 vieyra	0 1 0
 vigdor	1 0
 vigeant	1 0
@@ -105292,6 +105619,8 @@ wainscotting	1 0 0
 wainwright	1 2
 waisanen	1 0 0
 waisner	1 0
+waistband	1 2
+waistcoat	1 2
 waistline	1 2
 waited	1 0
 waiter	1 0
@@ -105802,17 +106131,21 @@ wasting	1 0
 waszak	1 0
 waszkiewicz	2 1 0
 watanabe	2 0 1 0
+watchband	1 2
 watchdog	1 2
 watchdogs	1 2
 watcher	1 0
 watchers	1 0
 watches	1 0
+watchfire	1 2
 watchful	1 0
 watchin'	1 0
 watching	1 0
+watchmaker	1 2 0
 watchman	1 0
 watchmen	1 0
 watchorn	1 0
+watchtower	1 2
 watchword	1 2
 watchwords	1 2
 water	1 0
@@ -105820,12 +106153,14 @@ water's	1 0
 water-repellent	1 0 0 1 0
 waterbed	1 0 2
 waterbeds	1 0 2
+waterbird	1 0 2
 waterborne	1 0 2
 waterbottle	1 0 2 0
 waterbottles	1 0 2 0
 waterbury	1 0 2 0
 watercolor	1 0 2 0
 watercolors	1 0 2 0
+watercraft	1 0 2
 watercress	1 0 2
 watered	1 0
 waterer	1 0 0
@@ -105842,6 +106177,7 @@ waterhouse	1 0 2
 waterhouse's	1 0 2 0
 watering	1 0 0
 waterishness	1 0 0 0
+waterline	1 0 2
 waterlog	1 0 2
 waterlogged	1 0 2
 waterloo	1 0 2
@@ -105852,12 +106188,15 @@ watermarks	1 0 2
 watermelon	1 0 2 0
 watermelons	1 0 2 0
 watermen	1 0 0
+waterpower	1 0 2 0
 waterproof	1 0 2
 waterproofing	1 0 2 0
 waters	1 0
 watershed	1 0 2
 watersheds	1 0 2
+waterside	1 0 2
 waterson	1 0 0
+waterspout	1 0 2
 waterstein	1 0 0
 waterston	1 0 0
 waterstone	1 0 2
@@ -105867,6 +106206,7 @@ watertown	1 0 2
 waterville	1 0 0
 waterway	1 0 2
 waterways	1 0 2
+waterwheel	1 0 2
 waterwork	1 0 2
 waterworks	1 0 2
 waterworld	1 0 2
@@ -105926,6 +106266,7 @@ waxing	1 0
 waxler	1 0
 waxman	1 0
 waxman's	1 0
+waxwork	1 2
 waxy	1 0
 wayans	1 0
 waybright	1 2
@@ -106014,6 +106355,7 @@ weavings	1 0
 webber	1 0
 webber's	1 0
 webbing	1 0
+webcast	1 2
 weber	1 0
 weber's	1 0
 weberg	1 0
@@ -106085,6 +106427,7 @@ weeklies	1 0
 weeklong	1 2
 weekly	1 0
 weekly's	1 0
+weeknight	1 2
 weeny	1 0
 weeping	1 0
 weepy	1 0
@@ -106678,6 +107021,7 @@ wheeler	1 0
 wheeler's	1 0
 wheelers	1 0
 wheeless	1 0
+wheelhouse	1 2
 wheeling	1 0
 wheeling's	1 0
 wheelis	1 0
@@ -106794,6 +107138,7 @@ whitchurch	1 2
 whitcomb	1 0
 whitcraft	1 2
 whiteaker	1 0 0
+whiteboard	1 2 0
 whitebread	1 2
 whitecotton	1 2 0
 whited	1 0
@@ -106813,6 +107158,7 @@ whitehurst	1 2
 whitehurst's	1 2
 whitelaw	1 2
 whiteley	1 0
+whitelist	1 2
 whitelock	1 2
 whitely	1 0
 whiteman	1 0
@@ -107398,6 +107744,8 @@ winchell's	1 0
 winchester	1 2 0
 wincing	1 0
 winckler	1 0
+windbreak	1 2
+windburn	1 2
 windchill	1 2
 windchime	1 2
 windchimes	1 2
@@ -107434,6 +107782,8 @@ windowless	1 0 0
 windowpane	1 0 2
 windowpanes	1 0 2
 windows	1 0
+windpipe	1 2
+windscreen	1 2
 windshield	1 2
 windshields	1 2
 windsor	1 0
@@ -107443,6 +107793,7 @@ windspeed	1 2
 windstar	1 2
 windstar's	1 2
 windstorm	1 2
+windsurfer	1 0 2
 windswept	1 2
 windup	1 2
 windward	1 0
@@ -107460,6 +107811,7 @@ wineland	1 0
 winema	1 0 0
 wineman	1 0
 winemiller	1 2 0
+winepress	1 2
 winer	1 0
 wineries	1 0 0
 winery	1 0 0
@@ -107595,6 +107947,7 @@ wiping	1 0
 wipperfurth	1 0 0
 wire	1 0
 wired	1 0
+wireframe	1 2
 wireless	1 0
 wireless's	1 0 0 0
 wireline	1 2
