@@ -852,7 +852,8 @@ void emitFramesEx(
     frameEx.fujisakiPhraseAmp = t.fujisakiPhraseAmp;
     frameEx.fujisakiPhraseLen = lang.fujisakiPhraseLen;  // 0 = DSP default
     frameEx.fujisakiAccentAmp = t.fujisakiAccentAmp;
-    frameEx.fujisakiAccentDur = lang.fujisakiAccentDur;  // 0 = DSP default
+    // Per-token accent duration: scale by monosyllable shortening factor.
+    frameEx.fujisakiAccentDur = lang.fujisakiAccentDur * t.fujisakiAccentDurScale;
     frameEx.fujisakiAccentLen = lang.fujisakiAccentLen;  // 0 = DSP default
 
     // Save frameEx for voice bar emission (keeps Fujisaki model alive during closures).

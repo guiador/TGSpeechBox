@@ -392,6 +392,22 @@ struct LanguagePack {
   double fujisakiAccentDur = 0.0;    // Accent pulse duration (samples)
   double fujisakiDeclinationRate = 0.0003;  // Exponential declination steepness (higher = steeper fall)
 
+  // Prominence-to-pitch curve exponent.  Default 1.0 = linear mapping.
+  // >1.0 compresses secondary stress (more contrast between primary/secondary).
+  // 1.4 recommended: prominence 0.6 → 0.49 instead of 0.60.
+  double fujisakiPitchCurveExponent = 1.0;
+
+  // Monosyllable accent duration scale.  Scales fujisakiAccentDur for
+  // single-nucleus content words to give them a shorter, punchier peak.
+  // 1.0 = no change, 0.7 = 30% shorter accent pulse.
+  double fujisakiMonoAccentDurScale = 1.0;
+
+  // Compound declination step.  When a secondary-stressed vowel follows
+  // a primary-stressed one in the same word, apply this pitch step-down
+  // (in log-F0 units) to reinforce primary-secondary contrast.
+  // 0.0 = off, 0.04-0.08 = subtle, 0.10+ = strong.
+  double fujisakiCompoundDeclinStep = 0.0;
+
   // DEPRECATED: These settings are unused by the exponential declination
   // implementation. Kept for YAML backward compatibility.
   double fujisakiPhraseDecay = 0.75;

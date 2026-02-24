@@ -476,6 +476,9 @@ getNum("primaryStressDiv", lp.primaryStressDiv);
   getNum("fujisakiAccentLen", lp.fujisakiAccentLen);
   getNum("fujisakiAccentDur", lp.fujisakiAccentDur);
   getNum("fujisakiDeclinationRate", lp.fujisakiDeclinationRate);
+  getNum("fujisakiPitchCurveExponent", lp.fujisakiPitchCurveExponent);
+  getNum("fujisakiMonoAccentDurScale", lp.fujisakiMonoAccentDurScale);
+  getNum("fujisakiCompoundDeclinStep", lp.fujisakiCompoundDeclinStep);
   getNum("fujisakiPhraseDecay", lp.fujisakiPhraseDecay);  // deprecated, kept for YAML compat
   getNum("fujisakiDeclinationScale", lp.fujisakiDeclinationScale);
   getNum("fujisakiDeclinationMax", lp.fujisakiDeclinationMax);

@@ -654,6 +654,15 @@ settings:
 
   legacyPitchMode: espeak_style
   legacyPitchInflectionScale: 0.56
+
+  # Fujisaki pitch model tuning (active when legacyPitchMode: fujisaki_style).
+  # Power curve: 1.4 compresses secondary stress for audible primary/secondary contrast.
+  fujisakiPitchCurveExponent: 1.4
+  # Monosyllable words get a shorter, punchier accent pulse (70% of normal).
+  fujisakiMonoAccentDurScale: 0.7
+  # Compound words: secondary syllable steps down from primary (log-F0 units).
+  fujisakiCompoundDeclinStep: 0.05
+
   singleWordClauseTypeOverrideCommaOnly: false
 normalization:
   preReplacements:

@@ -53,6 +53,15 @@ void applyPitchFujisaki(
   const double primaryAccentAmp = lang.fujisakiPrimaryAccentAmp * inflection;
   const double secondaryAccentAmp = lang.fujisakiSecondaryAccentAmp * inflection;
 
+  // Prominence-to-pitch curve shaping
+  const double pitchExp = std::max(0.1, lang.fujisakiPitchCurveExponent);
+
+  // Monosyllable accent duration scaling
+  const double monoAccDurScale = lang.fujisakiMonoAccentDurScale;
+
+  // Compound declination step (log-F0 units)
+  const double compoundStep = lang.fujisakiCompoundDeclinStep;
+
   // Accent mode: "all", "first_only", or "off"
   const std::string& accentMode = lang.fujisakiAccentMode;
   const bool accentsEnabled = (accentMode != "off");
@@ -153,6 +162,41 @@ void applyPitchFujisaki(
     }
   }
 
+  // Pre-pass: count vowel nuclei per word for monosyllable detection and
+  // compound boundary tracking.  wordNuclei[i] = nucleus count of the word
+  // containing token i.  wordHadPrimary[i] = true if a primary-stressed
+  // vowel appeared earlier in the same word.
+  std::vector<int> wordNuclei(tokens.size(), 0);
+  std::vector<bool> wordHadPrimary(tokens.size(), false);
+  {
+    size_t wordBegin = 0;
+    for (size_t i = 0; i <= tokens.size(); ++i) {
+      bool isEnd = (i == tokens.size()) ||
+                   (i > 0 && tokens[i].wordStart && !tokens[i].silence);
+      if (isEnd) {
+        // Count nuclei in [wordBegin, i)
+        int nuclei = 0;
+        bool seenPrimary = false;
+        for (size_t j = wordBegin; j < i; ++j) {
+          if (!tokens[j].silence && tokens[j].def && tokenIsVowel(tokens[j])) {
+            ++nuclei;
+          }
+        }
+        // Second pass: mark per-token nucleus count and primary tracking
+        bool primarySoFar = false;
+        for (size_t j = wordBegin; j < i; ++j) {
+          wordNuclei[j] = nuclei;
+          wordHadPrimary[j] = primarySoFar;
+          if (!tokens[j].silence && tokens[j].def && tokenIsVowel(tokens[j])
+              && tokens[j].prominence >= 0.9) {
+            primarySoFar = true;
+          }
+        }
+        if (i < tokens.size()) wordBegin = i;
+      }
+    }
+  }
+
   bool isFirstFrame = true;
   bool hadFirstAccent = false;  // Track if we've placed the first accent
   int pendingStress = 0;        // Stress carried from syllableStart to vowel nucleus
@@ -211,9 +255,23 @@ void applyPitchFujisaki(
           } else {
             shouldAccent = true;
           }
-          // Scale accent amplitude by prominence score.
-          // prominence 1.0 → primaryAccentAmp, 0.5 → half that, etc.
-          accentAmp = primaryAccentAmp * accentBoost * t.prominence;
+          // Improvement 1: Power curve on prominence for better contrast.
+          // pow(0.6, 1.4) ≈ 0.49 vs linear 0.60 — audible separation.
+          double shaped = pow(t.prominence, pitchExp);
+          accentAmp = primaryAccentAmp * accentBoost * shaped;
+
+          // Improvement 2: Monosyllable accent timing.
+          // Single-nucleus content words get a shorter, punchier accent.
+          if (monoAccDurScale < 1.0 && wordNuclei[i] == 1) {
+            t.fujisakiAccentDurScale = monoAccDurScale;
+          }
+
+          // Improvement 3: Compound declination step.
+          // Secondary-stressed vowel after primary in the same word →
+          // small pitch step-down to reinforce primary-secondary contrast.
+          if (compoundStep > 0.0 && wordHadPrimary[i] && t.prominence < 0.9) {
+            accentAmp = std::max(0.0, accentAmp - compoundStep);
+          }
         }
         pendingStress = 0;
       } else if (pendingStress != 0) {
