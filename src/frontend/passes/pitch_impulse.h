@@ -14,10 +14,10 @@ namespace nvsp_frontend {
 
 // Impulse-style pitch contour pass.
 //
-// Inspired by the Wintalker speech synthesizer's pitch model: linear
-// declination baseline with count-based additive stress peaks that decay
-// back to the baseline.  A two-pole IIR smoothing filter removes
-// discontinuities from the raw pitch targets.
+// Multi-layer additive pitch model: proportional declination ramp +
+// hat-pattern rise/fall around stressed words + count-based stress
+// peaks + terminal gestures.  Single-pass IIR smoothing preserves
+// contour shape.
 void applyPitchImpulse(
   std::vector<Token>& tokens,
   const PackSet& pack,

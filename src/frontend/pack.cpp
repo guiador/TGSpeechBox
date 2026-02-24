@@ -485,11 +485,17 @@ getNum("primaryStressDiv", lp.primaryStressDiv);
   getNum("fujisakiDeclinationPostFloor", lp.fujisakiDeclinationPostFloor);
 
   // Impulse pitch model parameters (used when legacyPitchMode = "impulse_style")
+  getNum("impulseDeclinationRangeHz", lp.impulseDeclinationRangeHz);
   getNum("impulseDeclinationHzPerSec", lp.impulseDeclinationHzPerSec);
+  getNum("impulseRiseHz", lp.impulseRiseHz);
+  getNum("impulseHatFallScale", lp.impulseHatFallScale);
   getNum("impulseFirstStressBoostHz", lp.impulseFirstStressBoostHz);
   getNum("impulseSecondStressBoostHz", lp.impulseSecondStressBoostHz);
   getNum("impulseThirdStressBoostHz", lp.impulseThirdStressBoostHz);
   getNum("impulseFourthStressBoostHz", lp.impulseFourthStressBoostHz);
+  getNum("impulseStressGain", lp.impulseStressGain);
+  getNum("impulseSecondaryStressScale", lp.impulseSecondaryStressScale);
+  getNum("impulseTerminalStressHz", lp.impulseTerminalStressHz);
   getNum("impulseQuestionReduction", lp.impulseQuestionReduction);
   getNum("impulseTerminalFallHz", lp.impulseTerminalFallHz);
   getNum("impulseContinuationRiseHz", lp.impulseContinuationRiseHz);

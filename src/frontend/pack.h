@@ -416,19 +416,46 @@ struct LanguagePack {
   double fujisakiDeclinationPostFloor = 0.15;
 
   // Impulse pitch model parameters (legacyPitchMode = "impulse_style").
-  // Linear declination + count-based stress impulses + boundary terminal
-  // gestures + two-pole lowpass smoothing.  Inspired by Wintalker.
+  // Multi-layer additive pitch model:
+  //   Layer 1: Proportional declination ramp across the clause
+  //   Layer 2: Hat-pattern rise/fall around stressed words
+  //   Layer 3: Count-based stress peaks on vowel nuclei
+  //   Layer 4: Terminal boundary gestures
+  // Single-pass IIR smoothing preserves contour shape.
+
+  // Proportional declination: total Hz range distributed across clause.
+  // Start = basePitch + range/2, End = basePitch - range/2.
+  // ~36Hz total gives natural-sounding decline for typical sentences.
+  double impulseDeclinationRangeHz = 36.0;
+  // Legacy fixed Hz/sec rate (used only if impulseDeclinationRangeHz <= 0).
   double impulseDeclinationHzPerSec = 12.0;
-  double impulseFirstStressBoostHz = 20.0;
-  double impulseSecondStressBoostHz = 9.0;
-  double impulseThirdStressBoostHz = 6.0;
-  double impulseFourthStressBoostHz = 4.0;
+
+  // Hat pattern: pitch rises at onset of words containing stressed vowels,
+  // falls at the next word boundary.  The fall exceeds the rise (via
+  // hatFallScale), creating a net decline that reinforces declination.
+  double impulseRiseHz = 10.0;
+  double impulseHatFallScale = 2.0;  // fall = riseHz * this (>1 = net decline)
+
+  // Stress peak table: additive Hz boost per stress occurrence.
+  // These are raw values before stressGain scaling.
+  double impulseFirstStressBoostHz = 24.0;
+  double impulseSecondStressBoostHz = 23.0;
+  double impulseThirdStressBoostHz = 20.0;
+  double impulseFourthStressBoostHz = 18.0;
+  double impulseStressGain = 0.6;          // default: 60%
+
+  // Secondary stress gets a fraction of primary stress boost.
+  double impulseSecondaryStressScale = 0.5;
+
+  // Terminal stressed vowel: pitch drops INSTEAD of boosting.
+  double impulseTerminalStressHz = -4.0;
+
   double impulseQuestionReduction = 0.5;
   double impulseTerminalFallHz = 20.0;
   double impulseContinuationRiseHz = 12.0;
   double impulseQuestionRiseHz = 25.0;
   double impulseAssertiveness = 1.0;
-  double impulseSmoothAlpha = 0.3;
+  double impulseSmoothAlpha = 0.55;  // higher = more responsive (was 0.3)
 
   // Klatt hat-pattern pitch model parameters (legacyPitchMode = "klatt_style").
   // Hat rise/plateau/fall, phrase-position stress table, glottal lowering.
