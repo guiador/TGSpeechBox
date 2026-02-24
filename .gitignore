@@ -25,6 +25,8 @@ signing.properties
 *.keystore
 *.jks
 *.p12
+*-service-account*.json
+src/platforms/android/upload_play.py
 
 # iOS
 src/platforms/ios/*.xcodeproj/xcuserdata/
