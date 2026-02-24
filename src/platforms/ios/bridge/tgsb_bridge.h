@@ -47,6 +47,28 @@ int tgsb_pull_audio(TgsbEngine *engine,
 
 void tgsb_stop(TgsbEngine *engine);
 
+/* --- Voice quality --- */
+void tgsb_set_voicing_tone(TgsbEngine *engine,
+    double voicedTiltDbPerOct,
+    double noiseGlottalModDepth,
+    double pitchSyncF1DeltaHz,
+    double pitchSyncB1DeltaHz,
+    double speedQuotient,
+    double aspirationTiltDbPerOct,
+    double cascadeBwScale,
+    double tremorDepth);
+
+void tgsb_set_frame_ex_defaults(TgsbEngine *engine,
+    double creakiness,
+    double breathiness,
+    double jitter,
+    double shimmer,
+    double sharpness);
+
+/* --- Pitch mode --- */
+int tgsb_set_pitch_mode(TgsbEngine *engine, const char *mode);
+void tgsb_set_legacy_pitch_inflection_scale(TgsbEngine *engine, double scale);
+
 /* --- Voice preset info --- */
 int tgsb_get_num_voices(void);
 const char *tgsb_get_voice_name(int index);

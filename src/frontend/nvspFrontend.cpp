@@ -872,4 +872,37 @@ NVSP_FRONTEND_API int nvspFrontend_saveVoiceProfileSliders(
   return 1;
 }
 
+NVSP_FRONTEND_API int nvspFrontend_setPitchMode(
+  nvspFrontend_handle_t handle,
+  const char* modeUtf8
+) {
+  using namespace nvsp_frontend;
+  Handle* h = asHandle(handle);
+  if (!h || !modeUtf8) return 0;
+
+  std::string mode = modeUtf8;
+  if (mode != "espeak_style" && mode != "legacy" &&
+      mode != "fujisaki_style" && mode != "impulse_style" &&
+      mode != "klatt_style") {
+    setError(h, "Unknown pitch mode: " + mode);
+    return 0;
+  }
+
+  std::lock_guard<std::mutex> lock(h->mu);
+  h->pack.lang.legacyPitchMode = mode;
+  return 1;
+}
+
+NVSP_FRONTEND_API void nvspFrontend_setLegacyPitchInflectionScale(
+  nvspFrontend_handle_t handle,
+  double scale
+) {
+  using namespace nvsp_frontend;
+  Handle* h = asHandle(handle);
+  if (!h) return;
+
+  std::lock_guard<std::mutex> lock(h->mu);
+  h->pack.lang.legacyPitchInflectionScale = scale;
+}
+
 } // extern "C"

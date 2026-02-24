@@ -1,7 +1,8 @@
 /*
  * ContentView.swift — Main UI for TGSpeechBox.
  *
- * Text input, language picker, voice picker, speed/pitch controls.
+ * Two-tab layout: Speak (text input + controls) and
+ * Engine Settings (voice quality sliders + volume).
  */
 
 import SwiftUI
@@ -13,12 +14,30 @@ struct ContentView: View {
     @State private var text = "Hello world. This is TGSpeechBox running on Apple."
     @State private var engineStarted = false
     @State private var errorMessage: String?
-    @State private var systemVolume: Double = {
-        let v = UserDefaults(suiteName: kAppGroupId)?.double(forKey: "systemVolume") ?? 0.0
-        return v > 0.0 ? v : 1.0
-    }()
 
     var body: some View {
+        TabView {
+            speakTab
+                .tabItem {
+                    Label("Speak", systemImage: "play.circle")
+                }
+
+            EngineSettingsView(engine: engine, engineStarted: $engineStarted)
+                .tabItem {
+                    Label("Engine", systemImage: "slider.horizontal.3")
+                }
+        }
+        #if os(macOS)
+        .frame(minWidth: 500, minHeight: 450)
+        #endif
+        .onDisappear {
+            engine.shutdown()
+        }
+    }
+
+    // MARK: - Speak tab
+
+    private var speakTab: some View {
         VStack(spacing: 16) {
             Text("TGSpeechBox")
                 .font(.largeTitle)
@@ -55,6 +74,7 @@ struct ContentView: View {
                     }
                 }
                 .accessibilityLabel("Language")
+                .accessibilityValue(engine.selectedLanguage.displayName)
                 #if os(macOS)
                 .frame(maxWidth: 200)
                 #endif
@@ -66,6 +86,7 @@ struct ContentView: View {
                     }
                 }
                 .accessibilityLabel("Voice")
+                .accessibilityValue(engine.selectedVoice.displayName)
                 #if os(macOS)
                 .frame(maxWidth: 150)
                 #endif
@@ -76,6 +97,7 @@ struct ContentView: View {
                 HStack {
                     Text("Speed: \(engine.speed, specifier: "%.1f")x")
                         .frame(width: 100, alignment: .leading)
+                        .accessibilityHidden(true)
                     Slider(value: $engine.speed, in: 0.3...3.0, step: 0.1)
                         .accessibilityLabel("Speed")
                         .accessibilityValue("\(engine.speed, specifier: "%.1f") times")
@@ -83,19 +105,10 @@ struct ContentView: View {
                 HStack {
                     Text("Pitch: \(Int(engine.pitch)) Hz")
                         .frame(width: 100, alignment: .leading)
+                        .accessibilityHidden(true)
                     Slider(value: $engine.pitch, in: 40...300, step: 5)
                         .accessibilityLabel("Pitch")
                         .accessibilityValue("\(Int(engine.pitch)) hertz")
-                }
-                HStack {
-                    Text("Volume: \(Int(systemVolume * 100))%")
-                        .frame(width: 100, alignment: .leading)
-                    Slider(value: $systemVolume, in: 0.1...1.0, step: 0.05)
-                        .accessibilityLabel("System voice volume")
-                        .accessibilityValue("\(Int(systemVolume * 100)) percent")
-                        .onChange(of: systemVolume) { newValue in
-                            UserDefaults(suiteName: kAppGroupId)?.set(newValue, forKey: "systemVolume")
-                        }
                 }
             }
 
@@ -135,11 +148,5 @@ struct ContentView: View {
             .buttonStyle(.borderedProminent)
         }
         .padding(20)
-        #if os(macOS)
-        .frame(minWidth: 400, minHeight: 350)
-        #endif
-        .onDisappear {
-            engine.shutdown()
-        }
     }
 }

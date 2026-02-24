@@ -122,6 +122,17 @@ struct TgsbEngine {
     int sampleRate;
     volatile int stopRequested;
     int voiceIndex;
+
+    /* User VoicingTone overrides (applied on top of voice preset defaults) */
+    int hasUserTone;
+    double userVoicedTiltDbPerOct;
+    double userNoiseGlottalModDepth;
+    double userPitchSyncF1DeltaHz;
+    double userPitchSyncB1DeltaHz;
+    double userSpeedQuotient;
+    double userAspirationTiltDbPerOct;
+    double userCascadeBwScale;
+    double userTremorDepth;
 };
 
 /* Frame callback context */
@@ -345,6 +356,67 @@ const char *tgsb_get_voice_name(int index)
 {
     if (index < 0 || index >= kNumPresets) return NULL;
     return kPresets[index].name;
+}
+
+void tgsb_set_voicing_tone(TgsbEngine *engine,
+    double voicedTiltDbPerOct,
+    double noiseGlottalModDepth,
+    double pitchSyncF1DeltaHz,
+    double pitchSyncB1DeltaHz,
+    double speedQuotient,
+    double aspirationTiltDbPerOct,
+    double cascadeBwScale,
+    double tremorDepth)
+{
+    if (!engine || !engine->player) return;
+
+    engine->hasUserTone = 1;
+    engine->userVoicedTiltDbPerOct = voicedTiltDbPerOct;
+    engine->userNoiseGlottalModDepth = noiseGlottalModDepth;
+    engine->userPitchSyncF1DeltaHz = pitchSyncF1DeltaHz;
+    engine->userPitchSyncB1DeltaHz = pitchSyncB1DeltaHz;
+    engine->userSpeedQuotient = speedQuotient;
+    engine->userAspirationTiltDbPerOct = aspirationTiltDbPerOct;
+    engine->userCascadeBwScale = cascadeBwScale;
+    engine->userTremorDepth = tremorDepth;
+
+    speechPlayer_voicingTone_t tone = speechPlayer_getDefaultVoicingTone();
+    const VoicePreset *vp = &kPresets[engine->voiceIndex];
+    if (vp->hasVoicedTilt)
+        tone.voicedTiltDbPerOct = vp->voicedTiltDbPerOct;
+
+    tone.voicedTiltDbPerOct += voicedTiltDbPerOct;
+    tone.noiseGlottalModDepth = noiseGlottalModDepth;
+    tone.pitchSyncF1DeltaHz = pitchSyncF1DeltaHz;
+    tone.pitchSyncB1DeltaHz = pitchSyncB1DeltaHz;
+    tone.speedQuotient = speedQuotient;
+    tone.aspirationTiltDbPerOct = aspirationTiltDbPerOct;
+    tone.cascadeBwScale = cascadeBwScale;
+    tone.tremorDepth = tremorDepth;
+
+    speechPlayer_setVoicingTone(engine->player, &tone);
+}
+
+void tgsb_set_frame_ex_defaults(TgsbEngine *engine,
+    double creakiness, double breathiness,
+    double jitter, double shimmer, double sharpness)
+{
+    if (!engine || !engine->frontend) return;
+    nvspFrontend_setFrameExDefaults(
+        engine->frontend,
+        creakiness, breathiness, jitter, shimmer, sharpness);
+}
+
+int tgsb_set_pitch_mode(TgsbEngine *engine, const char *mode)
+{
+    if (!engine || !engine->frontend || !mode) return 0;
+    return nvspFrontend_setPitchMode(engine->frontend, mode);
+}
+
+void tgsb_set_legacy_pitch_inflection_scale(TgsbEngine *engine, double scale)
+{
+    if (!engine || !engine->frontend) return;
+    nvspFrontend_setLegacyPitchInflectionScale(engine->frontend, scale);
 }
 
 } /* extern "C" */

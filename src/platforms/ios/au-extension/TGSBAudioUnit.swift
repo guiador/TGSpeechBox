@@ -179,6 +179,7 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
         // Synchronous: generate all audio, then hand to render block.
         tgsb_set_voice(eng, voiceName)
         tgsb_set_language(eng, espeakLang, tgsbLang)
+        applyEngineSettings(eng)
         tgsb_queue_text(eng, plainText, speed, pitch)
 
         var samples: [Float32] = []
@@ -259,6 +260,60 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
             self.outputMutex.signal()
             return noErr
         }
+    }
+
+    // MARK: - Engine Settings from AppGroup
+
+    private func applyEngineSettings(_ eng: OpaquePointer) {
+        let d = UserDefaults(suiteName: "group.com.tgspeechbox.app")
+
+        func load(_ key: String, _ dflt: Double) -> Double {
+            guard let d = d, d.object(forKey: "adv_\(key)") != nil
+            else { return dflt }
+            return d.double(forKey: "adv_\(key)")
+        }
+
+        // VoicingTone: convert 0–100 sliders to engine parameters
+        let voiceTilt      = load("voiceTilt", 50)
+        let speedQuotient  = load("speedQuotient", 50)
+        let aspirationTilt = load("aspirationTilt", 50)
+        let cascadeBwScale = load("cascadeBwScale", 50)
+        let noiseGlottalMod = load("noiseGlottalMod", 0)
+        let pitchSyncF1    = load("pitchSyncF1", 50)
+        let pitchSyncB1    = load("pitchSyncB1", 50)
+        let voiceTremor    = load("voiceTremor", 0)
+
+        let tilt     = (voiceTilt - 50.0) * (24.0 / 50.0)
+        let noiseMod = noiseGlottalMod / 100.0
+        let psF1     = (pitchSyncF1 - 50.0) * 1.2
+        let psB1     = (pitchSyncB1 - 50.0) * 1.0
+        let sq       = speedQuotient <= 50.0
+            ? 0.5 + (speedQuotient / 50.0) * 1.5
+            : 2.0 + ((speedQuotient - 50.0) / 50.0) * 2.0
+        let aspTilt  = (aspirationTilt - 50.0) * 0.24
+        let bw       = cascadeBwScale <= 50.0
+            ? 2.0 - (cascadeBwScale / 50.0) * 1.1
+            : 0.9 - ((cascadeBwScale - 50.0) / 50.0) * 0.6
+        let tremor   = (voiceTremor / 100.0) * 0.4
+
+        tgsb_set_voicing_tone(eng, tilt, noiseMod, psF1, psB1,
+                              sq, aspTilt, bw, tremor)
+
+        // FrameEx: convert 0–100 sliders to engine parameters
+        let creak    = load("creakiness", 0) / 100.0
+        let breath   = load("breathiness", 0) / 100.0
+        let jit      = load("jitter", 0) / 100.0
+        let shim     = load("shimmer", 0) / 100.0
+        let sharp    = load("glottalSharpness", 50) / 50.0
+
+        tgsb_set_frame_ex_defaults(eng, creak, breath, jit, shim, sharp)
+
+        // Pitch mode
+        let mode = d?.string(forKey: "adv_pitchMode") ?? "espeak_style"
+        tgsb_set_pitch_mode(eng, mode)
+
+        let inflScale = load("inflectionScale", 58) / 100.0
+        tgsb_set_legacy_pitch_inflection_scale(eng, inflScale)
     }
 
     // MARK: - Helpers

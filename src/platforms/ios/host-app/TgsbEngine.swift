@@ -120,6 +120,94 @@ class TgsbEngine: ObservableObject {
         }
     }
 
+    // MARK: - Engine settings (voice quality sliders)
+
+    /// Apply VoicingTone from 0–100 slider values.
+    func applyVoicingToneFromSliders(
+        voiceTilt: Double, speedQuotient sq: Double,
+        aspirationTilt: Double, cascadeBwScale bw: Double,
+        noiseGlottalMod: Double, pitchSyncF1: Double,
+        pitchSyncB1: Double, voiceTremor: Double
+    ) {
+        guard let eng = engine else { return }
+
+        let tilt     = (voiceTilt - 50.0) * (24.0 / 50.0)
+        let noiseMod = noiseGlottalMod / 100.0
+        let psF1     = (pitchSyncF1 - 50.0) * 1.2
+        let psB1     = (pitchSyncB1 - 50.0) * 1.0
+        let sqVal    = sq <= 50.0
+            ? 0.5 + (sq / 50.0) * 1.5
+            : 2.0 + ((sq - 50.0) / 50.0) * 2.0
+        let aspTilt  = (aspirationTilt - 50.0) * 0.24
+        let bwVal    = bw <= 50.0
+            ? 2.0 - (bw / 50.0) * 1.1
+            : 0.9 - ((bw - 50.0) / 50.0) * 0.6
+        let tremor   = (voiceTremor / 100.0) * 0.4
+
+        tgsb_set_voicing_tone(eng, tilt, noiseMod, psF1, psB1,
+                              sqVal, aspTilt, bwVal, tremor)
+    }
+
+    /// Apply FrameEx defaults from 0–100 slider values.
+    func applyFrameExFromSliders(
+        creakiness: Double, breathiness: Double,
+        jitter: Double, shimmer: Double,
+        glottalSharpness: Double
+    ) {
+        guard let eng = engine else { return }
+        tgsb_set_frame_ex_defaults(eng,
+            creakiness / 100.0,
+            breathiness / 100.0,
+            jitter / 100.0,
+            shimmer / 100.0,
+            glottalSharpness / 50.0)
+    }
+
+    /// Set pitch intonation model.
+    func setPitchMode(_ mode: String) {
+        guard let eng = engine else { return }
+        tgsb_set_pitch_mode(eng, mode)
+    }
+
+    /// Set legacy pitch inflection scale (0.0–2.0).
+    func setInflectionScale(_ scale: Double) {
+        guard let eng = engine else { return }
+        tgsb_set_legacy_pitch_inflection_scale(eng, scale)
+    }
+
+    /// Read all adv_* settings from AppGroup UserDefaults and apply.
+    func applyEngineSettings() {
+        guard engine != nil else { return }
+        let d = UserDefaults(suiteName: kAppGroupId)
+
+        func load(_ key: String, _ dflt: Double) -> Double {
+            guard let d = d, d.object(forKey: "adv_\(key)") != nil
+            else { return dflt }
+            return d.double(forKey: "adv_\(key)")
+        }
+
+        applyVoicingToneFromSliders(
+            voiceTilt: load("voiceTilt", 50),
+            speedQuotient: load("speedQuotient", 50),
+            aspirationTilt: load("aspirationTilt", 50),
+            cascadeBwScale: load("cascadeBwScale", 50),
+            noiseGlottalMod: load("noiseGlottalMod", 0),
+            pitchSyncF1: load("pitchSyncF1", 50),
+            pitchSyncB1: load("pitchSyncB1", 50),
+            voiceTremor: load("voiceTremor", 0))
+
+        applyFrameExFromSliders(
+            creakiness: load("creakiness", 0),
+            breathiness: load("breathiness", 0),
+            jitter: load("jitter", 0),
+            shimmer: load("shimmer", 0),
+            glottalSharpness: load("glottalSharpness", 50))
+
+        let mode = d?.string(forKey: "adv_pitchMode") ?? "espeak_style"
+        setPitchMode(mode)
+        setInflectionScale(load("inflectionScale", 58) / 100.0)
+    }
+
     func speak(_ text: String) {
         guard let eng = engine else { return }
         stopSpeaking()
@@ -129,6 +217,7 @@ class TgsbEngine: ObservableObject {
                           selectedLanguage.espeakTag,
                           selectedLanguage.tgsbTag)
         tgsb_set_voice(eng, selectedVoice.id)
+        applyEngineSettings()
 
         isSpeaking = true
 
