@@ -1,0 +1,4 @@
+STORE_FILE=path/to/your.keystore
+STORE_PASSWORD=changeme
+KEY_ALIAS=changeme
+KEY_PASSWORD=changeme

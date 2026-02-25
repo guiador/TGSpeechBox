@@ -1,0 +1,736 @@
+/*
+ * tgsb_jni.cpp — JNI bridge for Android TTS Service.
+ *
+ * Full pipeline: text → eSpeak IPA → nvspFrontend → speechPlayer → PCM
+ *
+ * License: GPL-3.0 (links eSpeak-ng GPL code with TGSpeechBox MIT code;
+ *          combined binary is GPL-3.0 per copyleft rules)
+ */
+
+#include <jni.h>
+#include <android/log.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+#include <math.h>
+
+#include <espeak-ng/speak_lib.h>
+#include "speechPlayer.h"
+#include "nvspFrontend.h"
+
+#define TAG "TgsbJNI"
+#define LOGI(...) __android_log_print(ANDROID_LOG_INFO, TAG, __VA_ARGS__)
+#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, TAG, __VA_ARGS__)
+
+/* ------------------------------------------------------------------ */
+/* Voice presets                                                       */
+/* ------------------------------------------------------------------ */
+
+typedef struct {
+    size_t offset;    /* offsetof the double field in speechPlayer_frame_t */
+    double value;
+    int isMultiplier; /* 1 = multiply, 0 = override */
+} FrameOverride;
+
+typedef struct {
+    const char *name;
+    const FrameOverride *overrides;
+    int numOverrides;
+    /* VoicingTone delta (applied on top of defaults) */
+    double voicedTiltDbPerOct;
+    int hasVoicedTilt;
+} VoicePreset;
+
+#define OFF(field) offsetof(speechPlayer_frame_t, field)
+
+static const FrameOverride kAdamOverrides[] = {
+    { OFF(cb1), 1.3, 1 },
+    { OFF(pa6), 1.3, 1 },
+    { OFF(fricationAmplitude), 0.85, 1 },
+};
+
+static const FrameOverride kBenjaminOverrides[] = {
+    { OFF(cf1), 1.01, 1 },
+    { OFF(cf2), 1.02, 1 },
+    { OFF(cf4), 3770.0, 0 },
+    { OFF(cf5), 4100.0, 0 },
+    { OFF(cf6), 5000.0, 0 },
+    { OFF(cfNP), 0.9, 1 },
+    { OFF(cb1), 1.3, 1 },
+    { OFF(fricationAmplitude), 0.7, 1 },
+    { OFF(pa6), 1.3, 1 },
+};
+
+static const FrameOverride kCalebOverrides[] = {
+    { OFF(aspirationAmplitude), 1.0, 0 },
+    { OFF(voiceAmplitude), 0.0, 0 },
+};
+
+static const FrameOverride kDavidOverrides[] = {
+    { OFF(voicePitch), 0.75, 1 },
+    { OFF(endVoicePitch), 0.75, 1 },
+    { OFF(cf1), 0.75, 1 },
+    { OFF(cf2), 0.85, 1 },
+    { OFF(cf3), 0.85, 1 },
+};
+
+static const FrameOverride kRobertOverrides[] = {
+    { OFF(voicePitch), 1.10, 1 },
+    { OFF(endVoicePitch), 1.10, 1 },
+    { OFF(cf1), 1.02, 1 }, { OFF(cf2), 1.06, 1 }, { OFF(cf3), 1.08, 1 },
+    { OFF(cf4), 1.08, 1 }, { OFF(cf5), 1.10, 1 }, { OFF(cf6), 1.05, 1 },
+    { OFF(cb1), 0.65, 1 }, { OFF(cb2), 0.68, 1 }, { OFF(cb3), 0.72, 1 },
+    { OFF(cb4), 0.75, 1 }, { OFF(cb5), 0.78, 1 }, { OFF(cb6), 0.80, 1 },
+    { OFF(glottalOpenQuotient), 0.30, 0 },
+    { OFF(voiceTurbulenceAmplitude), 0.20, 1 },
+    { OFF(fricationAmplitude), 0.75, 1 },
+    { OFF(parallelBypass), 0.70, 1 },
+    { OFF(pa3), 1.08, 1 }, { OFF(pa4), 1.15, 1 },
+    { OFF(pa5), 1.20, 1 }, { OFF(pa6), 1.25, 1 },
+    { OFF(pb1), 0.72, 1 }, { OFF(pb2), 0.75, 1 }, { OFF(pb3), 0.78, 1 },
+    { OFF(pb4), 0.80, 1 }, { OFF(pb5), 0.82, 1 }, { OFF(pb6), 0.85, 1 },
+    { OFF(pf3), 1.06, 1 }, { OFF(pf4), 1.08, 1 },
+    { OFF(pf5), 1.10, 1 }, { OFF(pf6), 1.00, 1 },
+};
+
+#define PRESET(name, arr, tilt, hasTilt) \
+    { name, arr, sizeof(arr)/sizeof(arr[0]), tilt, hasTilt }
+
+static const VoicePreset kPresets[] = {
+    PRESET("adam",     kAdamOverrides,     0.0,  0),
+    PRESET("benjamin", kBenjaminOverrides, 0.0,  0),
+    PRESET("caleb",    kCalebOverrides,    0.0,  0),
+    PRESET("david",    kDavidOverrides,    0.0,  0),
+    PRESET("robert",   kRobertOverrides,  -6.0,  1),
+};
+static const int kNumPresets = sizeof(kPresets) / sizeof(kPresets[0]);
+
+static void applyOverrides(speechPlayer_frame_t *f,
+                           const FrameOverride *ov, int count) {
+    for (int i = 0; i < count; i++) {
+        double *field = (double *)((char *)f + ov[i].offset);
+        if (ov[i].isMultiplier)
+            *field *= ov[i].value;
+        else
+            *field = ov[i].value;
+    }
+}
+
+/* ------------------------------------------------------------------ */
+/* Engine instance                                                     */
+/* ------------------------------------------------------------------ */
+
+typedef struct {
+    speechPlayer_handle_t player;
+    nvspFrontend_handle_t frontend;
+    int sampleRate;
+    volatile int stopRequested;
+    int voiceIndex;
+
+    /* User VoicingTone overrides (deltas from voice preset defaults).
+     * Applied on top of the preset in nativeApplyVoicingTone(). */
+    int hasUserTone;
+    double userVoicedTiltDbPerOct;
+    double userNoiseGlottalModDepth;
+    double userPitchSyncF1DeltaHz;
+    double userPitchSyncB1DeltaHz;
+    double userSpeedQuotient;
+    double userAspirationTiltDbPerOct;
+    double userCascadeBwScale;
+    double userTremorDepth;
+} TgsbEngine;
+
+/* Frame callback context */
+typedef struct {
+    TgsbEngine *engine;
+    int frameCount;
+} FrameCtx;
+
+static void onFrame(
+    void *userData,
+    const nvspFrontend_Frame *frameOrNull,
+    const nvspFrontend_FrameEx *frameExOrNull,
+    double durationMs,
+    double fadeMs,
+    int userIndex
+) {
+    FrameCtx *ctx = (FrameCtx *)userData;
+    if (!ctx || !ctx->engine || !ctx->engine->player) return;
+
+    int sr = ctx->engine->sampleRate;
+    unsigned int minSamples = durationMs > 0.0
+        ? (unsigned int)(durationMs * sr / 1000.0 + 0.5) : 0;
+    unsigned int fadeSamples = fadeMs > 0.0
+        ? (unsigned int)(fadeMs * sr / 1000.0 + 0.5) : 0;
+
+    if (frameOrNull) {
+        speechPlayer_frame_t f;
+        memcpy(&f, frameOrNull, sizeof(f));
+
+        /* Apply voice preset overrides */
+        const VoicePreset *vp = &kPresets[ctx->engine->voiceIndex];
+        applyOverrides(&f, vp->overrides, vp->numOverrides);
+
+        if (frameExOrNull) {
+            speechPlayer_queueFrameEx(ctx->engine->player, &f,
+                (const speechPlayer_frameEx_t *)frameExOrNull,
+                (unsigned int)sizeof(nvspFrontend_FrameEx),
+                minSamples, fadeSamples, userIndex, 0);
+        } else {
+            speechPlayer_queueFrame(ctx->engine->player, &f,
+                minSamples, fadeSamples, userIndex, 0);
+        }
+    } else {
+        speechPlayer_queueFrame(ctx->engine->player, NULL,
+            minSamples, fadeSamples, userIndex, 0);
+    }
+    ctx->frameCount++;
+}
+
+/* ------------------------------------------------------------------ */
+/* Clause splitting + IPA synthesis                                    */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Pre-split text at clause boundaries (. ? ! , ; :) then feed each
+ * clause to eSpeak individually, tagging it with the correct clause
+ * type for prosody.  This mirrors the NVDA driver, which pre-splits
+ * rather than relying on eSpeak's opaque clause chunking.
+ */
+static void synthesizeClauses(TgsbEngine *engine,
+                              const char *text,
+                              double speed, double basePitch,
+                              nvspFrontend_FrameExCallback cb,
+                              FrameCtx *ctx)
+{
+    const char *p = text;
+    while (*p && !engine->stopRequested) {
+        /* skip leading whitespace */
+        while (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n') p++;
+        if (!*p) break;
+
+        /* scan forward to find next clause boundary */
+        const char *clauseStart = p;
+        char clauseType = '.';   /* default if no punctuation found */
+        while (*p) {
+            char c = *p;
+            if (c == '.' || c == '?' || c == '!' || c == ',') {
+                clauseType = c;
+                p++;
+                break;
+            }
+            /* colon/semicolon only split when followed by whitespace
+             * (avoids splitting times like "5:44" or ratios like "3:1") */
+            if (c == ';' || c == ':') {
+                char next = *(p + 1);
+                if (next == ' ' || next == '\t' || next == '\r' ||
+                    next == '\n' || next == '\0') {
+                    clauseType = ',';
+                    p++;
+                    break;
+                }
+            }
+            p++;
+        }
+        /* if we hit end-of-string without punctuation, p is at '\0' */
+
+        /* copy clause into a NUL-terminated buffer */
+        size_t len = (size_t)(p - clauseStart);
+        if (len == 0) continue;
+
+        char *clause = (char *)malloc(len + 1);
+        if (!clause) continue;
+        memcpy(clause, clauseStart, len);
+        clause[len] = '\0';
+
+        /* eSpeak → IPA for this clause */
+        const void *ePtr = clause;
+        while (ePtr && *(const char *)ePtr && !engine->stopRequested) {
+            const char *ipa = espeak_TextToPhonemes(
+                &ePtr, espeakCHARS_UTF8, 0x02 /* IPA */);
+            if (!ipa || !*ipa) continue;
+
+            char clauseStr[2] = { clauseType, 0 };
+            nvspFrontend_queueIPA_Ex(
+                engine->frontend, ipa,
+                speed, basePitch, 0.5, clauseStr, 0,
+                cb, ctx
+            );
+        }
+        free(clause);
+    }
+}
+
+/* ------------------------------------------------------------------ */
+/* JNI functions                                                       */
+/* ------------------------------------------------------------------ */
+
+extern "C" {
+
+JNIEXPORT jlong JNICALL
+Java_com_tgspeechbox_tts_TgsbTtsService_nativeCreate(
+    JNIEnv *env, jobject thiz,
+    jstring espeakDataPath, jstring packDirPath, jint sampleRate
+) {
+    const char *dataPath = env->GetStringUTFChars(espeakDataPath, NULL);
+    const char *packDir  = env->GetStringUTFChars(packDirPath, NULL);
+
+    LOGI("nativeCreate: espeakData=%s packDir=%s sr=%d", dataPath, packDir, sampleRate);
+
+    /* Initialize eSpeak */
+    int espeakSr = espeak_Initialize(AUDIO_OUTPUT_SYNCHRONOUS, 0, dataPath, 0);
+    if (espeakSr <= 0) {
+        LOGE("espeak_Initialize failed: %d", espeakSr);
+        env->ReleaseStringUTFChars(espeakDataPath, dataPath);
+        env->ReleaseStringUTFChars(packDirPath, packDir);
+        return 0;
+    }
+    {
+        espeak_VOICE voice_spec;
+        memset(&voice_spec, 0, sizeof(voice_spec));
+        voice_spec.languages = "en-us";
+        espeak_SetVoiceByProperties(&voice_spec);
+    }
+    LOGI("eSpeak initialized (sr=%d)", espeakSr);
+
+    /* Create TGSpeechBox components */
+    speechPlayer_handle_t player = speechPlayer_initialize(sampleRate);
+    nvspFrontend_handle_t fe = nvspFrontend_create(packDir);
+    if (!fe) {
+        LOGE("nvspFrontend_create failed");
+        speechPlayer_terminate(player);
+        espeak_Terminate();
+        env->ReleaseStringUTFChars(espeakDataPath, dataPath);
+        env->ReleaseStringUTFChars(packDirPath, packDir);
+        return 0;
+    }
+    int langOk = nvspFrontend_setLanguage(fe, "en-us");
+    LOGI("nvspFrontend created, setLanguage('en-us')=%d", langOk);
+
+    /* Set default voicing tone */
+    speechPlayer_voicingTone_t tone = speechPlayer_getDefaultVoicingTone();
+    speechPlayer_setVoicingTone(player, &tone);
+
+    TgsbEngine *engine = (TgsbEngine *)calloc(1, sizeof(TgsbEngine));
+    engine->player = player;
+    engine->frontend = fe;
+    engine->sampleRate = sampleRate;
+    engine->stopRequested = 0;
+    engine->voiceIndex = 0; /* Adam */
+
+    env->ReleaseStringUTFChars(espeakDataPath, dataPath);
+    env->ReleaseStringUTFChars(packDirPath, packDir);
+
+    LOGI("Engine ready (handle=%p)", (void *)engine);
+    return (jlong)(intptr_t)engine;
+}
+
+JNIEXPORT void JNICALL
+Java_com_tgspeechbox_tts_TgsbTtsService_nativeDestroy(
+    JNIEnv *env, jobject thiz, jlong handle
+) {
+    TgsbEngine *engine = (TgsbEngine *)(intptr_t)handle;
+    if (!engine) return;
+
+    if (engine->frontend) nvspFrontend_destroy(engine->frontend);
+    if (engine->player) speechPlayer_terminate(engine->player);
+    espeak_Terminate();
+    free(engine);
+    LOGI("Engine destroyed");
+}
+
+JNIEXPORT void JNICALL
+Java_com_tgspeechbox_tts_TgsbTtsService_nativeSetVoice(
+    JNIEnv *env, jobject thiz, jlong handle, jstring voiceName
+) {
+    TgsbEngine *engine = (TgsbEngine *)(intptr_t)handle;
+    if (!engine) return;
+
+    const char *name = env->GetStringUTFChars(voiceName, NULL);
+    for (int i = 0; i < kNumPresets; i++) {
+        if (strcmp(kPresets[i].name, name) == 0) {
+            engine->voiceIndex = i;
+
+            /* Apply VoicingTone changes for this preset */
+            speechPlayer_voicingTone_t tone = speechPlayer_getDefaultVoicingTone();
+            if (kPresets[i].hasVoicedTilt)
+                tone.voicedTiltDbPerOct = kPresets[i].voicedTiltDbPerOct;
+            speechPlayer_setVoicingTone(engine->player, &tone);
+
+            LOGI("Voice set to: %s (index=%d)", name, i);
+            break;
+        }
+    }
+    env->ReleaseStringUTFChars(voiceName, name);
+}
+
+/*
+ * nativeQueueText — Phase 1: text → IPA → frames (fast, <10ms).
+ * Queues frames into speechPlayer; audio can be pulled immediately after.
+ */
+JNIEXPORT void JNICALL
+Java_com_tgspeechbox_tts_TgsbTtsService_nativeQueueText(
+    JNIEnv *env, jobject thiz,
+    jlong handle, jstring text, jint speechRate, jint pitch
+) {
+    TgsbEngine *engine = (TgsbEngine *)(intptr_t)handle;
+    if (!engine || !engine->player || !engine->frontend) return;
+
+    engine->stopRequested = 0;
+
+    /* Purge any stale frames from previous utterance so they don't
+     * leak into the start of the new one on interruption. */
+    speechPlayer_queueFrame(engine->player, NULL, 0, 0, -1, true);
+
+    const char *textChars = env->GetStringUTFChars(text, NULL);
+    if (!textChars || !*textChars) {
+        if (textChars) env->ReleaseStringUTFChars(text, textChars);
+        return;
+    }
+
+    /* Map Android rate/pitch to TGSpeechBox params */
+    double speed = (double)speechRate / 100.0;
+    if (speed < 0.1) speed = 0.1;
+    if (speed > 5.0) speed = 5.0;
+
+    double basePitch = 110.0 * ((double)pitch / 100.0);
+    if (basePitch < 40.0) basePitch = 40.0;
+    if (basePitch > 500.0) basePitch = 500.0;
+
+    FrameCtx ctx;
+    ctx.engine = engine;
+    ctx.frameCount = 0;
+
+    synthesizeClauses(engine, textChars, speed, basePitch, onFrame, &ctx);
+    env->ReleaseStringUTFChars(text, textChars);
+}
+
+/*
+ * nativePullAudio — Phase 2: pull PCM in small chunks (streaming).
+ * Call in a loop until it returns 0. Each call fills outBuffer with
+ * s16le PCM and returns bytes written.
+ */
+JNIEXPORT jint JNICALL
+Java_com_tgspeechbox_tts_TgsbTtsService_nativePullAudio(
+    JNIEnv *env, jobject thiz,
+    jlong handle, jbyteArray outBuffer, jint maxBytes
+) {
+    TgsbEngine *engine = (TgsbEngine *)(intptr_t)handle;
+    if (!engine || !engine->player || engine->stopRequested) return 0;
+
+    /* maxBytes → max samples (2 bytes per sample) */
+    int maxSamples = maxBytes / 2;
+    if (maxSamples <= 0) return 0;
+    if (maxSamples > 4096) maxSamples = 4096;
+
+    sample buf[4096];
+    int n = speechPlayer_synthesize(engine->player,
+                                    (unsigned int)maxSamples, buf);
+    if (n <= 0) return 0;
+
+    /* Convert sample structs to raw s16le bytes with volume boost.
+     * TGSpeechBox output is conservative (~60% headroom); scale up
+     * so the engine sits at a normal volume without the user having
+     * to crank accessibility volume. */
+    static const double kGain = 3.0;
+    int16_t pcm[4096];
+    for (int i = 0; i < n; i++) {
+        double s = buf[i].value * kGain;
+        if (s > 32767.0) s = 32767.0;
+        if (s < -32767.0) s = -32767.0;
+        pcm[i] = (int16_t)s;
+    }
+
+    int byteLen = n * 2;
+    env->SetByteArrayRegion(outBuffer, 0, byteLen, (jbyte *)pcm);
+    return byteLen;
+}
+
+JNIEXPORT void JNICALL
+Java_com_tgspeechbox_tts_TgsbTtsService_nativeStop(
+    JNIEnv *env, jobject thiz, jlong handle
+) {
+    TgsbEngine *engine = (TgsbEngine *)(intptr_t)handle;
+    if (engine) engine->stopRequested = 1;
+}
+
+JNIEXPORT jint JNICALL
+Java_com_tgspeechbox_tts_TgsbTtsService_nativeSetLanguage(
+    JNIEnv *env, jobject thiz, jlong handle,
+    jstring espeakLang, jstring tgsbLang
+) {
+    TgsbEngine *engine = (TgsbEngine *)(intptr_t)handle;
+    if (!engine) return -1;
+
+    const char *eLang = env->GetStringUTFChars(espeakLang, NULL);
+    const char *tLang = env->GetStringUTFChars(tgsbLang, NULL);
+
+    int result = 0;
+    {
+        espeak_VOICE voice_spec;
+        memset(&voice_spec, 0, sizeof(voice_spec));
+        voice_spec.languages = eLang;
+        espeak_ERROR err = espeak_SetVoiceByProperties(&voice_spec);
+        if (err != EE_OK) {
+            LOGE("espeak_SetVoiceByProperties failed for '%s': error=%d",
+                 eLang, (int)err);
+            result = -1;
+        }
+    }
+    int langOk = nvspFrontend_setLanguage(engine->frontend, tLang);
+    if (!langOk) {
+        LOGE("nvspFrontend_setLanguage failed for '%s'", tLang);
+        result = -1;
+    }
+
+    LOGI("Language set: espeak=%s tgsb=%s (frontendOk=%d result=%d)",
+         eLang, tLang, langOk, result);
+
+    env->ReleaseStringUTFChars(espeakLang, eLang);
+    env->ReleaseStringUTFChars(tgsbLang, tLang);
+    return result;
+}
+
+/* ------------------------------------------------------------------ */
+/* Voice quality settings (shared by Service + Standalone)              */
+/* ------------------------------------------------------------------ */
+
+static void applyVoicingTone(TgsbEngine *engine,
+    double voicedTiltDbPerOct, double noiseGlottalModDepth,
+    double pitchSyncF1DeltaHz, double pitchSyncB1DeltaHz,
+    double speedQuotient, double aspirationTiltDbPerOct,
+    double cascadeBwScale, double tremorDepth)
+{
+    if (!engine || !engine->player) return;
+
+    engine->hasUserTone = 1;
+    engine->userVoicedTiltDbPerOct = voicedTiltDbPerOct;
+    engine->userNoiseGlottalModDepth = noiseGlottalModDepth;
+    engine->userPitchSyncF1DeltaHz = pitchSyncF1DeltaHz;
+    engine->userPitchSyncB1DeltaHz = pitchSyncB1DeltaHz;
+    engine->userSpeedQuotient = speedQuotient;
+    engine->userAspirationTiltDbPerOct = aspirationTiltDbPerOct;
+    engine->userCascadeBwScale = cascadeBwScale;
+    engine->userTremorDepth = tremorDepth;
+
+    speechPlayer_voicingTone_t tone = speechPlayer_getDefaultVoicingTone();
+    const VoicePreset *vp = &kPresets[engine->voiceIndex];
+    if (vp->hasVoicedTilt)
+        tone.voicedTiltDbPerOct = vp->voicedTiltDbPerOct;
+
+    tone.voicedTiltDbPerOct += voicedTiltDbPerOct;
+    tone.noiseGlottalModDepth = noiseGlottalModDepth;
+    tone.pitchSyncF1DeltaHz = pitchSyncF1DeltaHz;
+    tone.pitchSyncB1DeltaHz = pitchSyncB1DeltaHz;
+    tone.speedQuotient = speedQuotient;
+    tone.aspirationTiltDbPerOct = aspirationTiltDbPerOct;
+    tone.cascadeBwScale = cascadeBwScale;
+    tone.tremorDepth = tremorDepth;
+
+    speechPlayer_setVoicingTone(engine->player, &tone);
+}
+
+static void applyFrameExDefaults(TgsbEngine *engine,
+    double creakiness, double breathiness,
+    double jitter, double shimmer, double sharpness)
+{
+    if (!engine || !engine->frontend) return;
+    nvspFrontend_setFrameExDefaults(
+        engine->frontend,
+        creakiness, breathiness, jitter, shimmer, sharpness);
+}
+
+JNIEXPORT void JNICALL
+Java_com_tgspeechbox_tts_TgsbTtsService_nativeSetVoicingTone(
+    JNIEnv *env, jobject thiz, jlong handle,
+    jdouble a, jdouble b, jdouble c, jdouble d,
+    jdouble e, jdouble f, jdouble g, jdouble h
+) {
+    applyVoicingTone((TgsbEngine *)(intptr_t)handle, a,b,c,d,e,f,g,h);
+}
+
+JNIEXPORT void JNICALL
+Java_com_tgspeechbox_tts_TgsbTtsService_nativeSetFrameExDefaults(
+    JNIEnv *env, jobject thiz, jlong handle,
+    jdouble a, jdouble b, jdouble c, jdouble d, jdouble e
+) {
+    applyFrameExDefaults((TgsbEngine *)(intptr_t)handle, a,b,c,d,e);
+}
+
+JNIEXPORT jint JNICALL
+Java_com_tgspeechbox_tts_TgsbTtsService_nativeSetPitchMode(
+    JNIEnv *env, jobject thiz, jlong handle, jstring mode
+) {
+    TgsbEngine *engine = (TgsbEngine *)(intptr_t)handle;
+    if (!engine || !engine->frontend) return -1;
+    const char *modeStr = env->GetStringUTFChars(mode, NULL);
+    if (!modeStr) return -1;
+    int ret = nvspFrontend_setPitchMode(engine->frontend, modeStr);
+    env->ReleaseStringUTFChars(mode, modeStr);
+    return ret;
+}
+
+JNIEXPORT void JNICALL
+Java_com_tgspeechbox_tts_TgsbTtsService_nativeSetInflectionScale(
+    JNIEnv *env, jobject thiz, jlong handle, jdouble scale
+) {
+    TgsbEngine *engine = (TgsbEngine *)(intptr_t)handle;
+    if (!engine || !engine->frontend) return;
+    nvspFrontend_setLegacyPitchInflectionScale(engine->frontend, scale);
+}
+
+/* ------------------------------------------------------------------ */
+/* Standalone engine for MainActivity                                  */
+/*                                                                     */
+/* Separate engine instance so the consumer "Speak" UI doesn't fight   */
+/* TalkBack for the TextToSpeechService audio path.  Same pipeline,    */
+/* different JNI class prefix.                                         */
+/* ------------------------------------------------------------------ */
+
+JNIEXPORT jlong JNICALL
+Java_com_tgspeechbox_tts_TgsbSpeakEngine_nativeCreate(
+    JNIEnv *env, jobject thiz,
+    jstring espeakDataPath, jstring packDirPath, jint sampleRate
+) {
+    return Java_com_tgspeechbox_tts_TgsbTtsService_nativeCreate(
+        env, thiz, espeakDataPath, packDirPath, sampleRate);
+}
+
+JNIEXPORT void JNICALL
+Java_com_tgspeechbox_tts_TgsbSpeakEngine_nativeDestroy(
+    JNIEnv *env, jobject thiz, jlong handle
+) {
+    Java_com_tgspeechbox_tts_TgsbTtsService_nativeDestroy(env, thiz, handle);
+}
+
+JNIEXPORT void JNICALL
+Java_com_tgspeechbox_tts_TgsbSpeakEngine_nativeSetVoice(
+    JNIEnv *env, jobject thiz, jlong handle, jstring voiceName
+) {
+    Java_com_tgspeechbox_tts_TgsbTtsService_nativeSetVoice(
+        env, thiz, handle, voiceName);
+}
+
+JNIEXPORT jint JNICALL
+Java_com_tgspeechbox_tts_TgsbSpeakEngine_nativeSetLanguage(
+    JNIEnv *env, jobject thiz, jlong handle,
+    jstring espeakLang, jstring tgsbLang
+) {
+    return Java_com_tgspeechbox_tts_TgsbTtsService_nativeSetLanguage(
+        env, thiz, handle, espeakLang, tgsbLang);
+}
+
+/*
+ * nativeQueueTextDirect — same as nativeQueueText but takes speed as
+ * a float multiplier (1.0 = normal) and pitch as Hz, matching the iOS
+ * tgsb_queue_text() API.  No Android TTS 100-based int conversion.
+ */
+JNIEXPORT void JNICALL
+Java_com_tgspeechbox_tts_TgsbSpeakEngine_nativeQueueText(
+    JNIEnv *env, jobject thiz,
+    jlong handle, jstring text, jdouble speed, jdouble pitchHz
+) {
+    TgsbEngine *engine = (TgsbEngine *)(intptr_t)handle;
+    if (!engine || !engine->player || !engine->frontend) return;
+
+    engine->stopRequested = 0;
+
+    speechPlayer_queueFrame(engine->player, NULL, 0, 0, -1, true);
+
+    const char *textChars = env->GetStringUTFChars(text, NULL);
+    if (!textChars || !*textChars) {
+        if (textChars) env->ReleaseStringUTFChars(text, textChars);
+        return;
+    }
+
+    double sp = speed;
+    if (sp < 0.1) sp = 0.1;
+    if (sp > 5.0) sp = 5.0;
+
+    double bp = pitchHz;
+    if (bp < 40.0) bp = 40.0;
+    if (bp > 500.0) bp = 500.0;
+
+    FrameCtx ctx;
+    ctx.engine = engine;
+    ctx.frameCount = 0;
+
+    synthesizeClauses(engine, textChars, sp, bp, onFrame, &ctx);
+    env->ReleaseStringUTFChars(text, textChars);
+    LOGI("SpeakEngine: queued %d frames (speed=%.2f pitch=%.0f)",
+         ctx.frameCount, sp, bp);
+}
+
+JNIEXPORT jint JNICALL
+Java_com_tgspeechbox_tts_TgsbSpeakEngine_nativePullAudio(
+    JNIEnv *env, jobject thiz,
+    jlong handle, jshortArray outBuffer, jint maxSamples
+) {
+    TgsbEngine *engine = (TgsbEngine *)(intptr_t)handle;
+    if (!engine || !engine->player || engine->stopRequested) return 0;
+
+    int count = maxSamples;
+    if (count <= 0) return 0;
+    if (count > 4096) count = 4096;
+
+    sample buf[4096];
+    int n = speechPlayer_synthesize(engine->player,
+                                     (unsigned int)count, buf);
+    if (n <= 0) return 0;
+
+    static const double kGain = 3.0;
+    int16_t pcm[4096];
+    for (int i = 0; i < n; i++) {
+        double s = buf[i].value * kGain;
+        if (s > 32767.0) s = 32767.0;
+        if (s < -32767.0) s = -32767.0;
+        pcm[i] = (int16_t)s;
+    }
+
+    env->SetShortArrayRegion(outBuffer, 0, n, pcm);
+    return n;
+}
+
+JNIEXPORT void JNICALL
+Java_com_tgspeechbox_tts_TgsbSpeakEngine_nativeStop(
+    JNIEnv *env, jobject thiz, jlong handle
+) {
+    TgsbEngine *engine = (TgsbEngine *)(intptr_t)handle;
+    if (engine) engine->stopRequested = 1;
+}
+
+JNIEXPORT void JNICALL
+Java_com_tgspeechbox_tts_TgsbSpeakEngine_nativeSetVoicingTone(
+    JNIEnv *env, jobject thiz, jlong handle,
+    jdouble a, jdouble b, jdouble c, jdouble d,
+    jdouble e, jdouble f, jdouble g, jdouble h
+) {
+    applyVoicingTone((TgsbEngine *)(intptr_t)handle, a,b,c,d,e,f,g,h);
+}
+
+JNIEXPORT void JNICALL
+Java_com_tgspeechbox_tts_TgsbSpeakEngine_nativeSetFrameExDefaults(
+    JNIEnv *env, jobject thiz, jlong handle,
+    jdouble a, jdouble b, jdouble c, jdouble d, jdouble e
+) {
+    applyFrameExDefaults((TgsbEngine *)(intptr_t)handle, a,b,c,d,e);
+}
+
+JNIEXPORT jint JNICALL
+Java_com_tgspeechbox_tts_TgsbSpeakEngine_nativeSetPitchMode(
+    JNIEnv *env, jobject thiz, jlong handle, jstring mode
+) {
+    return Java_com_tgspeechbox_tts_TgsbTtsService_nativeSetPitchMode(
+        env, thiz, handle, mode);
+}
+
+JNIEXPORT void JNICALL
+Java_com_tgspeechbox_tts_TgsbSpeakEngine_nativeSetInflectionScale(
+    JNIEnv *env, jobject thiz, jlong handle, jdouble scale
+) {
+    Java_com_tgspeechbox_tts_TgsbTtsService_nativeSetInflectionScale(
+        env, thiz, handle, scale);
+}
+
+} /* extern "C" */

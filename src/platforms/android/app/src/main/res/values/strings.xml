@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">TGSpeechBox</string>
+
+    <!-- Bottom navigation tabs -->
+    <string name="tab_speak">Speak</string>
+    <string name="tab_advanced">Engine Settings</string>
+
+    <!-- Speak tab -->
+    <string name="text_input_label">Text to speak</string>
+    <string name="text_input_placeholder">Enter text here</string>
+    <string name="language_label">Language</string>
+    <string name="voice_label">Voice</string>
+    <string name="speed_label">Speed</string>
+    <string name="pitch_label">Pitch</string>
+    <string name="speak_button">Speak</string>
+    <string name="stop_button">Stop</string>
+    <string name="speed_value">%1$.1fx</string>
+    <string name="pitch_value">%1$d Hz</string>
+    <string name="tts_not_ready">TTS engine not ready</string>
+    <string name="tts_connecting">Connecting to TTS engine\u2026</string>
+
+    <!-- Advanced tab: Pitch -->
+    <string name="pitch_section_title">Pitch</string>
+    <string name="pitch_mode_label">Pitch Mode</string>
+    <string name="inflection_scale_label">Inflection Scale</string>
+    <string name="pitch_mode_espeak">eSpeak Style</string>
+    <string name="pitch_mode_legacy">Legacy</string>
+    <string name="pitch_mode_fujisaki">Fujisaki Style</string>
+    <string name="pitch_mode_impulse">Impulse Style</string>
+    <string name="pitch_mode_klatt">Klatt Style</string>
+
+    <!-- Advanced tab: System Rate Override -->
+    <string name="system_rate_title">System Rate</string>
+    <string name="override_rate_label">Override app speech rate</string>
+    <string name="override_rate_description">Use the rate below instead of what apps request. Useful when apps ignore your TTS rate setting.</string>
+    <string name="global_rate_label">Speech Rate</string>
+
+    <!-- Advanced tab: Voice Quality (VoicingTone) -->
+    <string name="voice_quality_title">Voice Quality</string>
+    <string name="voice_tilt_label">Voice Tilt (brightness)</string>
+    <string name="speed_quotient_label">Speed Quotient (tension)</string>
+    <string name="aspiration_tilt_label">Aspiration Tilt (breath color)</string>
+    <string name="cascade_bw_label">Formant Sharpness</string>
+    <string name="noise_glottal_mod_label">Noise Glottal Modulation</string>
+    <string name="pitch_sync_f1_label">Pitch-Sync F1</string>
+    <string name="pitch_sync_b1_label">Pitch-Sync B1</string>
+    <string name="voice_tremor_label">Voice Tremor</string>
+
+    <!-- Advanced tab: Per-Frame Voice Quality (FrameEx) -->
+    <string name="frame_quality_title">Per-Frame Voice Quality</string>
+    <string name="creakiness_label">Creakiness</string>
+    <string name="breathiness_label">Breathiness</string>
+    <string name="jitter_label">Jitter</string>
+    <string name="shimmer_label">Shimmer</string>
+    <string name="glottal_sharpness_label">Glottal Sharpness</string>
+
+    <!-- Advanced tab: Language filter -->
+    <string name="choose_languages_button">Choose Available Engine Languages\u2026</string>
+    <string name="supported_languages_title">Supported Languages</string>
+    <string name="supported_languages_hint">Only checked languages are reported to Android. Uncheck languages you don\'t use to prevent unwanted auto-switching.</string>
+    <string name="at_least_one_language">At least one language must be enabled.</string>
+    <string name="done_button">Done</string>
+</resources>

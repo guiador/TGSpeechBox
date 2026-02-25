@@ -451,6 +451,37 @@ NVSP_FRONTEND_API int nvspFrontend_saveVoiceProfileSliders(
   const nvspFrontend_VoiceProfileSliders* sliders
 );
 
+/*
+  Override the pitch intonation model at runtime.
+
+  modeUtf8 must be one of:
+    "espeak_style"    - ToBI-based intonation regions (default)
+    "legacy"          - older time-based pitch curve
+    "fujisaki_style"  - flat base + DSP phrase/accent contours
+    "impulse_style"   - multi-layer additive pitch
+    "klatt_style"     - Klatt 1987 hat-pattern intonation
+
+  Persists until the next setLanguage() call (which reloads from YAML).
+  Returns 1 on success, 0 on failure (invalid handle or unknown mode).
+*/
+NVSP_FRONTEND_API int nvspFrontend_setPitchMode(
+  nvspFrontend_handle_t handle,
+  const char* modeUtf8
+);
+
+/*
+  Override the legacy pitch inflection scale at runtime.
+
+  Only affects the "legacy" pitch mode.
+  1.0 preserves historical behavior; 0.58 is the default (maps 0.60 → 0.35).
+
+  Persists until the next setLanguage() call (which reloads from YAML).
+*/
+NVSP_FRONTEND_API void nvspFrontend_setLegacyPitchInflectionScale(
+  nvspFrontend_handle_t handle,
+  double scale
+);
+
 #ifdef __cplusplus
 }
 #endif
