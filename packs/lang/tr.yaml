@@ -180,10 +180,21 @@ settings:
         flags: [stop]
         notFlags: [voiced]
         action: scale
-        durationScale: 0.90
         fieldScales:
           aspirationAmplitude: 0.30
           fricationAmplitude: 0.35
+
+      # Turkish word-final /z/ devoices in utterance-final and
+      # pre-pausal position → [z̥].  Reduces voicing, boosts frication
+      # slightly.  This is why "sekiz" and "dokuz" end with a quiet
+      # hiss rather than a full buzzy /z/.
+      - name: word_final_z_devoice
+        phonemes: [z, z_tr]
+        position: word-final
+        action: scale
+        fieldScales:
+          voiceAmplitude: 0.25
+          fricationAmplitude: 1.15
 
   # ── Boundary smoothing ─────────────────────────────────────────
   # Turkish has clean syllable boundaries — less coarticulatory
@@ -367,29 +378,65 @@ settings:
 
 normalization:
   preReplacements:
-    # ── Yumuşak ge (ğ) vowel lengthening ────────────────────────
-    # eSpeak realizes ğ as vowel lengthening (aː, œː) or /j/ glide.
-    # Our phoneme table has oː, yː, øː but not aː or œː.
-    # Normalize the missing long vowels to their short counterparts.
-    # The duration boost from the lengthening is partially preserved
-    # by eSpeak's timing already being longer for these segments.
+    # ── Long vowels FIRST (before short vowel rules catch them) ──
+    # These carry ğ (yumuşak ge) compensation length in common words.
     - from: "aː"
-      to:   "a"
+      to:   "aː_tr"
     - from: "œː"
-      to:   "œ"
-    - from: "ɛː"
-      to:   "ɛ"
-    - from: "ɯː"
-      to:   "ɯ"
-    - from: "ɪː"
-      to:   "ɪ"
+      to:   "œː_tr"
+    - from: "oː"
+      to:   "oː_tr"
+    - from: "øː"
+      to:   "øː_tr"
     - from: "ʊː"
-      to:   "ʊ"
+      to:   "ʊː_tr"
 
-    # ── Geminate consonant normalization ─────────────────────────
+    # ── Core 8 Turkish vowels ──────────────────────────────────
+    - from: "a"
+      to:   "a_tr"
+    - from: "e"
+      to:   "e_tr"
+    - from: "i"
+      to:   "i_tr"
+    - from: "o"
+      to:   "o_tr"
+    - from: "u"
+      to:   "u_tr"
+    - from: "y"
+      to:   "y_tr"
+    - from: "ø"
+      to:   "ø_tr"
+    - from: "ɯ"
+      to:   "ɯ_tr"
+
+    # ── Allophones eSpeak produces ─────────────────────────────
+    - from: "ɛ"
+      to:   "ɛ_tr"
+    - from: "æ"
+      to:   "æ_tr"
+    - from: "ɪ"
+      to:   "ɪ_tr"
+    - from: "ɔ"
+      to:   "ɔ_tr"
+    - from: "œ"
+      to:   "œ_tr"
+    - from: "ʊ"
+      to:   "ʊ_tr"
+
+    # ── Rare long vowel normalization (map to short _tr) ───────
+    - from: "ɛː"
+      to:   "ɛ_tr"
+    - from: "ɯː"
+      to:   "ɯ_tr"
+    - from: "ɪː"
+      to:   "ɪ_tr"
+
+    # ── Geminate consonant normalization ────────────────────────
     # eSpeak sometimes uses ː on consonants for geminates (dː, kː).
     # Our engine handles geminates as repeated phonemes, not length
     # marks.  Normalize Cː → CC so the greedy matcher finds them.
+    # MUST come BEFORE single-consonant _tr routing below, otherwise
+    # s→s_tr would match the 's' inside 'sː' producing 's_trː'.
     - from: "dː"
       to:   "dd"
     - from: "tː"
@@ -406,6 +453,15 @@ normalization:
       to:   "mm"
     - from: "ɾː"
       to:   "ɾɾ"
+
+    # ── Turkish dental sibilants ────────────────────────────────
+    # Turkish /s/ and /z/ are dental laminal [s̪, z̪] — tongue blade
+    # against upper teeth.  Spectral peak ~500-800 Hz higher than
+    # English alveolar /s, z/.
+    - from: "s"
+      to:   "s_tr"
+    - from: "z"
+      to:   "z_tr"
 
   classes:
     # Not needed for Turkish currently, but defined for future
