@@ -291,6 +291,7 @@ The following language packs are included:
 | sv      | Swedish               |
 | da      | Danish                |
 | fi      | Finnish               |
+| tr      | Turkish               |
 | zh      | Chinese               |
 
 ## Audio Output Format
