@@ -215,12 +215,21 @@ static void synthesizeClauses(TgsbEngine *engine,
         char clauseType = '.';   /* default if no punctuation found */
         while (*p) {
             char c = *p;
-            if (c == '.' || c == '?' || c == '!' ||
-                c == ',' || c == ';' || c == ':') {
-                if (c == ';' || c == ':') clauseType = ',';
-                else clauseType = c;
+            if (c == '.' || c == '?' || c == '!' || c == ',') {
+                clauseType = c;
                 p++;
                 break;
+            }
+            /* colon/semicolon only split when followed by whitespace
+             * (avoids splitting times like "5:44" or ratios like "3:1") */
+            if (c == ';' || c == ':') {
+                char next = *(p + 1);
+                if (next == ' ' || next == '\t' || next == '\r' ||
+                    next == '\n' || next == '\0') {
+                    clauseType = ',';
+                    p++;
+                    break;
+                }
             }
             p++;
         }
