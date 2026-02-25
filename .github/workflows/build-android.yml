@@ -1,7 +1,5 @@
-
 name: Compilar APK de Android
 
-# Esto permite que ejecutemos el proceso manualmente con un botón
 on:
   workflow_dispatch:
 
@@ -11,34 +9,47 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Descargar el código de TGSpeechBox en su propia carpeta
+      # 1. Descargar el código de TGSpeechBox
       - name: Descargar repositorio TGSpeechBox
         uses: actions/checkout@v4
         with:
           path: TGSpeechBox
 
-      # 2. Descargar el motor eSpeak-NG exactamente donde el código lo requiere
+      # 2. Descargar el motor eSpeak-NG (necesario para el código C++)
       - name: Descargar motor eSpeak-NG
         uses: actions/checkout@v4
         with:
           repository: espeak-ng/espeak-ng
           path: espeak-ng
 
-      # 3. Configurar Java 17 (Requisito del proyecto)
+      # 3. Configurar Java 17
       - name: Configurar Java 17
         uses: actions/setup-java@v3
         with:
           java-version: '17'
           distribution: 'temurin'
 
-      # 4. Compilar el APK usando Gradle
+      # 4. PASO NUEVO: Crear archivo de firma falso para evitar el error
+      # Esto genera el archivo signing.properties que falta, con datos de relleno.
+      - name: Crear archivo de firma temporal
+        run: |
+          cd TGSpeechBox/src/platforms/android
+          # Crear un archivo de claves vacío para que Gradle lo encuentre
+          touch debug.keystore
+          # Crear el archivo de propiedades apuntando al archivo vacío
+          echo "STORE_FILE=debug.keystore" > signing.properties
+          echo "STORE_PASSWORD=android" >> signing.properties
+          echo "KEY_ALIAS=androiddebugkey" >> signing.properties
+          echo "KEY_PASSWORD=android" >> signing.properties
+
+      # 5. Compilar el APK usando Gradle
       - name: Compilar APK con Gradle
         run: |
           cd TGSpeechBox/src/platforms/android
           chmod +x gradlew
-          ./gradlew assembleDebug
+          ./gradlew assembleDebug --stacktrace
 
-      # 5. Subir el APK final para que lo puedas descargar
+      # 6. Subir el APK final
       - name: Subir APK final
         uses: actions/upload-artifact@v4
         with:
