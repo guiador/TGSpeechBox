@@ -155,6 +155,8 @@ class SynthDriver(
 
         # Suppress YAML writes during NVDA config replay (YAML is source of truth)
         self._suppressLangPackWrites = True
+        # Guard: skip cancel() and cache refresh in _set_language during init
+        self._initComplete = False
 
         # 2. Check architecture compatibility
         if ctypes.sizeof(ctypes.c_void_p) not in (4, 8):
@@ -205,12 +207,9 @@ class SynthDriver(
 
         feDllPath = os.path.join(dllDir, 'nvspFrontend.dll')
         self._frontend = NvspFrontend(feDllPath, packsDir)
-
-        if not self._frontend.setLanguage("default"):
-            log.warning(f"TGSpeechBox: failed to load default pack: {self._frontend.getLastError()}")
-
-        # Push initial FrameEx defaults to frontend (ABI v2+)
-        self._pushFrameExDefaultsToFrontend()
+        # NOTE: We skip setLanguage("default") here — _set_language (triggered
+        # by super().__init__) will load the correct pack via _applyFrontendLangTag.
+        # That saves one redundant YAML parse cycle (~50-100ms).
 
 
         # 6. Discover voice profiles
@@ -245,32 +244,18 @@ class SynthDriver(
 
 
         # 8. Initialize eSpeak
+        #    Only initialize + fix prototypes here.  Voice selection is deferred
+        #    to _set_language (called from super().__init__) to avoid the
+        #    redundant espeakSetVoiceDirect + setVoiceByLanguage round-trip.
         self._espeakReady = False
         try:
             _espeak.initialize()
-
-            # Set a default voice — required before espeak_TextToPhonemes works.
-            # Use direct ListVoices+SetVoiceByName (same fix as SAPI) to ensure
-            # the correct voice is selected synchronously.
-            if not _espeakSetVoiceDirect("en-us"):
-                # Fallback to NVDA's async wrapper.
-                try:
-                    _espeak.setVoiceByLanguage("en-us")
-                except Exception:
-                    try:
-                        _espeak.setVoiceByLanguage("en")
-                    except Exception:
-                        log.debug("TGSpeechBox: failed to set default espeak voice", exc_info=True)
-
-            # Verify espeak is actually usable by checking if the DLL and function exist
             espeakDLL = getattr(_espeak, "espeakDLL", None)
             if espeakDLL and hasattr(espeakDLL, "espeak_TextToPhonemes"):
-                # Fix espeak_TextToPhonemes prototype for 64-bit Python
                 _ttp = espeakDLL.espeak_TextToPhonemes
                 _ttp.argtypes = (ctypes.POINTER(ctypes.c_void_p), ctypes.c_int, ctypes.c_int)
                 _ttp.restype = ctypes.c_void_p
                 self._espeakReady = True
-                log.debug("TGSpeechBox: espeak initialized successfully")
             else:
                 log.warning("TGSpeechBox: espeak DLL or espeak_TextToPhonemes not available")
         except Exception:
@@ -295,6 +280,9 @@ class SynthDriver(
 
         self._scheduleEnableLangPackWrites()
         self._refreshLangPackSettingsCache()
+        # Push initial FrameEx defaults to frontend (ABI v2+)
+        self._pushFrameExDefaultsToFrontend()
+        self._initComplete = True
 
         # Schedule deferred re-application of voice profile
         # (in case NVDA's settings restore missed something)
@@ -511,10 +499,12 @@ class SynthDriver(
 
         self._resolvedLang = resolved
 
-        try:
-            self.cancel()
-        except Exception:
-            log.debug("TGSpeechBox: cancel failed while changing language", exc_info=True)
+        # Skip cancel() during __init__ — audio system may not exist yet
+        if getattr(self, "_initComplete", False):
+            try:
+                self.cancel()
+            except Exception:
+                log.debug("TGSpeechBox: cancel failed while changing language", exc_info=True)
 
         # Configure eSpeak for text->phonemes.
         # Primary: use direct ListVoices+SetVoiceByName (same approach as SAPI)
@@ -565,14 +555,14 @@ class SynthDriver(
             log.error("TGSpeechBox: error setting frontend language", exc_info=True)
 
         log.debug("TGSpeechBox: language setting=%r resolved=%r; eSpeak=%r; packs=%r", self._language, resolved, self._espeakLang or None, getattr(self, "_frontendLangTag", None))
-        # Refresh cached language-pack settings for the (possibly) new language.
-        try:
-            self._refreshLangPackSettingsCache()
-        except Exception:
-            log.debug("TGSpeechBox: could not refresh language-pack cache", exc_info=True)
 
-        # Trigger a GUI refresh so checkboxes update to reflect the new language pack.
-        self._scheduleSettingsPanelRefresh()
+        # Skip cache refresh and GUI update during __init__ — done explicitly in step 10
+        if getattr(self, "_initComplete", False):
+            try:
+                self._refreshLangPackSettingsCache()
+            except Exception:
+                log.debug("TGSpeechBox: could not refresh language-pack cache", exc_info=True)
+            self._scheduleSettingsPanelRefresh()
 
     # ---- Settings panel refresh ----
 
