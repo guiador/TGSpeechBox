@@ -252,10 +252,31 @@ settings:
           aspirationAmplitude: 0.05
           fricationAmplitude: 0.05
 
+    # ── Voiceless stop burst rebalance ─────────────────────────────
+    # Base phonemes have very high frication relative to burst energy:
+    #   /t/ fricationAmplitude=0.92 vs /t͡ʃ/ fricationAmplitude=0.88
+    #   /p/ fricationAmplitude=0.75 vs /f/  fricationAmplitude=1.00
+    # This makes stops sound fricative-like (/t/→"ch", /p/→"f").
+    # Fix: cut frication, boost burst transient + aspiration to widen
+    # the perceptual gap between stops and their fricative confusors.
+      - name: voiceless_stop_burst_boost
+        flags: [stop]
+        notFlags: [voiced]
+        action: scale
+        fieldScales:
+          fricationAmplitude: 0.82
+          aspirationAmplitude: 1.35
+          pa1: 1.25
+          pa2: 1.20
+
     # ── Unreleased word-final stops ──────────────────────────────
     # Australians often have unreleased or glottalized final stops,
-    # similar to RP but slightly softer. Between RP (aggressive)
-    # and GenAm (moderate) values.
+    # similar to RP but slightly softer.  Between RP and GenAm.
+    #
+    # FIXED: Old rule kept frication high while crushing the burst
+    # AND tilting it upward (pa4×1.3, pa5×1.4) into the sibilant
+    # range — reshaping /t/ toward /t͡ʃ/.  New rule cuts frication
+    # harder, preserves more burst, removes the sibilant tilt.
       - name: unreleased_word_final
         flags: [stop]
         notFlags: [voiced]
@@ -263,12 +284,10 @@ settings:
         action: scale
         durationScale: 0.82
         fieldScales:
-          fricationAmplitude: 0.82
-          aspirationAmplitude: 0.50
-          pa1: 0.28
-          pa2: 0.48
-          pa4: 1.3
-          pa5: 1.4
+          fricationAmplitude: 0.55
+          aspirationAmplitude: 0.60
+          pa1: 0.40
+          pa2: 0.55
 
   # ── Boundary smoothing ─────────────────────────────────────────
   # Australian sits between RP crispness and GenAm flow.
