@@ -1,0 +1,761 @@
+# packs/lang/en-au.yaml
+# English (Australian) — General Australian accent
+# Inherits from: default.yaml → en.yaml
+#
+# Key characteristics of Australian English:
+#   - Non-rhotic (like RP, unlike GenAm) — no post-vocalic /ɹ/
+#   - BATH = TRAP (unlike RP which broadens to /ɑː/) — "dance" rhymes with "ants"
+#   - Fronted START/PALM vowel — base ɑ (F2≈1330) not RP's back ᵅ (F2≈1200)
+#   - Centralized KIT — [ɘ]-ish, not the high-front RP [ɪ]
+#   - Raised DRESS — closer to [e] than RP [ɛ]
+#   - Fronted STRUT — [ɐ] rather than RP/GenAm [ʌ]
+#   - Lowered FACE onset — [æɪ] rather than RP [eɪ]
+#   - Very fronted GOOSE — [ʉː], more than RP or GenAm
+#   - Intervocalic flapping (like GenAm, unlike RP) — "water" = [woːɾə]
+#   - GOAT diphthong already close to target with əʊ from eSpeak
+#   - THOUGHT stays as [ɔː] (similar to RP)
+#   - happY vowel leans toward [ɪ] rather than tense [i]
+#   - NEAR/SQUARE non-rhotic with schwa offglides
+#   - Moderate dark-L in codas
+
+settings:
+  # ── Stop closures ──────────────────────────────────────────────
+  stopClosureMode: vowel-and-cluster
+  stopClosureClusterGapsEnabled: true
+  stopClosureAfterNasalsEnabled: true
+
+  stopClosureVowelGapMs: 18
+  stopClosureVowelFadeMs: 4
+  stopClosureClusterGapMs: 20
+  stopClosureClusterFadeMs: 14
+  stopClosureWordBoundaryClusterGapMs: 22
+  stopClosureWordBoundaryClusterFadeMs: 4
+
+  # ── Utterance edges ────────────────────────────────────────────
+  singleWordFinalFadeMs: 20
+  clauseFinalFadeMs: 12
+
+  postStopAspirationEnabled: true
+
+  # ── Length marks ───────────────────────────────────────────────
+  # Australian vowel length contrasts are moderate — between RP
+  # (which is stricter) and GenAm (which compresses length more).
+  lengthenedVowelFinalCodaScale: 0.80
+  applyLengthenedScaleToVowelsOnly: false
+  lengthenedScale: 1.08
+
+  # ── GOOSE fronting ─────────────────────────────────────────────
+  # Australian GOOSE is heavily fronted [ʉː].
+  # en.yaml maps u→ᵾ; our replacement ᵾ→ʉ then fronts it further.
+  englishLongUShortenEnabled: true
+  englishLongUWordFinalScale: 0.95
+
+  # ── Diphthongs ─────────────────────────────────────────────────
+  spellingDiphthongMode: monophthong
+  autoTieDiphthongs: true
+  autoDiphthongOffglideToSemivowel: false
+  semivowelOffglideScale: 0.65
+
+  # ── Coarticulation ─────────────────────────────────────────────
+  # Australian articulation sits between RP crispness and GenAm smoothness.
+  coarticulationEnabled: true
+  trajectoryLimitEnabled: true
+  microprosodyEnabled: true
+  segmentBoundarySkipVowelToLiquid: false
+  coarticulationVelarPinchEnabled: false
+  coarticulationGraduated: false
+  coarticulationAdjacencyMaxConsonants: 0
+  coarticulationRightSideScale: 0.65
+  coarticulationVelarF2LocusFront: 1800
+  coarticulationVelarF2LocusBack: 1100
+
+  # ── High-rate intelligibility ──────────────────────────────────
+  highRateThreshold: 2.5
+  highRateCoarticulationFloor: 0.35
+  highRateBandwidthWideningFactor: 1.3
+
+  # ── Phrase-final lengthening ───────────────────────────────────
+  # Australian English lengthens phrase-finals moderately.
+  phraseFinalLengtheningEnabled: true
+  phraseFinalLengtheningNucleusOnlyMode: false
+  phraseFinalLengtheningFinalSyllableScale: 1.05
+  phraseFinalLengtheningNucleusScale: 1.18
+  phraseFinalLengtheningNucleusDiphthongScale: 1.06
+  phraseFinalLengtheningCodaScale: 1.08
+  phraseFinalLengtheningCodaStopScale: 1.0
+  phraseFinalLengtheningCodaFricativeScale: 1.12
+  phraseFinalLengtheningCodaNasalScale: 1.22
+  phraseFinalLengtheningPenultimateSyllableScale: 1.06
+  phraseFinalLengtheningStatementScale: 1.0
+  phraseFinalLengtheningQuestionScale: 0.88
+
+  # ── Microprosody ───────────────────────────────────────────────
+  microprosodyVoicelessF0RaiseEnabled: false
+  microprosodyVoicelessF0RaiseHz: 12.0
+  microprosodyVoicedF0LowerEnabled: true
+  microprosodyVoicedF0LowerHz: 4.0
+  microprosodyVoicedFricativeLowerScale: 0.5
+  microprosodyFollowingF0Enabled: true
+  microprosodyFollowingVoicelessRaiseHz: 3.0
+  microprosodyFollowingVoicedLowerHz: 2.0
+  microprosodyIntrinsicF0Enabled: true
+  microprosodyIntrinsicF0HighThreshold: 400.0
+  microprosodyIntrinsicF0LowThreshold: 600.0
+  microprosodyIntrinsicF0HighRaiseHz: 3.0
+  microprosodyIntrinsicF0LowDropHz: 2.0
+
+  # Pre-voiceless shortening: moderate — between RP's strong
+  # pre-fortis clipping and GenAm's gentler contrast.
+  microprosodyPreVoicelessShortenEnabled: true
+  microprosodyPreVoicelessShortenScale: 0.79
+  microprosodyPreVoicelessMinMs: 35.0
+  microprosodyVoicelessCodaLengthenEnabled: true
+  microprosodyVoicelessCodaLengthenScale: 1.18
+  microprosodyMaxTotalDeltaHz: 10.0
+
+  rateReductionEnabled: false
+  nasalizationAnticipatoryEnabled: false
+
+  # ── Prominence ─────────────────────────────────────────────────
+  prominence:
+    enabled: true
+    primaryStressWeight: 1.45
+    secondaryStressWeight: 1.18
+    longVowelWeight: 0.0
+    longVowelMode: "never"
+    wordInitialBoost: 0.05
+    wordFinalReduction: 0.05
+
+    durationProminentFloorMs: 55
+    durationPrimaryFloorMs: 95
+    durationReducedCeiling: 0.85
+
+    monosyllableFloor: 0.9
+
+    # Function words — Australian IPA forms (non-rhotic, fronted STRUT,
+    # centralized KIT).  Include both pre- and post-normalization forms
+    # since baseChar matching depends on the final phoneme key.
+    monosyllableExclude:
+      - "ðə"      # the
+      - "ðɪ"      # the (prevocalic, pre-normalization)
+      - "ðᵻ"      # the (prevocalic, post KIT centralization)
+      - "ə"       # a
+      - "ən"      # an
+      - "ɒv"      # of
+      - "əv"      # of (reduced)
+      - "tə"      # to
+      - "tuː"     # to (strong)
+      - "fə"      # for (reduced)
+      - "fɔː"     # for
+      - "ɪn"      # in (pre-normalization)
+      - "ᵻn"      # in (post KIT centralization)
+      - "ɒn"      # on
+      - "æt"      # at
+      - "ɪz"      # is (pre-normalization)
+      - "ᵻz"      # is (post KIT centralization)
+      - "ɪt"      # it (pre-normalization)
+      - "ᵻt"      # it (post KIT centralization)
+      - "wɒz"     # was
+      - "hæz"     # has
+      - "hæd"     # had
+      - "bʌt"     # but (pre-normalization)
+      - "bɐt"     # but (post STRUT fronting)
+      - "ɔː"      # or
+      - "æz"      # as
+      - "ænd"     # and
+      - "ənd"     # and (reduced)
+      - "nɒt"     # not
+      - "ðæt"     # that (conjunction)
+
+    fullVowelFloor: 0.4
+    amplitudeBoostDb: 0.3
+    amplitudeReductionDb: 0.0
+    pitchFromProminence: true
+
+  # ── Liquid dynamics ────────────────────────────────────────────
+  liquidDynamics:
+    enabled: true
+    rhoticF3Dip:
+      enabled: false   # Non-rhotic — no American-style R vowel coloring
+
+  # ── Diphthong collapse ─────────────────────────────────────────
+  diphthongCollapse:
+    enabled: true
+    durationFloorMs: 60
+    onsetHoldExponent: 1.7
+    microFrameIntervalMs: 8
+
+  lengthContrast:
+    enabled: false
+
+  # ── Allophone rules ────────────────────────────────────────────
+  allophoneRules:
+    enabled: true
+    rules:
+    # ── Intervocalic flapping (/t,d/ → [ɾ]) ─────────────────────
+    # Australians flap like Americans: "water" [woːɾə], "city" [sɪɾi],
+    # "butter" [bɐɾə], "better" [beɾə].
+      - name: australian_flapping
+        phonemes: [t, d]
+        position: intervocalic
+        stress: next-unstressed
+        action: replace
+        replaceTo: ɾ
+        replaceDurationMs: 30.0
+        replaceRemovesClosure: true
+        replaceClosureScale: 0.5
+        replaceRemovesAspiration: false
+
+    # ── /l/ darkness by position ─────────────────────────────────
+    # Australian dark-L is moderate — between RP's strong coda
+    # darkness and lighter GenAm style.
+      - name: dark_l_post_vocalic
+        phonemes: [l, ɫ]
+        position: post-vocalic
+        action: shift
+        fieldShifts:
+          - field: cf2
+            targetHz: 900.0
+            blend: 0.82
+          - field: pf2
+            targetHz: 900.0
+            blend: 0.82
+
+      - name: dark_l_syllabic
+        phonemes: [l, ɫ]
+        position: syllabic
+        action: shift
+        fieldShifts:
+          - field: cf2
+            targetHz: 900.0
+            blend: 0.88
+          - field: pf2
+            targetHz: 900.0
+            blend: 0.88
+
+      - name: light_l_pre_vocalic
+        phonemes: [l, ɫ]
+        position: pre-vocalic
+        action: shift
+        fieldShifts:
+          - field: cf2
+            targetHz: 900.0
+            blend: 0.2
+          - field: pf2
+            targetHz: 900.0
+            blend: 0.2
+
+    # ── Post-sibilant aspiration suppression ─────────────────────
+    # Universal English rule: "style" vs "tile", "spin" vs "pin".
+      - name: post_sibilant_aspiration_suppress
+        tokenType: aspiration
+        after: ["s", "ʃ"]
+        action: scale
+        durationScale: 0.05
+        fieldScales:
+          aspirationAmplitude: 0.05
+          fricationAmplitude: 0.05
+
+    # ── Unreleased word-final stops ──────────────────────────────
+    # Australians often have unreleased or glottalized final stops,
+    # similar to RP but slightly softer. Between RP (aggressive)
+    # and GenAm (moderate) values.
+      - name: unreleased_word_final
+        flags: [stop]
+        notFlags: [voiced]
+        position: word-final
+        action: scale
+        durationScale: 0.82
+        fieldScales:
+          fricationAmplitude: 0.82
+          aspirationAmplitude: 0.50
+          pa1: 0.28
+          pa2: 0.48
+          pa4: 1.3
+          pa5: 1.4
+
+  # ── Boundary smoothing ─────────────────────────────────────────
+  # Australian sits between RP crispness and GenAm flow.
+  boundarySmoothing:
+    enabled: true
+    f1Scale: 0.50
+    f2Scale: 0.50
+    f3Scale: 0.80
+
+    nasalF1Instant: true
+    nasalF2F3SpansPhone: true
+
+    liquidToVowelFadeMs: 20
+    vowelToLiquidFadeMs: 18
+    stopToVowelFadeMs: 19
+    vowelToStopFadeMs: 21
+    fricToVowelFadeMs: 17
+    vowelToFricFadeMs: 17
+    nasalToVowelFadeMs: 15
+    vowelToNasalFadeMs: 15
+    nasalToStopFadeMs: 11
+    liquidToStopFadeMs: 11
+    fricToStopFadeMs: 9
+    stopToFricFadeMs: 13
+    vowelToVowelFadeMs: 19
+
+    highRateFadeRatioFloor: 0.40
+
+    labialF1Scale: 0.30
+    labialF2Scale: 0.52
+    labialF3Scale: 0.52
+    alveolarF1Scale: 0.39
+    alveolarF2Scale: 0.49
+    alveolarF3Scale: 0.62
+    palatalF1Scale: 0.34
+    palatalF2Scale: 0.52
+    palatalF3Scale: 0.72
+    velarF1Scale: 0.34
+    velarF2Scale: 0.62
+    velarF3Scale: 0.57
+
+  # ── Trajectory limiting ────────────────────────────────────────
+  trajectoryLimit:
+    enabled: true
+    applyAcrossWordBoundary: true
+    windowMs: 25
+    liquidRateScale: 1.5
+    applyTo: [cf2, cf3, pf2, pf3]
+    maxHzPerMs:
+      cf2: 26
+      cf3: 22
+      pf2: 18
+      pf3: 22
+
+  # ── Special coarticulation ─────────────────────────────────────
+  # Non-rhotic: no rhotic vowel coloring.  Otherwise similar to RP.
+  specialCoarticulation:
+    enabled: true
+    maxDeltaHz: 350
+    rules:
+      - name: labial-f2-lowering
+        triggers: ["w", "b", "p", "m"]
+        vowelFilter: all
+        formant: f2
+        deltaHz: -45
+        side: both
+        cumulative: false
+        unstressedScale: 0.5
+
+      - name: alveolar-back-vowel-fronting
+        triggers: ["t", "d", "n", "s", "z"]
+        vowelFilter: back
+        formant: f2
+        deltaHz: 58
+        side: both
+        cumulative: false
+        unstressedScale: 0.5
+
+      - name: palatal-f2-raising
+        triggers: ["j"]
+        vowelFilter: all
+        formant: f2
+        deltaHz: 70
+        side: right
+        cumulative: false
+        unstressedScale: 0.4
+
+      - name: pre-velar-f2-raise
+        triggers: ["ŋ", "k", "ɡ", "g"]
+        vowelFilter: all
+        formant: f2
+        deltaHz: 80
+        side: right
+        cumulative: false
+        unstressedScale: 0.7
+
+      - name: pre-velar-f3-lower
+        triggers: ["ŋ", "k", "ɡ", "g"]
+        vowelFilter: all
+        formant: f3
+        deltaHz: -100
+        side: right
+        cumulative: false
+        unstressedScale: 0.7
+
+  # ── Cluster timing ─────────────────────────────────────────────
+  clusterTiming:
+    enabled: true
+    fricBeforeStopScale: 0.70
+    stopBeforeFricScale: 0.75
+    fricBeforeFricScale: 0.78
+    stopBeforeStopScale: 0.65
+    tripleClusterMiddleScale: 0.60
+    affricateInClusterScale: 0.78
+    wordMedialConsonantScale: 0.90
+    wordFinalObstruentScale: 0.92
+
+  # ── Cluster blend ──────────────────────────────────────────────
+  clusterBlend:
+    enabled: true
+    forwardDriftStrength: 0.28
+
+  # ── Rate compensation ──────────────────────────────────────────
+  rateCompensation:
+    enabled: true
+    minimumDurations:
+      vowelMs: 20
+      fricativeMs: 18
+      stopMs: 4
+      nasalMs: 18
+      liquidMs: 15
+      affricateMs: 12
+      semivowelMs: 10
+      tapMs: 4
+      trillMs: 12
+      voicedConsonantMs: 10
+    wordFinalBonusMs: 5
+    floorSpeedScale: 0.0
+    clusterProportionGuard: true
+    clusterMaxRatioShift: 0.4
+    schwaReduction:
+      enabled: false
+      threshold: 2.5
+      scale: 0.8
+
+  # ── Syllable duration ──────────────────────────────────────────
+  syllableDuration:
+    enabled: true
+    onsetScale: 1.10
+    codaScale: 0.85
+    unstressedOpenNucleusScale: 0.90
+
+  # ── Syllable structure ─────────────────────────────────────────
+  syllableStructure:
+    legalOnsets:
+      - pl
+      - pɹ
+      - bl
+      - bɹ
+      - tɹ
+      - tw
+      - dɹ
+      - dw
+      - kl
+      - kɹ
+      - kw
+      - ɡl
+      - ɡɹ
+      - ɡw
+      - fl
+      - fɹ
+      - fj
+      - θɹ
+      - sl
+      - sm
+      - sn
+      - sp
+      - st
+      - sk
+      - sw
+      - ʃɹ
+      - vj
+      - hj
+      - bj
+      - pj
+      - pw
+      - kj
+      - tj
+      - dj
+      - mj
+      - nj
+      - lj
+      - spl
+      - spɹ
+      - stɹ
+      - skɹ
+      - skw
+      - skl
+      - spj
+      - stj
+      - skj
+
+  legacyPitchMode: espeak_style
+  legacyPitchInflectionScale: 0.56
+
+# ═════════════════════════════════════════════════════════════════
+# NORMALIZATION
+# ═════════════════════════════════════════════════════════════════
+#
+# Pipeline order:
+#   1. preReplacements (raw eSpeak IPA — tie bars still present)
+#   2. Internal cleanup (ZWJ/ZWNJ, underscore, bracket stripping)
+#   3. replacements (after internal transforms)
+#   4. Tokenization → passes → frame emission
+#
+# Strategy for Australian vowels:
+#   - preReplacements: diphthong protection (tie bars prevent later
+#     rules from mangling offglides), R-dropping, FACE lowering
+#   - replacements: vowel quality shifts (KIT centralization, STRUT
+#     fronting, happY laxing, GOOSE fronting, NURSE de-rhoticization)
+
+normalization:
+  preReplacements:
+    # ── Diphthong protection ─────────────────────────────────────
+    # Insert tie bars so that replacement rules (especially KIT
+    # centralization ɪ→ᵻ) don't corrupt diphthong offglides.
+    # The tie bar blocks applyRules from matching inside the pair,
+    # and autoTieDiphthongs skips already-tied tokens.
+
+    # FACE: Lower the onset from [eɪ] to [æɪ].
+    # This is THE signature Australian vowel shift — "day" sounds
+    # like [dæɪ], "make" like [mæɪk].  The tie bar protects ɪ
+    # from the KIT centralization rule in replacements.
+    - from: "eɪ"
+      to:   "æ͡ɪ"
+
+    # PRICE: Protect from TRAP rule (a→æ).
+    # With tie-insensitive matching, catches both aɪ and a͡ɪ.
+    - from: "a͡ɪ"
+      to:   "ɑ͡ɪ"
+
+    # MOUTH: Same protection as PRICE.
+    - from: "a͡ʊ"
+      to:   "ɑ͡ʊ"
+
+    # CHOICE: eSpeak gives ɔɪ without tie bar.  Protect the ɪ offglide
+    # from KIT centralization.
+    - from: "ɔɪ"
+      to:   "ɔ͡ɪ"
+
+    # ── Non-rhotic R-dropping ────────────────────────────────────
+    # Australian English is non-rhotic: drop post-vocalic /ɹ/ at
+    # word-end and before consonants.  Prevocalic R (red, three)
+    # and onset R (run, green) are preserved.
+    # Must run in preReplacements so the R is gone before vowel
+    # sequence rules (NEAR iə→iᵊ, SQUARE eə→ɛᵊ) see word-end.
+    - from: "ɹ"
+      to:   ""
+      when:
+        afterClass: VOWELISH
+        atWordEnd: true
+    - from: "ɹ"
+      to:   ""
+      when:
+        afterClass: VOWELISH
+        beforeClass: CONSONANTS
+    - from: "r"
+      to:   ""
+      when:
+        afterClass: VOWELISH
+        atWordEnd: true
+    - from: "r"
+      to:   ""
+      when:
+        afterClass: VOWELISH
+        beforeClass: CONSONANTS
+
+  classes:
+    # ── Vowel-like characters ────────────────────────────────────
+    # Used by the non-rhotic R-dropping rules (afterClass: VOWELISH).
+    # Must include all vowel symbols eSpeak might emit before an R.
+    VOWELISH:
+      - "a"
+      - "e"
+      - "i"
+      - "o"
+      - "u"
+      - "y"
+      - "ɐ"
+      - "ɑ"
+      - "ɒ"
+      - "ɔ"
+      - "ə"
+      - "ɚ"
+      - "ɛ"
+      - "ɜ"
+      - "ɝ"
+      - "ɪ"
+      - "ʊ"
+      - "ʌ"
+      - "æ"
+      - "ᵻ"
+      - "ᵾ"
+      - "ᵿ"
+      - "ʉ"
+      - "ᴏ"
+      - "ᴐ"
+      - "ᵒ"
+      - "ᵊ"
+
+    CONSONANTS:
+      - "b"
+      - "d"
+      - "f"
+      - "g"
+      - "h"
+      - "j"
+      - "k"
+      - "l"
+      - "m"
+      - "n"
+      - "p"
+      - "s"
+      - "t"
+      - "v"
+      - "w"
+      - "x"
+      - "z"
+      - "ŋ"
+      - "ɡ"
+      - "ɣ"
+      - "ɫ"
+      - "ɲ"
+      - "ɹ"
+      - "ɻ"
+      - "ɾ"
+      - "ʃ"
+      - "ʒ"
+      - "ʔ"
+      - "θ"
+      - "ð"
+      - "ç"
+      - "β"
+      - "t͡ʃ"
+      - "d͡ʒ"
+      - "t͡s"
+      - "d͡z"
+
+    # ── Vowels class (for beforeClass/afterClass checks) ─────────
+    VOWELS: ["a", "e", "i", "o", "u", "ɐ", "ə", "ɜ", "ɑ", "ɒ", "ɔ", "ɛ", "æ", "ʊ", "ɪ", "ᵻ", "ᵾ", "ʉ", "ᴏ", "ᴐ", "ã", "ẽ", "ĩ", "õ", "ũ"]
+
+  replacements:
+    # ══════════════════════════════════════════════════════════════
+    # RULE ORDER MATTERS.  The applyRules engine processes rules
+    # sequentially; each rule sees the string as modified by all
+    # previous rules.  Same-length replacements chain intentionally.
+    # ══════════════════════════════════════════════════════════════
+
+    # ── KIT centralization: ɪ → ᵻ ────────────────────────────────
+    # MUST come BEFORE the happY rule (i→ɪ) so that original ɪ
+    # tokens get centralized, but the ɪ created by happY does not.
+    #
+    # Australian KIT is distinctively centralized: [ɘ] or [ɘ̝].
+    # ᵻ (F1=360, F2=1650) vs base ɪ (F1=360, F2=1800) — F2
+    # drops 150 Hz toward central territory.  Affects "kit", "bit",
+    # "sit", "fish", "this", "is", "it", and all unstressed ɪ.
+    #
+    # Safe: diphthong offglides (FACE æ͡ɪ, PRICE ɑ͡ɪ, CHOICE ɔ͡ɪ)
+    # are protected by tie bars from preReplacements.
+    - from: "ɪ"
+      to:   "ᵻ"
+
+    # ── happY vowel: i → ɪ (word-final) ─────────────────────────
+    # Australian happY leans toward [ɪ] rather than tense [i].
+    # This fires AFTER KIT centralization, so the ɪ created here
+    # is NOT re-scanned by the ɪ→ᵻ rule above.
+    # Safe: stressed /iː/ (free, key, see) always carries ː from
+    # eSpeak and won't match bare "i".
+    - from: "i"
+      to:   "ɪ"
+      when:
+        atWordEnd: true
+
+    # ── STRUT fronting: ʌ → ɐ ────────────────────────────────────
+    # Australian STRUT is fronted: [ɐ] (F1=530, F2=1310) rather
+    # than RP/GenAm [ʌ] (F1=580, F2=1200).  F2 rises ~110 Hz.
+    # Affects "but", "cup", "love", "come", "done", "strut", etc.
+    - from: "ʌ"
+      to:   "ɐ"
+
+    # ── TRAP normalization: a → æ ────────────────────────────────
+    # Same as en.yaml base rule, but we restate it here because
+    # Australian BATH = TRAP.  Unlike en-gb which broadens a/æ → ᵅː
+    # before BATH_FOLLOW consonants (s, f, θ), we keep ALL "a"
+    # tokens as short æ.  "Dance", "class", "bath" = [dæns],
+    # [klæs], [bæθ] — not [dɑːns], [klɑːs], [bɑːθ].
+    - from: "a"
+      to:   "æ"
+
+    # ── NURSE: de-rhoticize ──────────────────────────────────────
+    # Non-rhotic: any ɝ that leaks through (from other pack layers
+    # or eSpeak variants) should be plain ɜ.
+    - from: "ɝː"
+      to:   "ɜː"
+    - from: "ɝ"
+      to:   "ɜ"
+
+    # ── NEAR vowel: iə → iᵊ (word-final) ────────────────────────
+    # Non-rhotic NEAR: "fear", "hear", "beer" end in a short
+    # schwa-like transition after the R is dropped.
+    - from: "iə"
+      to:   "iᵊ"
+      when:
+        atWordEnd: true
+    - from: "i͡ə"
+      to:   "iᵊ"
+      when:
+        atWordEnd: true
+
+    # ── SQUARE vowel: eə → ɛᵊ (word-final) ──────────────────────
+    # Australian SQUARE tends toward monophthongal [eː].
+    # eSpeak gives "eə" after R-dropping.  Map to ɛ + short ᵊ
+    # since bare "e" has no phoneme entry.  ɛ (F1=530, F2=1750)
+    # is close to Australian [e] and the brief ᵊ tail prevents
+    # an abrupt cutoff.
+    - from: "eə"
+      to:   "ɛᵊ"
+      when:
+        atWordEnd: true
+
+    # ── GOOSE fronting: ᵾ → ʉ ────────────────────────────────────
+    # Australian GOOSE is very fronted [ʉː].  en.yaml maps u→ᵾ
+    # (F2=1350); we push further to ʉ (F2=1500) for the
+    # characteristically fronted Australian "ooh".
+    # Affects: "goose", "food", "two", "blue", "do", "moon", "school".
+    - from: "ᵾ"
+      to:   "ʉ"
+
+    # ── THOUGHT: keep as ɔ ───────────────────────────────────────
+    # Australian THOUGHT [oː] is similar to the base ɔ (F1=450,
+    # F2=870).  No mapping needed — the base phoneme is close.
+    # We intentionally do NOT apply RP's or US's THOUGHT shifts.
+
+    # ── GOAT: keep as əʊ ─────────────────────────────────────────
+    # eSpeak gives əʊ for GOAT which already fits Australian [əʉ].
+    # The diphthong collapse pass handles the formant sweep.
+    # No explicit mapping needed.
+
+    # ── START/PALM: keep base ɑ ──────────────────────────────────
+    # The base ɑ (F1=700, F2=1330) is described in phonemes.yaml as
+    # "suited for Australian" — fronted enough for Australian START.
+    # We intentionally do NOT use RP's back ᵅ (F2=1200).
+    # "Park", "car", "heart", "father", "calm" all get the fronted ɑ.
+
+    # ── Undo UK THOUGHT tweak from en.yaml ───────────────────────
+    # en.yaml may map ɔː→ᴏː for UK THOUGHT; undo that here.
+    - from: "ᴏ"
+      to:   "ɔ"
+
+    # ── Word-final schwa-ɹ cleanup ───────────────────────────────
+    # After R-dropping, words like "water" → wˈɔːtə, "better" → bˈɛtə.
+    # The schwa is already correct.  No further mapping needed.
+
+# ═════════════════════════════════════════════════════════════════
+# PHONEME NOTES (no overrides needed — existing phonemes suffice)
+# ═════════════════════════════════════════════════════════════════
+#
+# Phoneme      Australian target   Existing phoneme used    Notes
+# ─────────    ─────────────────   ─────────────────────    ─────
+# KIT [ɘ]      F2≈1650             ᵻ (F1=360, F2=1650)     centralized ɪ
+# DRESS [e]    F2≈2000             ɛ (F1=530, F2=1750)      close enough; raised naturally
+# TRAP [æ]     F2≈1660             æ (F1=620, F2=1660)      standard
+# STRUT [ɐ]    F2≈1310             ɐ (F1=530, F2=1310)      fronted ʌ
+# LOT [ɒ]      F2≈1100             ɒ (F1=660, F2=1100)      as RP
+# PALM [aː]    F2≈1330             ɑ (F1=700, F2=1330)      fronted, not RP back
+# GOOSE [ʉː]   F2≈1500             ʉ (F1=320, F2=1500)      heavily fronted
+# NURSE [ɜː]   F2≈1400             ɜ (F1=500, F2=1400)      non-rhotic
+# THOUGHT [oː] F2≈870              ɔ (F1=450, F2=870)       standard
+# FACE [æɪ]    onset F2≈1660       æ→ɪ via diphthong collapse  lowered onset
+# GOAT [əʊ]    onset F2≈1630       ə→ʊ via diphthong collapse  central onset
+# PRICE [ɑɪ]   onset F2≈1330       ɑ→ɪ via diphthong collapse  open onset
+# MOUTH [ɑʊ]   onset F2≈1330       ɑ→ʊ via diphthong collapse  open onset
+# CHOICE [ɔɪ]  standard            ɔ→ɪ via diphthong collapse  as RP
+# happY [ɪ]    F2≈1800             ɪ (F1=360, F2=1800)      lax, not tense [i]
+# NEAR [ɪə]    non-rhotic          i→ᵊ via normalization    schwa offglide
+# SQUARE [eː]  monophthong         ɛ→ᵊ via normalization    near-monophthong

@@ -25,6 +25,7 @@ languages = OrderedDict([
     ("auto", VoiceInfo("auto", _("Auto (match NVDA language)"))),
     ("en-us", VoiceInfo("en-us", "English (US)")),
     ("en-gb", VoiceInfo("en-gb", "English (UK)")),
+    ("en-au", VoiceInfo("en-au", "English (Australia)")),
     ("zh", VoiceInfo("zh", "Chinese")),
     ("pt", VoiceInfo("pt", "Portuguese")),
     ("hu", VoiceInfo("hu", "Hungarian")),
