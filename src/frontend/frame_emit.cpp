@@ -127,6 +127,78 @@ void emitFrames(
       continue;
     }
 
+    // ============================================
+    // CODA NOISE TAPER (fricative→stop closure)
+    // ============================================
+    // Two micro-frames that crossfade the noise SOURCE from parallel-dominant
+    // (sibilant) to cascade-dominant (aspirated).  This rotates the spectral
+    // character across the closure so the burst fires into warm cascade
+    // resonators instead of cold ones.  Same micro-frame pattern as burst
+    // and release-spread code.
+    //
+    //   early taper:  parallel medium, cascade barely waking  → sibilant tail
+    //   late taper:   parallel quiet,  cascade rising         → becoming aspirated
+    //   /t/ burst:    cascade already warm with formant structure
+    if (t.preStopGap && t.codaFricStopBlend && !t.voicedClosure && hadPrevFrame) {
+      if (trajectoryState->hasPrevBase) {
+        const double totalDur = t.durationMs;
+        const double earlyDur = totalDur * 0.45;
+        const double lateDur = totalDur - earlyDur;
+        const double prevFric = trajectoryState->prevBase[fa];
+        const int aspIdx = static_cast<int>(FieldId::aspirationAmplitude);
+        const int pgIdx = static_cast<int>(FieldId::preFormantGain);
+
+        // --- Early taper: sibilant tail (parallel still dominant) ---
+        double early[kFrameFieldCount];
+        std::memcpy(early, trajectoryState->prevBase, sizeof(early));
+        early[va] = 0.0;  // voiceless closure
+        early[fa] = prevFric * lang.codaNoiseTaperEarlyFricScale;
+        early[aspIdx] = lang.codaNoiseTaperEarlyAspAmp;
+        early[pgIdx] = lang.codaNoiseTaperPreGain;
+
+        nvspFrontend_Frame earlyFrame;
+        std::memcpy(&earlyFrame, early, sizeof(earlyFrame));
+        cb(userData, &earlyFrame, earlyDur, t.fadeMs, userIndexBase);
+        hadPrevFrame = true;
+
+        // --- Late taper: aspirated transition (cascade now dominant) ---
+        double late[kFrameFieldCount];
+        std::memcpy(late, trajectoryState->prevBase, sizeof(late));
+        late[va] = 0.0;
+        late[fa] = prevFric * lang.codaNoiseTaperLateFricScale;
+        late[aspIdx] = lang.codaNoiseTaperLateAspAmp;
+        late[pgIdx] = lang.codaNoiseTaperPreGain;
+
+        // Blend formants toward the stop's place of articulation.
+        // The gap carries the stop's PhonemeDef (t.def), so we can read
+        // its formant targets and lerp the late taper partway there.
+        // This smooths the spectral handoff — especially for cross-place
+        // clusters like /sk/ or /sp/ where the locus differs significantly.
+        if (t.def) {
+          const int cf2i = static_cast<int>(FieldId::cf2);
+          const int cf3i = static_cast<int>(FieldId::cf3);
+          const int pf2i = static_cast<int>(FieldId::pf2);
+          const int pf3i = static_cast<int>(FieldId::pf3);
+          constexpr double blend = 0.40;
+          if (t.def->setMask & (1ull << cf2i))
+            late[cf2i] += (t.def->field[cf2i] - late[cf2i]) * blend;
+          if (t.def->setMask & (1ull << cf3i))
+            late[cf3i] += (t.def->field[cf3i] - late[cf3i]) * blend;
+          if (t.def->setMask & (1ull << pf2i))
+            late[pf2i] += (t.def->field[pf2i] - late[pf2i]) * blend;
+          if (t.def->setMask & (1ull << pf3i))
+            late[pf3i] += (t.def->field[pf3i] - late[pf3i]) * blend;
+        }
+
+        nvspFrontend_Frame lateFrame;
+        std::memcpy(&lateFrame, late, sizeof(lateFrame));
+        double lateFade = std::max(earlyDur * 0.5, lateDur * 0.4);
+        cb(userData, &lateFrame, lateDur, lateFade, userIndexBase);
+
+        continue;
+      }
+    }
+
     if (t.silence || !t.def) {
       cb(userData, nullptr, t.durationMs, t.fadeMs, userIndexBase);
       continue;
@@ -377,6 +449,13 @@ void emitFrames(
         if (t.def->hasBurstDecayRate) decayRate = t.def->burstDecayRate;
         if (t.def->hasBurstSpectralTilt) spectralTilt = t.def->burstSpectralTilt;
 
+        // Coda blend: the burst continues the taper, not a fresh onset.
+        // Use longer burst for smoother decay — the taper already did the attack.
+        if (t.codaFricStopBlend && !isAffricate) {
+          burstMs = std::max(burstMs, t.durationMs * 0.6);
+          decayRate = 0.7;  // faster frication decay (taper is doing the work)
+        }
+
         // Clamp burst to 75% of token duration so it always fires,
         // even at high speech rates. Preserves place differentiation.
         double maxBurst = t.durationMs * 0.75;
@@ -535,7 +614,33 @@ void emitFrames(
     // ============================================
     // Instead of instant aspiration onset, ramp in gradually over releaseSpreadMs.
     // Emit 2 micro-frames: a quiet ramp-in followed by full aspiration.
+    // Coda blend: skip the ramp-in — we're continuing the taper, not starting fresh.
     if (t.postStopAspiration && t.def && t.durationMs > 1.0) {
+      if (t.codaFricStopBlend) {
+        // Single frame with moderate aspiration that decays naturally.
+        // No ramp-in dip — the taper→burst already provided continuity.
+        const int aspIdx = static_cast<int>(FieldId::aspirationAmplitude);
+        double seg[kFrameFieldCount];
+        std::memcpy(seg, base, sizeof(seg));
+        seg[aspIdx] *= 0.60;  // start at 60% — decays into silence
+
+        nvspFrontend_Frame aspFrame;
+        std::memcpy(&aspFrame, seg, sizeof(aspFrame));
+        cb(userData, &aspFrame, t.durationMs, t.durationMs * 0.5, userIndexBase);
+
+        trajectoryState->prevCf2 = aspFrame.cf2;
+        trajectoryState->prevCf3 = aspFrame.cf3;
+        trajectoryState->prevPf2 = aspFrame.pf2;
+        trajectoryState->prevPf3 = aspFrame.pf3;
+        trajectoryState->prevVoiceAmp = base[va];
+        trajectoryState->prevFricAmp = base[fa];
+        trajectoryState->hasPrevFrame = true;
+        trajectoryState->prevWasNasal = false;
+
+        prevTokenWasStop = false;
+        continue;
+      }
+
       // Look up releaseSpreadMs from the aspiration phoneme's def (or default 4ms)
       double spreadMs = t.def->hasReleaseSpreadMs ? t.def->releaseSpreadMs : 4.0;
 
@@ -738,6 +843,71 @@ void emitFramesEx(
         cb(userData, nullptr, nullptr, t.durationMs, vbFadeMs, userIndexBase);
       }
       continue;
+    }
+
+    // ============================================
+    // CODA NOISE TAPER (fricative→stop closure) — Ex path
+    // ============================================
+    if (t.preStopGap && t.codaFricStopBlend && !t.voicedClosure && hadPrevFrame) {
+      if (trajectoryState->hasPrevBase) {
+        const double totalDur = t.durationMs;
+        const double earlyDur = totalDur * 0.45;
+        const double lateDur = totalDur - earlyDur;
+        const double prevFric = trajectoryState->prevBase[fa];
+        const int aspIdx = static_cast<int>(FieldId::aspirationAmplitude);
+        const int pgIdx = static_cast<int>(FieldId::preFormantGain);
+
+        nvspFrontend_FrameEx taperFrameEx = trajectoryState->hasPrevFrameEx
+            ? trajectoryState->prevFrameEx
+            : frameExDefaults;
+        taperFrameEx.fujisakiPhraseAmp = 0.0;
+        taperFrameEx.fujisakiAccentAmp = 0.0;
+
+        // --- Early taper: sibilant tail ---
+        double early[kFrameFieldCount];
+        std::memcpy(early, trajectoryState->prevBase, sizeof(early));
+        early[va] = 0.0;
+        early[fa] = prevFric * lang.codaNoiseTaperEarlyFricScale;
+        early[aspIdx] = lang.codaNoiseTaperEarlyAspAmp;
+        early[pgIdx] = lang.codaNoiseTaperPreGain;
+
+        nvspFrontend_Frame earlyFrame;
+        std::memcpy(&earlyFrame, early, sizeof(earlyFrame));
+        cb(userData, &earlyFrame, &taperFrameEx, earlyDur, t.fadeMs, userIndexBase);
+        hadPrevFrame = true;
+
+        // --- Late taper: aspirated transition ---
+        double late[kFrameFieldCount];
+        std::memcpy(late, trajectoryState->prevBase, sizeof(late));
+        late[va] = 0.0;
+        late[fa] = prevFric * lang.codaNoiseTaperLateFricScale;
+        late[aspIdx] = lang.codaNoiseTaperLateAspAmp;
+        late[pgIdx] = lang.codaNoiseTaperPreGain;
+
+        // Blend formants toward the stop's place (same as emitFrames path)
+        if (t.def) {
+          const int cf2i = static_cast<int>(FieldId::cf2);
+          const int cf3i = static_cast<int>(FieldId::cf3);
+          const int pf2i = static_cast<int>(FieldId::pf2);
+          const int pf3i = static_cast<int>(FieldId::pf3);
+          constexpr double blend = 0.40;
+          if (t.def->setMask & (1ull << cf2i))
+            late[cf2i] += (t.def->field[cf2i] - late[cf2i]) * blend;
+          if (t.def->setMask & (1ull << cf3i))
+            late[cf3i] += (t.def->field[cf3i] - late[cf3i]) * blend;
+          if (t.def->setMask & (1ull << pf2i))
+            late[pf2i] += (t.def->field[pf2i] - late[pf2i]) * blend;
+          if (t.def->setMask & (1ull << pf3i))
+            late[pf3i] += (t.def->field[pf3i] - late[pf3i]) * blend;
+        }
+
+        nvspFrontend_Frame lateFrame;
+        std::memcpy(&lateFrame, late, sizeof(lateFrame));
+        double lateFade = std::max(earlyDur * 0.5, lateDur * 0.4);
+        cb(userData, &lateFrame, &taperFrameEx, lateDur, lateFade, userIndexBase);
+
+        continue;
+      }
     }
 
     if (t.silence || !t.def) {
@@ -1120,6 +1290,12 @@ void emitFramesEx(
         if (t.def->hasBurstDecayRate) decayRate = t.def->burstDecayRate;
         if (t.def->hasBurstSpectralTilt) spectralTilt = t.def->burstSpectralTilt;
 
+        // Coda blend: longer burst, faster decay (same as emitFrames path)
+        if (t.codaFricStopBlend && !isAffricate) {
+          burstMs = std::max(burstMs, t.durationMs * 0.6);
+          decayRate = 0.7;
+        }
+
         // Clamp burst to 75% of token duration so it always fires
         double maxBurst = t.durationMs * 0.75;
         if (burstMs > maxBurst) burstMs = maxBurst;
@@ -1263,6 +1439,30 @@ void emitFramesEx(
     // RELEASE SPREAD (postStopAspiration tokens) — Ex path
     // ============================================
     if (t.postStopAspiration && t.def && t.durationMs > 1.0) {
+      if (t.codaFricStopBlend) {
+        // Coda blend: single decaying aspiration frame, no ramp-in dip.
+        const int aspIdx = static_cast<int>(FieldId::aspirationAmplitude);
+        double seg[kFrameFieldCount];
+        std::memcpy(seg, base, sizeof(seg));
+        seg[aspIdx] *= 0.60;
+
+        nvspFrontend_Frame aspFrame;
+        std::memcpy(&aspFrame, seg, sizeof(aspFrame));
+        cb(userData, &aspFrame, &frameEx, t.durationMs, t.durationMs * 0.5, userIndexBase);
+
+        trajectoryState->prevCf2 = aspFrame.cf2;
+        trajectoryState->prevCf3 = aspFrame.cf3;
+        trajectoryState->prevPf2 = aspFrame.pf2;
+        trajectoryState->prevPf3 = aspFrame.pf3;
+        trajectoryState->prevVoiceAmp = base[va];
+        trajectoryState->prevFricAmp = base[fa];
+        trajectoryState->hasPrevFrame = true;
+        trajectoryState->prevWasNasal = false;
+
+        prevTokenWasStop = false;
+        continue;
+      }
+
       double spreadMs = t.def->hasReleaseSpreadMs ? t.def->releaseSpreadMs : 4.0;
 
       if (spreadMs > 0.0 && spreadMs < t.durationMs) {

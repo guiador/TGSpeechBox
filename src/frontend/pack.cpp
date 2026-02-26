@@ -693,6 +693,14 @@ getNum("primaryStressDiv", lp.primaryStressDiv);
   getNum("boundarySmoothingWithinSyllableFadeScale", lp.boundarySmoothingWithinSyllableFadeScale);
   getNum("boundarySmoothingHighRateFadeRatioFloor", lp.boundarySmoothingHighRateFadeRatioFloor);
 
+  // Coda noise taper (fricative→stop continuity)
+  getBool("codaNoiseTaperEnabled", lp.codaNoiseTaperEnabled);
+  getNum("codaNoiseTaperPreGain", lp.codaNoiseTaperPreGain);
+  getNum("codaNoiseTaperEarlyFricScale", lp.codaNoiseTaperEarlyFricScale);
+  getNum("codaNoiseTaperEarlyAspAmp", lp.codaNoiseTaperEarlyAspAmp);
+  getNum("codaNoiseTaperLateFricScale", lp.codaNoiseTaperLateFricScale);
+  getNum("codaNoiseTaperLateAspAmp", lp.codaNoiseTaperLateAspAmp);
+
   // Trajectory limiting (optional)
   getBool("trajectoryLimitEnabled", lp.trajectoryLimitEnabled);
   getNum("trajectoryLimitWindowMs", lp.trajectoryLimitWindowMs);

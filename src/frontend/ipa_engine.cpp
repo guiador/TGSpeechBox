@@ -1364,6 +1364,17 @@ static bool parseToTokens(const PackSet& pack, const std::u32string& text, std::
           gap.voicedClosure = true;
         }
 
+        // Coda noise taper: when a fricative precedes a voiceless coda stop,
+        // mark the gap so frame_emit can emit a taper frame instead of silence.
+        // The !t.wordStart guard prevents onset clusters (/st/ in "style") from
+        // getting the taper — only coda clusters (/st/ in "list") qualify.
+        if (clusterGap && haveLast() && tokenIsFricativeLike(outTokens[lastIndex])
+            && !tokenIsVoiced(t) && !t.wordStart
+            && lang.codaNoiseTaperEnabled && !tokenIsAfricate(t)) {
+          gap.codaFricStopBlend = true;
+          t.codaFricStopBlend = true;
+        }
+
         outTokens.push_back(gap);
         // IMPORTANT: do NOT update lastIndex here; Python keeps lastPhoneme as the
         // previous *real* phoneme, not the inserted gap.

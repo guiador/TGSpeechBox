@@ -896,6 +896,17 @@ double lengthContrastPreGeminateVowelScale = 0.85;
   // Rate-adaptive fade ratio floor (used with shared highRateThreshold)
   double boundarySmoothingHighRateFadeRatioFloor = 0.40;
 
+  // Coda noise taper: maintain frication continuity through fricative→stop closures.
+  // When enabled, the silent closure gap between a fricative and a following coda stop
+  // is replaced with a taper frame that decays the fricative's noise, keeping the DSP's
+  // resonators warm and preventing aggressive burst detection.
+  bool codaNoiseTaperEnabled = true;
+  double codaNoiseTaperPreGain = 0.40;          // preFormantGain during taper (keeps both paths alive)
+  double codaNoiseTaperEarlyFricScale = 0.45;   // Early taper: fric as fraction of preceding level
+  double codaNoiseTaperEarlyAspAmp = 0.04;      // Early taper: cascade barely waking up
+  double codaNoiseTaperLateFricScale = 0.08;    // Late taper: parallel almost gone
+  double codaNoiseTaperLateAspAmp = 0.22;       // Late taper: cascade now dominant
+
   // Trajectory limiting (optional).
   //
   // Caps how quickly selected formant targets are allowed to change at token

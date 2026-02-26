@@ -74,6 +74,7 @@ struct Token {
   bool postStopAspiration = false;
   bool vowelHiatusGap = false;
   bool voicedClosure = false;  // Voice bar: maintain low-amplitude voicing during closure
+  bool codaFricStopBlend = false;  // Coda fricative→stop: maintain noise continuity
 
   bool wordStart = false;
   bool syllableStart = false;
