@@ -65,101 +65,108 @@ fun SpeakScreen(viewModel: TgsbViewModel) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
             .padding(20.dp)
     ) {
-        // Title
-        Text(
-            text = stringResource(R.string.app_name),
-            style = MaterialTheme.typography.headlineLarge,
-            modifier = Modifier.semantics { heading() }
-        )
-
-        Spacer(Modifier.height(16.dp))
-
-        // Text input
-        OutlinedTextField(
-            value = text,
-            onValueChange = { viewModel.textToSpeak.value = it },
-            label = { Text(stringResource(R.string.text_input_label)) },
-            placeholder = { Text(stringResource(R.string.text_input_placeholder)) },
+        // ── Scrollable controls ─────────────────────────────────────
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .height(120.dp),
-            maxLines = 6
-        )
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+        ) {
+            // Title
+            Text(
+                text = stringResource(R.string.app_name),
+                style = MaterialTheme.typography.headlineLarge,
+                modifier = Modifier.semantics { heading() }
+            )
 
-        Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(16.dp))
 
-        // Language dropdown
-        DropdownPicker(
-            label = stringResource(R.string.language_label),
-            items = viewModel.languages.map { it.displayName },
-            selectedIndex = langIndex,
-            onSelected = { viewModel.onLanguageSelected(it) }
-        )
+            // Text input
+            OutlinedTextField(
+                value = text,
+                onValueChange = { viewModel.textToSpeak.value = it },
+                label = { Text(stringResource(R.string.text_input_label)) },
+                placeholder = { Text(stringResource(R.string.text_input_placeholder)) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(120.dp),
+                maxLines = 6
+            )
 
+            Spacer(Modifier.height(16.dp))
+
+            // Language dropdown
+            DropdownPicker(
+                label = stringResource(R.string.language_label),
+                items = viewModel.languages.map { it.displayName },
+                selectedIndex = langIndex,
+                onSelected = { viewModel.onLanguageSelected(it) }
+            )
+
+            Spacer(Modifier.height(12.dp))
+
+            // Voice dropdown
+            DropdownPicker(
+                label = stringResource(R.string.voice_label),
+                items = viewModel.voices.map { it.label },
+                selectedIndex = voiceIndex,
+                onSelected = { viewModel.onVoiceSelected(it) }
+            )
+
+            Spacer(Modifier.height(16.dp))
+
+            // Speed slider — visual label hidden from TalkBack; slider carries
+            // the full accessible name so it's a single swipe target.
+            val speedText = stringResource(R.string.speed_value, speed)
+            val speedLabel = stringResource(R.string.speed_label)
+            Text(
+                text = "$speedLabel: $speedText",
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.clearAndSetSemantics {}
+            )
+            Slider(
+                value = speed,
+                onValueChange = { viewModel.speedRate.value = it },
+                valueRange = 0.3f..3.0f,
+                steps = 26,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .semantics {
+                        contentDescription = "$speedLabel: $speedText"
+                        stateDescription = speedText
+                    }
+            )
+
+            Spacer(Modifier.height(8.dp))
+
+            // Pitch slider
+            val pitchInt = pitch.roundToInt()
+            val pitchText = stringResource(R.string.pitch_value, pitchInt)
+            val pitchLabel = stringResource(R.string.pitch_label)
+            Text(
+                text = "$pitchLabel: $pitchText",
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.clearAndSetSemantics {}
+            )
+            Slider(
+                value = pitch,
+                onValueChange = { viewModel.pitchHz.value = it },
+                valueRange = 40f..300f,
+                steps = 51,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .semantics {
+                        contentDescription = "$pitchLabel: $pitchText"
+                        stateDescription = pitchText
+                    }
+            )
+
+        }
+
+        // ── Pinned buttons at bottom ────────────────────────────────
         Spacer(Modifier.height(12.dp))
 
-        // Voice dropdown
-        DropdownPicker(
-            label = stringResource(R.string.voice_label),
-            items = viewModel.voices.map { it.label },
-            selectedIndex = voiceIndex,
-            onSelected = { viewModel.onVoiceSelected(it) }
-        )
-
-        Spacer(Modifier.height(16.dp))
-
-        // Speed slider — visual label hidden from TalkBack; slider carries
-        // the full accessible name so it's a single swipe target.
-        val speedText = stringResource(R.string.speed_value, speed)
-        val speedLabel = stringResource(R.string.speed_label)
-        Text(
-            text = "$speedLabel: $speedText",
-            style = MaterialTheme.typography.bodyLarge,
-            modifier = Modifier.clearAndSetSemantics {}
-        )
-        Slider(
-            value = speed,
-            onValueChange = { viewModel.speedRate.value = it },
-            valueRange = 0.3f..3.0f,
-            steps = 26,
-            modifier = Modifier
-                .fillMaxWidth()
-                .semantics {
-                    contentDescription = "$speedLabel: $speedText"
-                    stateDescription = speedText
-                }
-        )
-
-        Spacer(Modifier.height(8.dp))
-
-        // Pitch slider
-        val pitchInt = pitch.roundToInt()
-        val pitchText = stringResource(R.string.pitch_value, pitchInt)
-        val pitchLabel = stringResource(R.string.pitch_label)
-        Text(
-            text = "$pitchLabel: $pitchText",
-            style = MaterialTheme.typography.bodyLarge,
-            modifier = Modifier.clearAndSetSemantics {}
-        )
-        Slider(
-            value = pitch,
-            onValueChange = { viewModel.pitchHz.value = it },
-            valueRange = 40f..300f,
-            steps = 51,
-            modifier = Modifier
-                .fillMaxWidth()
-                .semantics {
-                    contentDescription = "$pitchLabel: $pitchText"
-                    stateDescription = pitchText
-                }
-        )
-
-        Spacer(Modifier.height(20.dp))
-
-        // Speak / Stop buttons
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(16.dp)

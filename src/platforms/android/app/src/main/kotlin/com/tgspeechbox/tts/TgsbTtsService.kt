@@ -95,6 +95,9 @@ class TgsbTtsService : TextToSpeechService() {
             LangDef("hun", "",    "hu",    "hu",    Locale("hu")),
             LangDef("fin", "",    "fi",    "fi",    Locale("fi")),
 
+            // Turkic
+            LangDef("tur", "",    "tr",    "tr",    Locale("tr")),
+
             // Other
             LangDef("zho", "",    "cmn",   "zh",    Locale("zh")),
         )
@@ -197,6 +200,8 @@ class TgsbTtsService : TextToSpeechService() {
     )
     private external fun nativeSetPitchMode(handle: Long, mode: String): Int
     private external fun nativeSetInflectionScale(handle: Long, scale: Double)
+    private external fun nativeSetInflection(handle: Long, value: Double)
+    private external fun nativeSetVolume(handle: Long, value: Double)
 
     override fun onCreate() {
         super.onCreate()
@@ -285,12 +290,18 @@ class TgsbTtsService : TextToSpeechService() {
             jit.toDouble(), shim.toDouble(), sharpness.toDouble()
         )
 
-        // Pitch mode + inflection scale
+        // Pitch mode + inflection scale + inflection
         val pitchMode = prefs.getString("${p}pitchMode", "espeak_style") ?: "espeak_style"
         nativeSetPitchMode(nativeHandle, pitchMode)
 
         val inflScale = prefs.getFloat("${p}inflectionScale", 58f) / 100f
         nativeSetInflectionScale(nativeHandle, inflScale.toDouble())
+
+        val inflection = prefs.getFloat("${p}inflection", 50f) / 100f
+        nativeSetInflection(nativeHandle, inflection.toDouble())
+
+        val volume = prefs.getFloat("${p}systemVolume", 1.0f).coerceIn(0.05f, 1.0f)
+        nativeSetVolume(nativeHandle, volume.toDouble())
     }
 
     override fun onDestroy() {

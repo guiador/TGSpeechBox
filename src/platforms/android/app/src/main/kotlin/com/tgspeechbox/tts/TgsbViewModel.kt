@@ -62,11 +62,16 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
 
     val pitchMode = MutableStateFlow(loadString("pitchMode", "espeak_style"))
     val inflectionScale = MutableStateFlow(loadSlider("inflectionScale", 58f))
+    val inflection = MutableStateFlow(loadSlider("inflection", 50f))
 
     // ── System rate override ────────────────────────────────────────
 
     val overrideSystemRate = MutableStateFlow(loadBool("overrideSystemRate", false))
     val globalRate = MutableStateFlow(loadSlider("globalRate", 1.0f))
+
+    // ── Output ───────────────────────────────────────────────────────
+
+    val systemVolume = MutableStateFlow(loadSlider("systemVolume", 1.0f))
 
     // ── FrameEx sliders (0–100) ─────────────────────────────────────
 
@@ -120,6 +125,7 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
             applyVoicingTone()
             applyFrameExDefaults()
             applyPitchSettings()
+            engine.setVolume(systemVolume.value)
 
             engine.onSpeakingChanged = { speaking ->
                 isSpeaking.value = speaking
@@ -195,8 +201,10 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
 
     fun onPitchModeChanged(mode: String)       { pitchMode.value = mode;       saveString("pitchMode", mode);       applyPitchSettings() }
     fun onInflectionScaleChanged(v: Float)     { inflectionScale.value = v;    saveSlider("inflectionScale", v);    applyPitchSettings() }
+    fun onInflectionChanged(v: Float)          { inflection.value = v;         saveSlider("inflection", v);         applyPitchSettings() }
     fun onOverrideSystemRateChanged(v: Boolean){ overrideSystemRate.value = v;  saveBool("overrideSystemRate", v) }
     fun onGlobalRateChanged(v: Float)          { globalRate.value = v;          saveSlider("globalRate", v) }
+    fun onSystemVolumeChanged(v: Float)        { systemVolume.value = v;        saveSlider("systemVolume", v);       engine.setVolume(v) }
 
     // ── Slider → engine value mapping (matches NVDA driver math) ────
 
@@ -242,6 +250,7 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
     private fun applyPitchSettings() {
         engine.setPitchMode(pitchMode.value)
         engine.setInflectionScale((inflectionScale.value / 100f).toDouble())
+        engine.setInflection((inflection.value / 100f).toDouble())
     }
 
     // ── Language filter ─────────────────────────────────────────────

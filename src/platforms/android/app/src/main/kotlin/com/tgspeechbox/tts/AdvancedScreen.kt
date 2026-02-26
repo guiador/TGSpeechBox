@@ -103,6 +103,12 @@ fun AdvancedScreen(
         Spacer(Modifier.height(12.dp))
 
         VoicingToneSlider(
+            label = stringResource(R.string.inflection_label),
+            flow = viewModel.inflection,
+            onChange = { viewModel.onInflectionChanged(it) },
+            format = { v -> "${v.roundToInt()}" }
+        )
+        VoicingToneSlider(
             label = stringResource(R.string.voice_tilt_label),
             flow = viewModel.voiceTilt,
             onChange = { viewModel.onVoiceTiltChanged(it) },
@@ -254,6 +260,39 @@ fun AdvancedScreen(
                 .semantics {
                     contentDescription = rateLabel
                     stateDescription = "${"%.1f".format(globalRateVal)}x"
+                }
+        )
+
+        Spacer(Modifier.height(20.dp))
+
+        // ── Output section ──────────────────────────────────────────
+        Text(
+            text = stringResource(R.string.output_section_title),
+            style = MaterialTheme.typography.headlineMedium,
+            modifier = Modifier.semantics { heading() }
+        )
+
+        Spacer(Modifier.height(12.dp))
+
+        val volumeVal by viewModel.systemVolume.collectAsState()
+        val volumePercent = (volumeVal * 100).roundToInt()
+        val volumeLabel = "${stringResource(R.string.system_volume_label)}: $volumePercent%"
+
+        Text(
+            text = volumeLabel,
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier.clearAndSetSemantics {}
+        )
+        Slider(
+            value = volumeVal,
+            onValueChange = { viewModel.onSystemVolumeChanged(it) },
+            valueRange = 0.05f..1.0f,
+            steps = 18,
+            modifier = Modifier
+                .fillMaxWidth()
+                .semantics {
+                    contentDescription = volumeLabel
+                    stateDescription = "$volumePercent%"
                 }
         )
 

@@ -39,6 +39,8 @@ class TgsbSpeakEngine(private val context: Context) {
     private var stopRequested = false
     private var synthThread: Thread? = null
     private var audioTrack: AudioTrack? = null
+    @Volatile
+    private var currentVolume: Float = 1.0f
 
     var isSpeaking: Boolean = false
         private set
@@ -83,6 +85,8 @@ class TgsbSpeakEngine(private val context: Context) {
     )
     private external fun nativeSetPitchMode(handle: Long, mode: String): Int
     private external fun nativeSetInflectionScale(handle: Long, scale: Double)
+    private external fun nativeSetInflection(handle: Long, value: Double)
+    private external fun nativeSetVolume(handle: Long, value: Double)
 
     // ── Lifecycle ────────────────────────────────────────────────────
 
@@ -162,6 +166,18 @@ class TgsbSpeakEngine(private val context: Context) {
     fun setInflectionScale(scale: Double) {
         if (nativeHandle == 0L) return
         nativeSetInflectionScale(nativeHandle, scale)
+    }
+
+    fun setInflection(value: Double) {
+        if (nativeHandle == 0L) return
+        nativeSetInflection(nativeHandle, value)
+    }
+
+    fun setVolume(volume: Float) {
+        currentVolume = volume.coerceIn(0.05f, 1.0f)
+        if (nativeHandle != 0L) {
+            nativeSetVolume(nativeHandle, currentVolume.toDouble())
+        }
     }
 
     // ── Speak / Stop ─────────────────────────────────────────────────
