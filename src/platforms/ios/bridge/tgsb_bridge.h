@@ -69,6 +69,9 @@ void tgsb_set_frame_ex_defaults(TgsbEngine *engine,
 int tgsb_set_pitch_mode(TgsbEngine *engine, const char *mode);
 void tgsb_set_legacy_pitch_inflection_scale(TgsbEngine *engine, double scale);
 
+/* --- Inflection (pitch range scaling, 0..1) --- */
+void tgsb_set_inflection(TgsbEngine *engine, double inflection);
+
 /* --- Voice preset info --- */
 int tgsb_get_num_voices(void);
 const char *tgsb_get_voice_name(int index);

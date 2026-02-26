@@ -37,9 +37,10 @@ struct EngineSettingsView: View {
     @State private var shimmer: Double
     @State private var glottalSharpness: Double
 
-    // Pitch mode
+    // Pitch mode + inflection
     @State private var pitchMode: String
     @State private var inflectionScale: Double
+    @State private var inflection: Double
 
     // Volume
     @State private var systemVolume: Double
@@ -71,6 +72,7 @@ struct EngineSettingsView: View {
         _pitchMode = State(initialValue: savedMode)
 
         _inflectionScale = State(initialValue: Self.load(d, "inflectionScale", 58))
+        _inflection = State(initialValue: Self.load(d, "inflection", 50))
 
         let vol = d?.object(forKey: "systemVolume") != nil
             ? d!.double(forKey: "systemVolume") : 1.0
@@ -123,6 +125,7 @@ struct EngineSettingsView: View {
                     .font(.headline)
                     .accessibilityAddTraits(.isHeader)
 
+                toneSlider("Inflection", $inflection, "inflection")
                 toneSlider("Creakiness", $creakiness, "creakiness")
                 toneSlider("Breathiness", $breathiness, "breathiness")
                 toneSlider("Jitter", $jitter, "jitter")
@@ -200,6 +203,7 @@ struct EngineSettingsView: View {
             glottalSharpness: glottalSharpness)
 
         engine.setInflectionScale(inflectionScale / 100.0)
+        engine.setInflection(inflection / 100.0)
 
         // Bump version so AU extension knows to re-read settings
         let d = defaults

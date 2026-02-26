@@ -133,6 +133,9 @@ struct TgsbEngine {
     double userAspirationTiltDbPerOct;
     double userCascadeBwScale;
     double userTremorDepth;
+
+    /* Pitch inflection (0..1), default 0.5 */
+    double inflection;
 };
 
 /* Frame callback context */
@@ -232,6 +235,7 @@ TgsbEngine *tgsb_create(const char *espeakDataPath,
     engine->sampleRate = sampleRate;
     engine->stopRequested = 0;
     engine->voiceIndex = 0; /* Adam */
+    engine->inflection = 0.5;
 
     return engine;
 }
@@ -328,7 +332,7 @@ void tgsb_queue_text(TgsbEngine *engine,
 
         nvspFrontend_queueIPA_Ex(
             engine->frontend, ipa,
-            speed, pitch, 0.5, clauseStr, 0,
+            speed, pitch, engine->inflection, clauseStr, 0,
             onFrame, &ctx
         );
     }
@@ -435,6 +439,14 @@ void tgsb_set_legacy_pitch_inflection_scale(TgsbEngine *engine, double scale)
 {
     if (!engine || !engine->frontend) return;
     nvspFrontend_setLegacyPitchInflectionScale(engine->frontend, scale);
+}
+
+void tgsb_set_inflection(TgsbEngine *engine, double inflection)
+{
+    if (!engine) return;
+    if (inflection < 0.0) inflection = 0.0;
+    if (inflection > 1.0) inflection = 1.0;
+    engine->inflection = inflection;
 }
 
 } /* extern "C" */

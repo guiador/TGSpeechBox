@@ -69,6 +69,7 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
         ("uk-UA", "uk",    "uk"),
         ("hu-HU", "hu",    "hu"),
         ("fi-FI", "fi",    "fi"),
+        ("tr-TR", "tr",    "tr"),
         ("zh-CN", "cmn",   "zh"),
     ]
 
@@ -372,6 +373,9 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
 
         let inflScale = load("inflectionScale", 58) / 100.0
         tgsb_set_legacy_pitch_inflection_scale(eng, inflScale)
+
+        let infl = load("inflection", 50) / 100.0
+        tgsb_set_inflection(eng, infl)
     }
 
     // MARK: - Helpers

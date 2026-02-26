@@ -39,6 +39,7 @@ let kLanguages: [TgsbLanguage] = [
     TgsbLanguage(id: "uk",    displayName: "Ukrainian",         espeakTag: "uk",    tgsbTag: "uk"),
     TgsbLanguage(id: "hu",    displayName: "Hungarian",         espeakTag: "hu",    tgsbTag: "hu"),
     TgsbLanguage(id: "fi",    displayName: "Finnish",           espeakTag: "fi",    tgsbTag: "fi"),
+    TgsbLanguage(id: "tr",    displayName: "Turkish",           espeakTag: "tr",    tgsbTag: "tr"),
     TgsbLanguage(id: "zh",    displayName: "Chinese (Mandarin)",espeakTag: "cmn",   tgsbTag: "zh"),
 ]
 
@@ -55,6 +56,7 @@ class TgsbEngine: ObservableObject {
     @Published var selectedVoice: TgsbVoice
     @Published var speed: Double = 1.0
     @Published var pitch: Double = 110.0
+    @Published var inflectionValue: Double = 50.0  // 0–100 slider
 
     let voices: [TgsbVoice]
 
@@ -175,6 +177,12 @@ class TgsbEngine: ObservableObject {
         tgsb_set_legacy_pitch_inflection_scale(eng, scale)
     }
 
+    /// Set voice inflection / pitch range (0.0–1.0).
+    func setInflection(_ value: Double) {
+        guard let eng = engine else { return }
+        tgsb_set_inflection(eng, value)
+    }
+
     /// Read all adv_* settings from AppGroup UserDefaults and apply.
     func applyEngineSettings() {
         guard engine != nil else { return }
@@ -206,6 +214,7 @@ class TgsbEngine: ObservableObject {
         let mode = d?.string(forKey: "adv_pitchMode") ?? "espeak_style"
         setPitchMode(mode)
         setInflectionScale(load("inflectionScale", 58) / 100.0)
+        setInflection(load("inflection", 50) / 100.0)
     }
 
     func speak(_ text: String) {
@@ -218,6 +227,7 @@ class TgsbEngine: ObservableObject {
                           selectedLanguage.tgsbTag)
         tgsb_set_voice(eng, selectedVoice.id)
         applyEngineSettings()
+        tgsb_set_inflection(eng, inflectionValue / 100.0)
 
         isSpeaking = true
 
