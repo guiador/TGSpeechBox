@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
-"""eSpeak bridge — direct voice selection and IPA conversion.
+"""eSpeak bridge — voice selection and IPA conversion.
 
-Standalone functions that wrap NVDA's _espeak module for:
-- Direct voice selection via ListVoices + SetVoiceByName (bypassing NVDA's async wrapper)
-- Text-to-IPA conversion via espeak_TextToPhonemes
-- Script-aware IPA conversion (switching eSpeak language for foreign-script runs)
+Uses espeak_direct for all DLL access — completely independent of
+NVDA's synthDrivers._espeak module.  No WavePlayer, no background
+thread, no shared global state.
 """
 
 from __future__ import annotations
@@ -12,8 +11,8 @@ from __future__ import annotations
 import ctypes
 
 from logHandler import log
-from synthDrivers import _espeak
 
+from . import espeak_direct
 from .text_utils import splitByScript
 
 # ctypes c_char_p truncates at the first NUL byte, so our parser only sees
@@ -26,14 +25,14 @@ _ESPEAK_PRIMARY_TAG = {
 
 
 def espeakSetVoiceDirect(langTag: str) -> bool:
-    """Set eSpeak voice using _espeak public API with accurate language matching.
+    """Set eSpeak voice with accurate language matching.
+
+    Walks espeak_ListVoices to find the best match for *langTag*,
+    then calls espeak_SetVoiceByName synchronously.
 
     Returns True if the voice was set successfully.
     """
-    try:
-        voiceList = _espeak.getVoiceList()
-    except Exception:
-        return False
+    voiceList = espeak_direct.getVoiceList()
     if not voiceList:
         return False
 
@@ -86,19 +85,17 @@ def espeakSetVoiceDirect(langTag: str) -> bool:
     if not chosenId:
         return False
 
-    # Decode bytes identifier to str for the public API call.
+    # Decode bytes identifier to str for the API call.
     try:
         name = chosenId.decode("utf-8", errors="replace") if isinstance(chosenId, bytes) else chosenId
     except Exception:
         name = chosenId
 
-    try:
-        _espeak.setVoiceByName(name)
+    if espeak_direct.setVoiceByName(name):
         log.debug("TGSpeechBox: eSpeak voice set directly: %r -> %r", tag, name)
         return True
-    except Exception:
-        log.debug("TGSpeechBox: setVoiceByName failed", exc_info=True)
 
+    log.debug("TGSpeechBox: setVoiceByName failed for %r", name)
     return False
 
 
@@ -110,7 +107,7 @@ def espeakTextToIPA(text: str, espeakDLL, phonemeMode: int) -> str:
     text : str
         The text to convert.
     espeakDLL :
-        The ctypes-loaded eSpeak DLL (``_espeak.espeakDLL``).
+        The ctypes-loaded eSpeak DLL handle.
     phonemeMode : int
         Phoneme mode flags for ``espeak_TextToPhonemes``.
 
@@ -136,7 +133,7 @@ def espeakTextToIPA(text: str, espeakDLL, phonemeMode: int) -> str:
         try:
             phonemeBuf = textToPhonemes(
                 ctypes.byref(textPtr),
-                _espeak.espeakCHARS_WCHAR,
+                espeak_direct.espeakCHARS_WCHAR,
                 phonemeMode,
             )
         except OSError:
@@ -189,12 +186,9 @@ def espeakTextToIPA_scriptAware(
         if targetLang != currentLang:
             if espeakSetVoiceDirect(targetLang):
                 currentLang = targetLang
-            else:
-                try:
-                    _espeak.setVoiceByLanguage(targetLang)
-                    currentLang = targetLang
-                except Exception:
-                    pass  # Fall through with current language.
+            elif espeak_direct.setVoiceByLanguage(targetLang):
+                currentLang = targetLang
+            # else: fall through with current language
 
         ipa = espeakTextToIPA(segText, espeakDLL, phonemeMode)
         if ipa:
@@ -203,9 +197,6 @@ def espeakTextToIPA_scriptAware(
     # Restore base language if we switched away.
     if currentLang != espeakLang:
         if not espeakSetVoiceDirect(espeakLang):
-            try:
-                _espeak.setVoiceByLanguage(espeakLang)
-            except Exception:
-                pass
+            espeak_direct.setVoiceByLanguage(espeakLang)
 
     return " ".join(ipaChunks)

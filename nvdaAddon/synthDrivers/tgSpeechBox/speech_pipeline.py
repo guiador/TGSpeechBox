@@ -16,14 +16,12 @@ from logHandler import log
 from synthDriverHandler import synthDoneSpeaking, synthIndexReached
 from speech.commands import IndexCommand, PitchCommand
 
-from . import speechPlayer
+from . import speechPlayer, espeak_direct
 from .constants import COALESCE_MAX_CHARS, COALESCE_MAX_INDEXES
 from .text_utils import re_textPause, normalizeTextForEspeak, looksLikeSentenceEnd
 from .espeak_bridge import espeakTextToIPA, espeakTextToIPA_scriptAware
 from .profile_utils import buildVoiceOps, applyVoiceToFrame
 from .constants import voices
-
-from synthDrivers import _espeak
 
 # Pre-calculate per-voice operations for fast application.
 _frameFieldNames = {x[0] for x in speechPlayer.Frame._fields_}
@@ -50,38 +48,36 @@ class SpeechPipelineMixin:
     # ---- eSpeak thin wrappers (use instance state) ----
 
     def _espeakTextToIPA(self, text: str) -> str:
-        if not getattr(self, "_espeakReady", False):
+        if not espeak_direct.is_ready():
             log.debug("TGSpeechBox: espeak not ready, skipping IPA conversion")
             return ""
-        espeakDLL = getattr(_espeak, "espeakDLL", None)
-        if not espeakDLL:
+        dll = espeak_direct.get_dll()
+        if not dll:
             return ""
         try:
-            return espeakTextToIPA(text, espeakDLL, self._ESPEAK_PHONEME_MODE)
+            return espeakTextToIPA(text, dll, self._ESPEAK_PHONEME_MODE)
         except OSError as e:
             # Access violation or other OS error — disable further attempts.
             log.error(f"TGSpeechBox: espeak_TextToPhonemes failed: {e}")
-            self._espeakReady = False
             return ""
 
     def _espeakTextToIPA_scriptAware(self, text: str) -> str:
         if not text:
             return ""
-        if not getattr(self, "_espeakReady", False):
+        if not espeak_direct.is_ready():
             return ""
-        espeakDLL = getattr(_espeak, "espeakDLL", None)
-        if not espeakDLL:
+        dll = espeak_direct.get_dll()
+        if not dll:
             return ""
         latinFallback = getattr(self, "_latinFallbackLang", "en-gb")
         espeakLang = getattr(self, "_espeakLang", "en")
         try:
             return espeakTextToIPA_scriptAware(
-                text, espeakDLL, self._ESPEAK_PHONEME_MODE,
+                text, dll, self._ESPEAK_PHONEME_MODE,
                 espeakLang, latinFallback,
             )
         except OSError as e:
             log.error(f"TGSpeechBox: espeak_TextToPhonemes failed: {e}")
-            self._espeakReady = False
             return ""
 
     # ---- Block building ----

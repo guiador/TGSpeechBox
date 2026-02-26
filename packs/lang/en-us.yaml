@@ -60,7 +60,7 @@ settings:
   semivowelOffglideScale: 0.65
 
   # Keep defaults conservative: avoid heavy cross-phoneme shaping here.
-  coarticulationEnabled: true
+  coarticulationEnabled: false
   trajectoryLimitEnabled: true
   microprosodyEnabled: true
   segmentBoundarySkipVowelToLiquid: false
@@ -769,6 +769,19 @@ normalization:
     - from: "ɐ"
       to:   "ə"
 
+    # happY vowel: word-final unstressed /i/ (thirty, twenty, fifty, happy,
+    # city, pretty…).  The tense /i/ (F2=2020) is nearly identical to /j/
+    # (F2=2000), so boundary crossfades from /i/ to /w/ sweep through yod
+    # territory — the ear hears "thirty-y-y-one".
+    # Map to ⁱ (F2=1920): still clearly "ee"-sounding but 80 Hz below /j/,
+    # which eliminates the yod artifact.  /ɪ/ (F2=1800) was tried but
+    # over-corrects — sounds too lax ("twent-yh").
+    # Safe: stressed /iː/ (free, key, see) always carries ː from eSpeak.
+    - from: "i"
+      to:   "ⁱ"
+      when:
+        atWordEnd: true
+
     # US GOOSE vowel: keep it a touch more forward/bright so words like "pool" and "two" don't drift UK-ish.
     # (en-gb keeps its own quality; this only affects en-us via the ᵿ key.)
     - from: "ᵾ"
@@ -798,27 +811,21 @@ normalization:
     - from: "ɜː"
       to:   "ɝː"
     - from: "ɜ"
-      to:   "ɝ"    # In many common words ending in -art (start/smart/cart/apart/depart...),
-    # /ɑːɹ/ and /ɑːɹt/ can sound overly open ("Australian") in a formant synth.
-    # Nudge toward more central "uh" vowel for American sound.
-    # Word-final R (star, car, far):
+      to:   "ɝ"
+
+    # START lexical set: all /ɑːɹ/ sequences (park, party, shard, card, guard,
+    # garden, carpet, target, market, apartment, remarkable, charming, barn…).
+    # The base ɑ phoneme (F1=700, F2=1330) is extremely open — sounds
+    # "Australian" / "aw-ish" in the formant synth before /ɹ/.
+    # Map to ʌ (F1=580, F2=1200) which gives the more natural American
+    # "ah" quality.  Safe to apply unconditionally: ɑːɹ only appears in
+    # START words.  LOT/PALM have ɑː without a following ɹ, and
+    # PRICE/MOUTH diphthongs are already protected by tie-bar
+    # preReplacements (a͡ɪ, a͡ʊ).
     - from: "ɑːɹ"
       to:   "ʌɹ"
-      when:
-        atWordEnd: true
     - from: "ɑɹ"
       to:   "ʌɹ"
-      when:
-        atWordEnd: true
-    # Word-final Rt (start, cart, fart):
-    - from: "ɑːɹt"
-      to:   "ʌɹt"
-      when:
-        atWordEnd: true
-    - from: "ɑɹt"
-      to:   "ʌɹt"
-      when:
-        atWordEnd: true
 
 
 

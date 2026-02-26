@@ -16,7 +16,6 @@ import queue
 import threading
 
 from logHandler import log
-from synthDrivers import _espeak
 from synthDriverHandler import SynthDriver as _SynthDriverBase, VoiceInfo
 
 from autoSettingsUtils.driverSetting import (
@@ -24,7 +23,7 @@ from autoSettingsUtils.driverSetting import (
 )
 
 # Local module imports
-from . import speechPlayer
+from . import speechPlayer, espeak_direct
 from ._dll_utils import findDllDir
 from ._frontend import NvspFrontend
 
@@ -252,27 +251,14 @@ class SynthDriver(
         self._bgThread.start()
 
 
-        # 8. Initialize eSpeak
-        #    Only initialize + fix prototypes here.  Voice selection is deferred
-        #    to _set_language (called from super().__init__) to avoid the
-        #    redundant espeakSetVoiceDirect + setVoiceByLanguage round-trip.
-        #    If eSpeak is already loaded (e.g. NVDA's built-in usage or previous
-        #    synth), skip the expensive initialize() call.
-        self._espeakReady = False
-        try:
-            espeakDLL = getattr(_espeak, "espeakDLL", None)
-            if not espeakDLL:
-                _espeak.initialize()
-                espeakDLL = getattr(_espeak, "espeakDLL", None)
-            if espeakDLL and hasattr(espeakDLL, "espeak_TextToPhonemes"):
-                _ttp = espeakDLL.espeak_TextToPhonemes
-                _ttp.argtypes = (ctypes.POINTER(ctypes.c_void_p), ctypes.c_int, ctypes.c_int)
-                _ttp.restype = ctypes.c_void_p
-                self._espeakReady = True
-            else:
-                log.warning("TGSpeechBox: espeak DLL or espeak_TextToPhonemes not available")
-        except Exception:
-            log.warning("TGSpeechBox: failed to initialize espeak", exc_info=True)
+        # 8. Initialize eSpeak (direct DLL access — no NVDA _espeak module)
+        #    Loads espeak.dll and calls espeak_Initialize directly.
+        #    No WavePlayer, no background thread, no synth callback.
+        #    Completely decoupled from NVDA's eSpeak NG synth lifecycle.
+        #    Voice selection is deferred to _set_language (called via
+        #    initSettings after __init__ returns).
+        if not espeak_direct.init():
+            log.warning("TGSpeechBox: eSpeak direct init failed")
 
 
         # =======================================================================
@@ -513,12 +499,12 @@ class SynthDriver(
         # Primary: use direct ListVoices+SetVoiceByName (same approach as SAPI)
         # to ensure the correct voice is selected synchronously.
         espeakApplied = None
+        candidates = []
 
         if _espeakSetVoiceDirect(resolved):
             espeakApplied = resolved
         else:
-            # Fallback: try NVDA's setVoiceByLanguage with candidates.
-            candidates = []
+            # Fallback: try setVoiceByLanguage with candidates.
             for c in (resolved, resolved.replace("-", "_")):
                 if c and c not in candidates:
                     candidates.append(c)
@@ -533,12 +519,9 @@ class SynthDriver(
                 candidates.append("en")
 
             for tryCode in candidates:
-                try:
-                    _espeak.setVoiceByLanguage(tryCode)
+                if espeak_direct.setVoiceByLanguage(tryCode):
                     espeakApplied = tryCode
                     break
-                except Exception:
-                    continue
 
         self._espeakLang = (espeakApplied or "").strip().lower().replace("_", "-")
 
@@ -788,11 +771,8 @@ class SynthDriver(
                     log.debug("TGSpeechBox: player terminate failed", exc_info=True)
                 self._player = None
 
-            # Finally terminate espeak
-            try:
-                _espeak.terminate()
-            except Exception:
-                log.debug("TGSpeechBox: espeak terminate failed", exc_info=True)
+            # Finally terminate espeak (direct — no _espeak module involvement)
+            espeak_direct.terminate()
         except Exception:
             log.debug("TGSpeechBox: terminate failed", exc_info=True)
 
