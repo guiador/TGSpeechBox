@@ -6,11 +6,11 @@
 #   - Non-rhotic (like RP, unlike GenAm) — no post-vocalic /ɹ/
 #   - BATH = TRAP (unlike RP which broadens to /ɑː/) — "dance" rhymes with "ants"
 #   - Fronted START/PALM vowel — base ɑ (F2≈1330) not RP's back ᵅ (F2≈1200)
-#   - Centralized KIT — [ɘ]-ish, not the high-front RP [ɪ]
-#   - Raised DRESS — closer to [e] than RP [ɛ]
+#   - Centralized KIT — theoretically [ɘ]-ish, but disabled (ü artifact in formant synth)
+#   - Raised DRESS — [e] not RP [ɛ], needs dedicated ᵉ phoneme (F2≈1950)
 #   - Fronted STRUT — [ɐ] rather than RP/GenAm [ʌ]
 #   - Lowered FACE onset — [æɪ] rather than RP [eɪ]
-#   - Very fronted GOOSE — [ʉː], more than RP or GenAm
+#   - Very fronted GOOSE — [ʉ̟ː], needs dedicated ᵘ phoneme (F2≈1700)
 #   - Intervocalic flapping (like GenAm, unlike RP) — "water" = [woːɾə]
 #   - GOAT diphthong already close to target with əʊ from eSpeak
 #   - THOUGHT stays as [ɔː] (similar to RP)
@@ -137,8 +137,7 @@ settings:
     # since baseChar matching depends on the final phoneme key.
     monosyllableExclude:
       - "ðə"      # the
-      - "ðɪ"      # the (prevocalic, pre-normalization)
-      - "ðᵻ"      # the (prevocalic, post KIT centralization)
+      - "ðɪ"      # the (prevocalic)
       - "ə"       # a
       - "ən"      # an
       - "ɒv"      # of
@@ -147,14 +146,11 @@ settings:
       - "tuː"     # to (strong)
       - "fə"      # for (reduced)
       - "fɔː"     # for
-      - "ɪn"      # in (pre-normalization)
-      - "ᵻn"      # in (post KIT centralization)
+      - "ɪn"      # in
       - "ɒn"      # on
       - "æt"      # at
-      - "ɪz"      # is (pre-normalization)
-      - "ᵻz"      # is (post KIT centralization)
-      - "ɪt"      # it (pre-normalization)
-      - "ᵻt"      # it (post KIT centralization)
+      - "ɪz"      # is
+      - "ɪt"      # it
       - "wɒz"     # was
       - "hæz"     # has
       - "hæd"     # had
@@ -497,10 +493,10 @@ settings:
 normalization:
   preReplacements:
     # ── Diphthong protection ─────────────────────────────────────
-    # Insert tie bars so that replacement rules (especially KIT
-    # centralization ɪ→ᵻ) don't corrupt diphthong offglides.
-    # The tie bar blocks applyRules from matching inside the pair,
-    # and autoTieDiphthongs skips already-tied tokens.
+    # Insert tie bars to protect diphthong sequences from being
+    # split by later replacement rules (e.g. TRAP a→æ).  The tie
+    # bar blocks applyRules from matching inside the pair, and
+    # autoTieDiphthongs skips already-tied tokens.
 
     # FACE: Lower the onset from [eɪ] to [æɪ].
     # This is THE signature Australian vowel shift — "day" sounds
@@ -518,10 +514,18 @@ normalization:
     - from: "a͡ʊ"
       to:   "ɑ͡ʊ"
 
-    # CHOICE: eSpeak gives ɔɪ without tie bar.  Protect the ɪ offglide
-    # from KIT centralization.
+    # CHOICE: eSpeak gives ɔɪ without tie bar.  Protect the ɪ offglide.
     - from: "ɔɪ"
       to:   "ɔ͡ɪ"
+
+    # GOAT: Front the offglide from British [əʊ] to Australian [əʉ].
+    # eSpeak gives əʊ for all GOAT words (window, go, home, road…).
+    # The back ʊ (F2≈1066) sounds distinctly British; Australian GOAT
+    # glides to a fronted target [ʉ] (F2≈1700).  Using our dedicated
+    # ᵘ phoneme as the offglide.  The tie bar ensures the diphthong
+    # collapse pass sees this as a single sweep from ə to ᵘ.
+    - from: "əʊ"
+      to:   "ə͡ᵘ"
 
     # ── Non-rhotic R-dropping ────────────────────────────────────
     # Australian English is non-rhotic: drop post-vocalic /ɹ/ at
@@ -578,6 +582,8 @@ normalization:
       - "ᵾ"
       - "ᵿ"
       - "ʉ"
+      - "ᵉ"
+      - "ᵘ"
       - "ᴏ"
       - "ᴐ"
       - "ᵒ"
@@ -622,7 +628,7 @@ normalization:
       - "d͡z"
 
     # ── Vowels class (for beforeClass/afterClass checks) ─────────
-    VOWELS: ["a", "e", "i", "o", "u", "ɐ", "ə", "ɜ", "ɑ", "ɒ", "ɔ", "ɛ", "æ", "ʊ", "ɪ", "ᵻ", "ᵾ", "ʉ", "ᴏ", "ᴐ", "ã", "ẽ", "ĩ", "õ", "ũ"]
+    VOWELS: ["a", "e", "i", "o", "u", "ɐ", "ə", "ɜ", "ɑ", "ɒ", "ɔ", "ɛ", "æ", "ʊ", "ɪ", "ᵻ", "ᵾ", "ʉ", "ᵉ", "ᵘ", "ᴏ", "ᴐ", "ã", "ẽ", "ĩ", "õ", "ũ"]
 
   replacements:
     # ══════════════════════════════════════════════════════════════
@@ -631,24 +637,21 @@ normalization:
     # previous rules.  Same-length replacements chain intentionally.
     # ══════════════════════════════════════════════════════════════
 
-    # ── KIT centralization: ɪ → ᵻ ────────────────────────────────
-    # MUST come BEFORE the happY rule (i→ɪ) so that original ɪ
-    # tokens get centralized, but the ɪ created by happY does not.
+    # ── KIT centralization: DISABLED ─────────────────────────────
+    # Australian KIT is theoretically centralized [ɘ], but in a
+    # formant synth even a 50 Hz F2 drop from ɪ lands too close to
+    # rounded front vowel territory (ʏ/ü) — "six" sounds like "süx".
+    # The base ɪ (F2=1800) works fine; the other Australian vowel
+    # shifts (DRESS, FACE, GOOSE, STRUT, GOAT) already provide
+    # strong accent character.  If future tuners want centralization,
+    # re-enable with a dedicated phoneme whose F3 is high enough
+    # to maintain an unrounded percept.
     #
-    # Australian KIT is distinctively centralized: [ɘ] or [ɘ̝].
-    # ᵻ (F1=360, F2=1650) vs base ɪ (F1=360, F2=1800) — F2
-    # drops 150 Hz toward central territory.  Affects "kit", "bit",
-    # "sit", "fish", "this", "is", "it", and all unstressed ɪ.
-    #
-    # Safe: diphthong offglides (FACE æ͡ɪ, PRICE ɑ͡ɪ, CHOICE ɔ͡ɪ)
-    # are protected by tie bars from preReplacements.
-    - from: "ɪ"
-      to:   "ᵻ"
+    # - from: "ɪ"
+    #   to:   "ᵻ"
 
     # ── happY vowel: i → ɪ (word-final) ─────────────────────────
     # Australian happY leans toward [ɪ] rather than tense [i].
-    # This fires AFTER KIT centralization, so the ɪ created here
-    # is NOT re-scanned by the ɪ→ᵻ rule above.
     # Safe: stressed /iː/ (free, key, see) always carries ː from
     # eSpeak and won't match bare "i".
     - from: "i"
@@ -672,6 +675,19 @@ normalization:
     - from: "a"
       to:   "æ"
 
+    # ── DRESS raising: ɛ → ᵉ ────────────────────────────────────────
+    # Australian DRESS is raised from [ɛ] toward close-mid [e].
+    # ᵉ (F1=470, F2=1950) vs base ɛ (F1=530, F2=1750) — F1 drops
+    # 60 Hz (moderately raised) and F2 rises 200 Hz (fronted).
+    # Targets contemporary General Australian: clearly raised from
+    # RP/GenAm ɛ, but not the extreme Broad Aus of Cox (2006).
+    # Cox & Palethorpe (2008) documented ongoing short front vowel
+    # lowering in younger speakers, so this moderate target is
+    # more representative of current General Australian.
+    # Affects: "bed", "head", "said", "yes", "dress", "red", etc.
+    - from: "ɛ"
+      to:   "ᵉ"
+
     # ── NURSE: de-rhoticize ──────────────────────────────────────
     # Non-rhotic: any ɝ that leaks through (from other pack layers
     # or eSpeak variants) should be plain ɜ.
@@ -692,24 +708,24 @@ normalization:
       when:
         atWordEnd: true
 
-    # ── SQUARE vowel: eə → ɛᵊ (word-final) ──────────────────────
-    # Australian SQUARE tends toward monophthongal [eː].
-    # eSpeak gives "eə" after R-dropping.  Map to ɛ + short ᵊ
-    # since bare "e" has no phoneme entry.  ɛ (F1=530, F2=1750)
-    # is close to Australian [e] and the brief ᵊ tail prevents
-    # an abrupt cutoff.
+    # ── SQUARE vowel: eə → ᵉᵊ (word-final) ──────────────────────
+    # Australian SQUARE tends toward monophthongal [eː], sharing
+    # quality with raised DRESS [e].  eSpeak gives "eə" after
+    # R-dropping.  Map directly to ᵉ + short ᵊ tail.
+    # Using ᵉ (F1=430, F2=2050) matches the raised Australian
+    # DRESS quality, and the brief ᵊ prevents an abrupt cutoff.
     - from: "eə"
-      to:   "ɛᵊ"
+      to:   "ᵉᵊ"
       when:
         atWordEnd: true
 
-    # ── GOOSE fronting: ᵾ → ʉ ────────────────────────────────────
-    # Australian GOOSE is very fronted [ʉː].  en.yaml maps u→ᵾ
-    # (F2=1350); we push further to ʉ (F2=1500) for the
-    # characteristically fronted Australian "ooh".
-    # Affects: "goose", "food", "two", "blue", "do", "moon", "school".
+    # ── GOOSE fronting: ᵾ → ᵘ ────────────────────────────────────
+    # Australian GOOSE is heavily fronted [ʉ̟ː].  en.yaml maps u→ᵾ
+    # (F2=1350); we push to ᵘ (F2=1700) — significantly more fronted
+    # than generic ʉ (F2=1500).  This is the characteristically
+    # forward Australian "ooh" in "food", "school", "two", "blue".
     - from: "ᵾ"
-      to:   "ʉ"
+      to:   "ᵘ"
 
     # ── THOUGHT: keep as ɔ ───────────────────────────────────────
     # Australian THOUGHT [oː] is similar to the base ɔ (F1=450,
@@ -742,20 +758,20 @@ normalization:
 #
 # Phoneme      Australian target   Existing phoneme used    Notes
 # ─────────    ─────────────────   ─────────────────────    ─────
-# KIT [ɘ]      F2≈1650             ᵻ (F1=360, F2=1650)     centralized ɪ
-# DRESS [e]    F2≈2000             ɛ (F1=530, F2=1750)      close enough; raised naturally
-# TRAP [æ]     F2≈1660             æ (F1=620, F2=1660)      standard
-# STRUT [ɐ]    F2≈1310             ɐ (F1=530, F2=1310)      fronted ʌ
-# LOT [ɒ]      F2≈1100             ɒ (F1=660, F2=1100)      as RP
-# PALM [aː]    F2≈1330             ɑ (F1=700, F2=1330)      fronted, not RP back
-# GOOSE [ʉː]   F2≈1500             ʉ (F1=320, F2=1500)      heavily fronted
-# NURSE [ɜː]   F2≈1400             ɜ (F1=500, F2=1400)      non-rhotic
-# THOUGHT [oː] F2≈870              ɔ (F1=450, F2=870)       standard
+# KIT [ɪ]      F2≈1800             ɪ (F1=360, F2=1800)     base ɪ (centralization disabled)
+# DRESS [e]    F2≈1950             ᵉ (F1=470, F2=1950)     ★ NEW — raised from ɛ (GenAus)
+# TRAP [æ]     F2≈1660             æ (F1=620, F2=1660)     standard
+# STRUT [ɐ]    F2≈1310             ɐ (F1=530, F2=1310)     fronted ʌ
+# LOT [ɒ]      F2≈1100             ɒ (F1=660, F2=1100)     as RP
+# PALM [aː]    F2≈1330             ɑ (F1=700, F2=1330)     fronted, not RP back
+# GOOSE [ʉ̟ː]   F2≈1700             ᵘ (F1=310, F2=1700)     ★ NEW — heavily fronted
+# NURSE [ɜː]   F2≈1400             ɜ (F1=500, F2=1400)     non-rhotic
+# THOUGHT [oː] F2≈870              ɔ (F1=450, F2=870)      standard
 # FACE [æɪ]    onset F2≈1660       æ→ɪ via diphthong collapse  lowered onset
-# GOAT [əʊ]    onset F2≈1630       ə→ʊ via diphthong collapse  central onset
+# GOAT [əʉ]    onset F2≈1630       ə→ᵘ via diphthong collapse  fronted offglide
 # PRICE [ɑɪ]   onset F2≈1330       ɑ→ɪ via diphthong collapse  open onset
 # MOUTH [ɑʊ]   onset F2≈1330       ɑ→ʊ via diphthong collapse  open onset
 # CHOICE [ɔɪ]  standard            ɔ→ɪ via diphthong collapse  as RP
-# happY [ɪ]    F2≈1800             ɪ (F1=360, F2=1800)      lax, not tense [i]
-# NEAR [ɪə]    non-rhotic          i→ᵊ via normalization    schwa offglide
-# SQUARE [eː]  monophthong         ɛ→ᵊ via normalization    near-monophthong
+# happY [ɪ]    F2≈1800             ɪ (F1=360, F2=1800)     lax, not tense [i]
+# NEAR [ɪə]    non-rhotic          i→ᵊ via normalization   schwa offglide
+# SQUARE [eː]  monophthong         ᵉ→ᵊ via normalization   shares DRESS quality
