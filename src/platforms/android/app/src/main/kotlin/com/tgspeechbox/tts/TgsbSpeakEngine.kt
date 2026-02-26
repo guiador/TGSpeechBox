@@ -27,12 +27,15 @@ class TgsbSpeakEngine(private val context: Context) {
 
     companion object {
         private const val TAG = "TgsbSpeak"
-        private const val SAMPLE_RATE = 22050
+        private const val DEFAULT_SAMPLE_RATE = 22050
 
         init {
             System.loadLibrary("tgspeechbox_jni")
         }
     }
+
+    var sampleRate: Int = DEFAULT_SAMPLE_RATE
+        private set
 
     private var nativeHandle: Long = 0L
     @Volatile
@@ -87,6 +90,7 @@ class TgsbSpeakEngine(private val context: Context) {
     private external fun nativeSetInflectionScale(handle: Long, scale: Double)
     private external fun nativeSetInflection(handle: Long, value: Double)
     private external fun nativeSetVolume(handle: Long, value: Double)
+    private external fun nativeSetSampleRate(handle: Long, sampleRate: Int)
 
     // ── Lifecycle ────────────────────────────────────────────────────
 
@@ -104,7 +108,7 @@ class TgsbSpeakEngine(private val context: Context) {
             return false
         }
 
-        nativeHandle = nativeCreate(espeakDataPath, packDirPath, SAMPLE_RATE)
+        nativeHandle = nativeCreate(espeakDataPath, packDirPath, sampleRate)
         if (nativeHandle == 0L) {
             Log.e(TAG, "nativeCreate failed")
             return false
@@ -171,6 +175,14 @@ class TgsbSpeakEngine(private val context: Context) {
     fun setInflection(value: Double) {
         if (nativeHandle == 0L) return
         nativeSetInflection(nativeHandle, value)
+    }
+
+    fun setSampleRate(rate: Int) {
+        if (rate == sampleRate) return
+        sampleRate = rate
+        if (nativeHandle != 0L) {
+            nativeSetSampleRate(nativeHandle, rate)
+        }
     }
 
     fun setVolume(volume: Float) {
@@ -249,7 +261,7 @@ class TgsbSpeakEngine(private val context: Context) {
 
     private fun playPcm(samples: ShortArray) {
         val minBuf = AudioTrack.getMinBufferSize(
-            SAMPLE_RATE,
+            sampleRate,
             AudioFormat.CHANNEL_OUT_MONO,
             AudioFormat.ENCODING_PCM_16BIT
         )
@@ -264,7 +276,7 @@ class TgsbSpeakEngine(private val context: Context) {
             .setAudioFormat(
                 AudioFormat.Builder()
                     .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
-                    .setSampleRate(SAMPLE_RATE)
+                    .setSampleRate(sampleRate)
                     .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
                     .build()
             )

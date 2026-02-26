@@ -157,6 +157,7 @@ class TgsbTtsService : TextToSpeechService() {
     private var stopRequested = false
     private var nativeHandle: Long = 0L
     private var currentPreset: String = DEFAULT_PRESET
+    private var currentSampleRate: Int = SAMPLE_RATE
     private var currentLang: LangDef = LANGUAGES[0] // en-us default
     /** Tracks what the native side actually has loaded.
      *  null = unknown/failed — forces re-try on next synthesis. */
@@ -202,6 +203,7 @@ class TgsbTtsService : TextToSpeechService() {
     private external fun nativeSetInflectionScale(handle: Long, scale: Double)
     private external fun nativeSetInflection(handle: Long, value: Double)
     private external fun nativeSetVolume(handle: Long, value: Double)
+    private external fun nativeSetSampleRate(handle: Long, sampleRate: Int)
 
     override fun onCreate() {
         super.onCreate()
@@ -302,6 +304,10 @@ class TgsbTtsService : TextToSpeechService() {
 
         val volume = prefs.getFloat("${p}systemVolume", 1.0f).coerceIn(0.05f, 1.0f)
         nativeSetVolume(nativeHandle, volume.toDouble())
+
+        val sampleRate = prefs.getInt("${p}sampleRate", SAMPLE_RATE)
+        nativeSetSampleRate(nativeHandle, sampleRate)
+        currentSampleRate = sampleRate
     }
 
     override fun onDestroy() {
@@ -494,7 +500,7 @@ class TgsbTtsService : TextToSpeechService() {
 
         // Start audio stream
         val ret = callback.start(
-            SAMPLE_RATE, AudioFormat.ENCODING_PCM_16BIT, 1
+            currentSampleRate, AudioFormat.ENCODING_PCM_16BIT, 1
         )
         if (ret != TextToSpeech.SUCCESS) {
             callback.error(TextToSpeech.ERROR_SYNTHESIS)

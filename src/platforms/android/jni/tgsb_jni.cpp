@@ -602,6 +602,43 @@ Java_com_tgspeechbox_tts_TgsbTtsService_nativeSetInflection(
 }
 
 JNIEXPORT void JNICALL
+Java_com_tgspeechbox_tts_TgsbTtsService_nativeSetSampleRate(
+    JNIEnv *env, jobject thiz, jlong handle, jint sampleRate
+) {
+    TgsbEngine *engine = (TgsbEngine *)(intptr_t)handle;
+    if (!engine || sampleRate <= 0) return;
+    if (sampleRate == engine->sampleRate) return;
+
+    /* Reinitialize speechPlayer with new sample rate */
+    if (engine->player) {
+        speechPlayer_terminate(engine->player);
+    }
+    engine->player = speechPlayer_initialize(sampleRate);
+    engine->sampleRate = sampleRate;
+
+    /* Re-apply voicing tone settings */
+    if (engine->hasUserTone) {
+        applyVoicingTone(engine,
+            engine->userVoicedTiltDbPerOct,
+            engine->userNoiseGlottalModDepth,
+            engine->userPitchSyncF1DeltaHz,
+            engine->userPitchSyncB1DeltaHz,
+            engine->userSpeedQuotient,
+            engine->userAspirationTiltDbPerOct,
+            engine->userCascadeBwScale,
+            engine->userTremorDepth);
+    } else {
+        speechPlayer_voicingTone_t tone = speechPlayer_getDefaultVoicingTone();
+        const VoicePreset *vp = &kPresets[engine->voiceIndex];
+        if (vp->hasVoicedTilt)
+            tone.voicedTiltDbPerOct = vp->voicedTiltDbPerOct;
+        speechPlayer_setVoicingTone(engine->player, &tone);
+    }
+
+    LOGI("Sample rate changed to %d", sampleRate);
+}
+
+JNIEXPORT void JNICALL
 Java_com_tgspeechbox_tts_TgsbTtsService_nativeSetVolume(
     JNIEnv *env, jobject thiz, jlong handle, jdouble value
 ) {
@@ -781,6 +818,14 @@ Java_com_tgspeechbox_tts_TgsbSpeakEngine_nativeSetVolume(
 ) {
     Java_com_tgspeechbox_tts_TgsbTtsService_nativeSetVolume(
         env, thiz, handle, value);
+}
+
+JNIEXPORT void JNICALL
+Java_com_tgspeechbox_tts_TgsbSpeakEngine_nativeSetSampleRate(
+    JNIEnv *env, jobject thiz, jlong handle, jint sampleRate
+) {
+    Java_com_tgspeechbox_tts_TgsbTtsService_nativeSetSampleRate(
+        env, thiz, handle, sampleRate);
 }
 
 } /* extern "C" */

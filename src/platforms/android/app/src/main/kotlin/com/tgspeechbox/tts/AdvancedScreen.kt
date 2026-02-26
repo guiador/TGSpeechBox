@@ -296,6 +296,31 @@ fun AdvancedScreen(
                 }
         )
 
+        Spacer(Modifier.height(8.dp))
+
+        val sampleRateIdx by viewModel.sampleRateIndex.collectAsState()
+        val sampleRates = TgsbViewModel.SAMPLE_RATES
+        val currentRate = sampleRates[sampleRateIdx.roundToInt().coerceIn(0, sampleRates.size - 1)]
+        val sampleRateLabel = "${stringResource(R.string.sample_rate_label)}: $currentRate Hz"
+
+        Text(
+            text = sampleRateLabel,
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier.clearAndSetSemantics {}
+        )
+        Slider(
+            value = sampleRateIdx,
+            onValueChange = { viewModel.onSampleRateChanged(it) },
+            valueRange = 0f..(sampleRates.size - 1).toFloat(),
+            steps = sampleRates.size - 2,
+            modifier = Modifier
+                .fillMaxWidth()
+                .semantics {
+                    contentDescription = sampleRateLabel
+                    stateDescription = "$currentRate Hz"
+                }
+        )
+
         Spacer(Modifier.height(24.dp))
 
         // ── Engine Languages button ─────────────────────────────────

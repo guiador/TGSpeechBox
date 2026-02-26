@@ -59,6 +59,7 @@
     <!-- Advanced tab: Output -->
     <string name="output_section_title">Output</string>
     <string name="system_volume_label">Volume</string>
+    <string name="sample_rate_label">Sample Rate</string>
 
     <!-- Advanced tab: Language filter -->
     <string name="choose_languages_button">Choose Available Engine Languages\u2026</string>

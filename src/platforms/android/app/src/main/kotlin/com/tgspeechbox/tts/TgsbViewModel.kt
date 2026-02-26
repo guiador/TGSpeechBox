@@ -17,6 +17,7 @@ import androidx.lifecycle.AndroidViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import java.util.Locale
+import kotlin.math.roundToInt
 
 /** One entry in the language dropdown (deduplicated). */
 data class LanguageItem(
@@ -29,6 +30,7 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
     companion object {
         private const val TAG = "TgsbUI"
         private const val PREF_PREFIX = "adv_"
+        val SAMPLE_RATES = listOf(11025, 16000, 22050, 44100)
     }
 
     private val prefs: SharedPreferences =
@@ -72,6 +74,9 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
     // ── Output ───────────────────────────────────────────────────────
 
     val systemVolume = MutableStateFlow(loadSlider("systemVolume", 1.0f))
+    val sampleRateIndex = MutableStateFlow(loadInt("sampleRate", 22050).let { rate ->
+        SAMPLE_RATES.indexOfFirst { it == rate }.coerceAtLeast(0).toFloat()
+    })
 
     // ── FrameEx sliders (0–100) ─────────────────────────────────────
 
@@ -126,6 +131,8 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
             applyFrameExDefaults()
             applyPitchSettings()
             engine.setVolume(systemVolume.value)
+            val savedRate = SAMPLE_RATES[sampleRateIndex.value.roundToInt().coerceIn(0, SAMPLE_RATES.size - 1)]
+            engine.setSampleRate(savedRate)
 
             engine.onSpeakingChanged = { speaking ->
                 isSpeaking.value = speaking
@@ -205,6 +212,12 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
     fun onOverrideSystemRateChanged(v: Boolean){ overrideSystemRate.value = v;  saveBool("overrideSystemRate", v) }
     fun onGlobalRateChanged(v: Float)          { globalRate.value = v;          saveSlider("globalRate", v) }
     fun onSystemVolumeChanged(v: Float)        { systemVolume.value = v;        saveSlider("systemVolume", v);       engine.setVolume(v) }
+    fun onSampleRateChanged(index: Float) {
+        sampleRateIndex.value = index
+        val rate = SAMPLE_RATES[index.roundToInt().coerceIn(0, SAMPLE_RATES.size - 1)]
+        saveInt("sampleRate", rate)
+        engine.setSampleRate(rate)
+    }
 
     // ── Slider → engine value mapping (matches NVDA driver math) ────
 
@@ -289,6 +302,13 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun saveBool(key: String, value: Boolean) {
         prefs.edit().putBoolean("${PREF_PREFIX}$key", value).apply()
+    }
+
+    private fun loadInt(key: String, default: Int): Int =
+        prefs.getInt("${PREF_PREFIX}$key", default)
+
+    private fun saveInt(key: String, value: Int) {
+        prefs.edit().putInt("${PREF_PREFIX}$key", value).apply()
     }
 
     private fun buildLanguageList(): List<LanguageItem> {
