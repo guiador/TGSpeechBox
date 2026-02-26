@@ -449,4 +449,42 @@ void tgsb_set_inflection(TgsbEngine *engine, double inflection)
     engine->inflection = inflection;
 }
 
+void tgsb_set_sample_rate(TgsbEngine *engine, int sampleRate)
+{
+    if (!engine || sampleRate <= 0) return;
+    if (sampleRate == engine->sampleRate) return;
+
+    /* Reinitialize speechPlayer with new sample rate */
+    if (engine->player) {
+        speechPlayer_terminate(engine->player);
+    }
+    engine->player = speechPlayer_initialize(sampleRate);
+    engine->sampleRate = sampleRate;
+
+    /* Re-apply voicing tone settings */
+    if (engine->hasUserTone) {
+        speechPlayer_voicingTone_t tone = speechPlayer_getDefaultVoicingTone();
+        const VoicePreset *vp = &kPresets[engine->voiceIndex];
+        if (vp->hasVoicedTilt)
+            tone.voicedTiltDbPerOct = vp->voicedTiltDbPerOct;
+
+        tone.voicedTiltDbPerOct += engine->userVoicedTiltDbPerOct;
+        tone.noiseGlottalModDepth = engine->userNoiseGlottalModDepth;
+        tone.pitchSyncF1DeltaHz = engine->userPitchSyncF1DeltaHz;
+        tone.pitchSyncB1DeltaHz = engine->userPitchSyncB1DeltaHz;
+        tone.speedQuotient = engine->userSpeedQuotient;
+        tone.aspirationTiltDbPerOct = engine->userAspirationTiltDbPerOct;
+        tone.cascadeBwScale = engine->userCascadeBwScale;
+        tone.tremorDepth = engine->userTremorDepth;
+
+        speechPlayer_setVoicingTone(engine->player, &tone);
+    } else {
+        speechPlayer_voicingTone_t tone = speechPlayer_getDefaultVoicingTone();
+        const VoicePreset *vp = &kPresets[engine->voiceIndex];
+        if (vp->hasVoicedTilt)
+            tone.voicedTiltDbPerOct = vp->voicedTiltDbPerOct;
+        speechPlayer_setVoicingTone(engine->player, &tone);
+    }
+}
+
 } /* extern "C" */

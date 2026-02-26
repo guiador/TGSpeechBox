@@ -61,7 +61,17 @@ class TgsbEngine: ObservableObject {
     let voices: [TgsbVoice]
 
     private var engine: OpaquePointer?
-    private let sampleRate: Int = 22050
+    private var sampleRate: Int
+
+    private static func loadSampleRate() -> Int {
+        let d = UserDefaults(suiteName: kAppGroupId)
+        let valid = [11025, 16000, 22050, 44100]
+        if let d = d, d.object(forKey: "adv_sampleRate") != nil {
+            let saved = d.integer(forKey: "adv_sampleRate")
+            if valid.contains(saved) { return saved }
+        }
+        return 22050
+    }
 
     // Audio playback (AVAudioPlayer — output only, no mic permission)
     private var audioPlayer: AVAudioPlayer?
@@ -69,6 +79,8 @@ class TgsbEngine: ObservableObject {
                                            qos: .userInitiated)
 
     init() {
+        self.sampleRate = Self.loadSampleRate()
+
         // Gather voice names from C bridge
         let numVoices = tgsb_get_num_voices()
         var v: [TgsbVoice] = []
@@ -119,6 +131,14 @@ class TgsbEngine: ObservableObject {
         if let e = engine {
             tgsb_destroy(e)
             engine = nil
+        }
+    }
+
+    /// Change DSP sample rate without tearing down the whole engine.
+    func changeSampleRate(_ rate: Int) {
+        sampleRate = rate
+        if let eng = engine {
+            tgsb_set_sample_rate(eng, Int32(rate))
         }
     }
 

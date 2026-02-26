@@ -72,6 +72,9 @@ void tgsb_set_legacy_pitch_inflection_scale(TgsbEngine *engine, double scale);
 /* --- Inflection (pitch range scaling, 0..1) --- */
 void tgsb_set_inflection(TgsbEngine *engine, double inflection);
 
+/* --- Sample rate (reinitializes DSP only, keeps eSpeak/frontend) --- */
+void tgsb_set_sample_rate(TgsbEngine *engine, int sampleRate);
+
 /* --- Voice preset info --- */
 int tgsb_get_num_voices(void);
 const char *tgsb_get_voice_name(int index);

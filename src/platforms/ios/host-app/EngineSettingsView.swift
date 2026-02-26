@@ -16,6 +16,13 @@ private let kPitchModes = [
     ("klatt_style",    "Klatt Style"),
 ]
 
+private let kSampleRates: [(value: Int, label: String)] = [
+    (11025, "11,025 Hz"),
+    (16000, "16,000 Hz"),
+    (22050, "22,050 Hz"),
+    (44100, "44,100 Hz"),
+]
+
 struct EngineSettingsView: View {
     @ObservedObject var engine: TgsbEngine
     @Binding var engineStarted: Bool
@@ -41,6 +48,9 @@ struct EngineSettingsView: View {
     @State private var pitchMode: String
     @State private var inflectionScale: Double
     @State private var inflection: Double
+
+    // Sample rate (slider index into kSampleRates: 0–3)
+    @State private var sampleRateIndex: Double
 
     // Volume
     @State private var systemVolume: Double
@@ -73,6 +83,11 @@ struct EngineSettingsView: View {
 
         _inflectionScale = State(initialValue: Self.load(d, "inflectionScale", 58))
         _inflection = State(initialValue: Self.load(d, "inflection", 50))
+
+        let savedRate = d?.object(forKey: "adv_sampleRate") != nil
+            ? d!.integer(forKey: "adv_sampleRate") : 22050
+        let idx = kSampleRates.firstIndex { $0.value == savedRate } ?? 2  // default 22050 = index 2
+        _sampleRateIndex = State(initialValue: Double(idx))
 
         let vol = d?.object(forKey: "systemVolume") != nil
             ? d!.double(forKey: "systemVolume") : 1.0
@@ -138,6 +153,23 @@ struct EngineSettingsView: View {
                 Text("Output")
                     .font(.headline)
                     .accessibilityAddTraits(.isHeader)
+
+                HStack {
+                    Text("Sample Rate: \(kSampleRates[Int(sampleRateIndex)].label)")
+                        .frame(width: 220, alignment: .leading)
+                    Slider(value: $sampleRateIndex, in: 0...Double(kSampleRates.count - 1), step: 1)
+                        .onChange(of: sampleRateIndex) { val in
+                            let rate = kSampleRates[Int(val)].value
+                            defaults?.set(rate, forKey: "adv_sampleRate")
+                            engine.changeSampleRate(rate)
+                            let d = defaults
+                            let ver = (d?.integer(forKey: "adv_settingsVersion") ?? 0) + 1
+                            d?.set(ver, forKey: "adv_settingsVersion")
+                        }
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("Sample rate")
+                .accessibilityValue(kSampleRates[Int(sampleRateIndex)].label)
 
                 HStack {
                     Text("Volume: \(Int(systemVolume * 100))%")
