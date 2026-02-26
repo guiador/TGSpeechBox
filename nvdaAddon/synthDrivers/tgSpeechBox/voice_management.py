@@ -77,32 +77,6 @@ class VoiceManagementMixin:
             oldVoice = getattr(self, "_curVoice", None)
             voiceChanged = (oldVoice is not None and oldVoice != voice)
 
-            # Initialize per-voice storage dicts if needed
-            if not hasattr(self, "_perVoiceTilt"):
-                self._perVoiceTilt = {}
-            if not hasattr(self, "_perVoiceNoiseGlottalMod"):
-                self._perVoiceNoiseGlottalMod = {}
-            if not hasattr(self, "_perVoicePitchSyncF1"):
-                self._perVoicePitchSyncF1 = {}
-            if not hasattr(self, "_perVoicePitchSyncB1"):
-                self._perVoicePitchSyncB1 = {}
-            if not hasattr(self, "_perVoiceSpeedQuotient"):
-                self._perVoiceSpeedQuotient = {}
-            if not hasattr(self, "_perVoiceAspirationTilt"):
-                self._perVoiceAspirationTilt = {}
-            if not hasattr(self, "_perVoiceCascadeBwScale"):
-                self._perVoiceCascadeBwScale = {}
-            if not hasattr(self, "_perVoiceFrameExCreakiness"):
-                self._perVoiceFrameExCreakiness = {}
-            if not hasattr(self, "_perVoiceFrameExBreathiness"):
-                self._perVoiceFrameExBreathiness = {}
-            if not hasattr(self, "_perVoiceFrameExJitter"):
-                self._perVoiceFrameExJitter = {}
-            if not hasattr(self, "_perVoiceFrameExShimmer"):
-                self._perVoiceFrameExShimmer = {}
-            if not hasattr(self, "_perVoiceFrameExSharpness"):
-                self._perVoiceFrameExSharpness = {}
-
             # Save current slider values for the OLD voice before switching
             if voiceChanged and oldVoice:
                 self._perVoiceTilt[oldVoice] = getattr(self, "_curVoiceTilt", 50)

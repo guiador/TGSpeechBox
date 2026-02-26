@@ -443,10 +443,7 @@ class SynthDriver(
             nvdaLang = (languageHandler.getLanguage() or "en").strip().lower().replace("_", "-")
 
             # Secondary: OS locale for regional variant (e.g. "en-us", "pt-br").
-            winLang = ""
-            getWinLang = getattr(languageHandler, "getWindowsLanguage", None)
-            if getWinLang:
-                winLang = (getWinLang() or "").strip().lower().replace("_", "-")
+            winLang = (languageHandler.getWindowsLanguage() or "").strip().lower().replace("_", "-")
         except Exception:
             return "en-us"
 
