@@ -110,8 +110,9 @@ class VoiceManagementMixin:
                 self._curFrameExJitter = self._perVoiceFrameExJitter.get(voice, 0)
                 self._curFrameExShimmer = self._perVoiceFrameExShimmer.get(voice, 0)
                 self._curFrameExSharpness = self._perVoiceFrameExSharpness.get(voice, 50)
-                # Push restored FrameEx settings to frontend
-                self._pushFrameExDefaultsToFrontend()
+                # During init, skip DLL calls — step 10 does one final apply.
+                if getattr(self, "_initComplete", False):
+                    self._pushFrameExDefaultsToFrontend()
 
             # Handle voice profile vs Python preset
             if voice and voice.startswith(VOICE_PROFILE_PREFIX):
@@ -121,14 +122,18 @@ class VoiceManagementMixin:
 
                 if hasattr(self, "_frontend") and self._frontend:
                     self._frontend.setVoiceProfile(profileName)
-                    self._applyVoicingTone(profileName)
+                    # During init, skip — step 10 applies voicing tone once.
+                    if getattr(self, "_initComplete", False):
+                        self._applyVoicingTone(profileName)
             else:
                 self._usingVoiceProfile = False
                 self._activeProfileName = ""
 
                 if hasattr(self, "_frontend") and self._frontend:
                     self._frontend.setVoiceProfile("")
-                    self._applyVoicingTone("")
+                    # During init, skip — step 10 applies voicing tone once.
+                    if getattr(self, "_initComplete", False):
+                        self._applyVoicingTone("")
 
             if self.exposeExtraParams:
                 for paramName in getattr(self, "_extraParamNames", []):

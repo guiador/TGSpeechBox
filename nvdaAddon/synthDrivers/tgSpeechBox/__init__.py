@@ -227,11 +227,20 @@ class SynthDriver(
             log.error(f"TGSpeechBox: error discovering voice profiles: {e}")
             self._voiceProfiles = []
 
-        # Check for pack warnings
-        if self._frontend.hasVoiceProfileSupport():
-            warnings = self._frontend.getPackWarnings()
-            if warnings:
-                log.warning(f"TGSpeechBox: pack warnings: {warnings}")
+        # Defer pack warnings to avoid blocking init.
+        def _logPackWarnings():
+            try:
+                if self._frontend and self._frontend.hasVoiceProfileSupport():
+                    warnings = self._frontend.getPackWarnings()
+                    if warnings:
+                        log.warning(f"TGSpeechBox: pack warnings: {warnings}")
+            except Exception:
+                pass
+        try:
+            import core
+            core.callLater(100, _logPackWarnings)
+        except Exception:
+            pass
 
 
         # 7. Initialize audio system
@@ -247,10 +256,14 @@ class SynthDriver(
         #    Only initialize + fix prototypes here.  Voice selection is deferred
         #    to _set_language (called from super().__init__) to avoid the
         #    redundant espeakSetVoiceDirect + setVoiceByLanguage round-trip.
+        #    If eSpeak is already loaded (e.g. NVDA's built-in usage or previous
+        #    synth), skip the expensive initialize() call.
         self._espeakReady = False
         try:
-            _espeak.initialize()
             espeakDLL = getattr(_espeak, "espeakDLL", None)
+            if not espeakDLL:
+                _espeak.initialize()
+                espeakDLL = getattr(_espeak, "espeakDLL", None)
             if espeakDLL and hasattr(espeakDLL, "espeak_TextToPhonemes"):
                 _ttp = espeakDLL.espeak_TextToPhonemes
                 _ttp.argtypes = (ctypes.POINTER(ctypes.c_void_p), ctypes.c_int, ctypes.c_int)
@@ -277,29 +290,22 @@ class SynthDriver(
         # =======================================================================
         # 10. Post-init tasks (after NVDA has restored settings)
         # =======================================================================
+        # All slider setters above deferred their DLL calls (_applyVoicingTone,
+        # _pushFrameExDefaultsToFrontend) because _initComplete was False.
+        # Do one consolidated apply now with the final slider values.
 
         self._scheduleEnableLangPackWrites()
         self._refreshLangPackSettingsCache()
-        # Push initial FrameEx defaults to frontend (ABI v2+)
         self._pushFrameExDefaultsToFrontend()
-        self._initComplete = True
 
-        # Schedule deferred re-application of voice profile
-        # (in case NVDA's settings restore missed something)
-        try:
-            import wx
-            wx.CallAfter(self._reapplyVoiceProfile)
-        except Exception:
-            # If wx isn't available yet, try a threaded approach
-            def _deferred_reapply():
-                import time
-                time.sleep(0.1)
-                try:
-                    self._reapplyVoiceProfile()
-                except Exception:
-                    pass
-            t = threading.Thread(target=_deferred_reapply, daemon=True)
-            t.start()
+        # Apply voicing tone once with the final voice/slider state.
+        curVoice = getattr(self, "_curVoice", "Adam") or "Adam"
+        if curVoice.startswith(VOICE_PROFILE_PREFIX):
+            self._applyVoicingTone(curVoice[len(VOICE_PROFILE_PREFIX):])
+        else:
+            self._applyVoicingTone("")
+
+        self._initComplete = True
 
     @classmethod
     def check(cls):

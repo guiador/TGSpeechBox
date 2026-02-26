@@ -34,6 +34,10 @@ class VoicingToneMixin:
 
             self._curVoiceTilt = newVal
 
+            # During init, just store the value — step 10 applies once.
+            if not getattr(self, "_initComplete", False):
+                return
+
             # Derive profile name from _curVoice (the source of truth)
             curVoice = getattr(self, "_curVoice", "Adam") or "Adam"
             if curVoice.startswith(VOICE_PROFILE_PREFIX):
@@ -58,6 +62,8 @@ class VoicingToneMixin:
             if newVal == getattr(self, "_curNoiseGlottalMod", 0):
                 return
             self._curNoiseGlottalMod = newVal
+            if not getattr(self, "_initComplete", False):
+                return
             curVoice = getattr(self, "_curVoice", "Adam") or "Adam"
             if curVoice.startswith(VOICE_PROFILE_PREFIX):
                 profileName = curVoice[len(VOICE_PROFILE_PREFIX):]
@@ -78,6 +84,8 @@ class VoicingToneMixin:
             if newVal == getattr(self, "_curPitchSyncF1", 50):
                 return
             self._curPitchSyncF1 = newVal
+            if not getattr(self, "_initComplete", False):
+                return
             curVoice = getattr(self, "_curVoice", "Adam") or "Adam"
             if curVoice.startswith(VOICE_PROFILE_PREFIX):
                 profileName = curVoice[len(VOICE_PROFILE_PREFIX):]
@@ -98,6 +106,8 @@ class VoicingToneMixin:
             if newVal == getattr(self, "_curPitchSyncB1", 50):
                 return
             self._curPitchSyncB1 = newVal
+            if not getattr(self, "_initComplete", False):
+                return
             curVoice = getattr(self, "_curVoice", "Adam") or "Adam"
             if curVoice.startswith(VOICE_PROFILE_PREFIX):
                 profileName = curVoice[len(VOICE_PROFILE_PREFIX):]
@@ -120,6 +130,8 @@ class VoicingToneMixin:
             if newVal == getattr(self, "_curSpeedQuotient", 50):
                 return
             self._curSpeedQuotient = newVal
+            if not getattr(self, "_initComplete", False):
+                return
             curVoice = getattr(self, "_curVoice", "Adam") or "Adam"
             if curVoice.startswith(VOICE_PROFILE_PREFIX):
                 profileName = curVoice[len(VOICE_PROFILE_PREFIX):]
@@ -142,6 +154,8 @@ class VoicingToneMixin:
             if newVal == getattr(self, "_curAspirationTilt", 50):
                 return
             self._curAspirationTilt = newVal
+            if not getattr(self, "_initComplete", False):
+                return
             curVoice = getattr(self, "_curVoice", "Adam") or "Adam"
             if curVoice.startswith(VOICE_PROFILE_PREFIX):
                 profileName = curVoice[len(VOICE_PROFILE_PREFIX):]
@@ -162,6 +176,8 @@ class VoicingToneMixin:
             if newVal == getattr(self, "_curCascadeBwScale", 50):
                 return
             self._curCascadeBwScale = newVal
+            if not getattr(self, "_initComplete", False):
+                return
             curVoice = getattr(self, "_curVoice", "Adam") or "Adam"
             if curVoice.startswith(VOICE_PROFILE_PREFIX):
                 profileName = curVoice[len(VOICE_PROFILE_PREFIX):]
@@ -182,6 +198,8 @@ class VoicingToneMixin:
             if newVal == getattr(self, "_curVoiceTremor", 0):
                 return
             self._curVoiceTremor = newVal
+            if not getattr(self, "_initComplete", False):
+                return
             curVoice = getattr(self, "_curVoice", "Adam") or "Adam"
             if curVoice.startswith(VOICE_PROFILE_PREFIX):
                 profileName = curVoice[len(VOICE_PROFILE_PREFIX):]
@@ -203,7 +221,8 @@ class VoicingToneMixin:
     def _set_frameExCreakiness(self, val):
         try:
             self._curFrameExCreakiness = int(val)
-            self._pushFrameExDefaultsToFrontend()
+            if getattr(self, "_initComplete", False):
+                self._pushFrameExDefaultsToFrontend()
         except Exception:
             pass
 
@@ -213,7 +232,8 @@ class VoicingToneMixin:
     def _set_frameExBreathiness(self, val):
         try:
             self._curFrameExBreathiness = int(val)
-            self._pushFrameExDefaultsToFrontend()
+            if getattr(self, "_initComplete", False):
+                self._pushFrameExDefaultsToFrontend()
         except Exception:
             pass
 
@@ -223,7 +243,8 @@ class VoicingToneMixin:
     def _set_frameExJitter(self, val):
         try:
             self._curFrameExJitter = int(val)
-            self._pushFrameExDefaultsToFrontend()
+            if getattr(self, "_initComplete", False):
+                self._pushFrameExDefaultsToFrontend()
         except Exception:
             pass
 
@@ -233,7 +254,8 @@ class VoicingToneMixin:
     def _set_frameExShimmer(self, val):
         try:
             self._curFrameExShimmer = int(val)
-            self._pushFrameExDefaultsToFrontend()
+            if getattr(self, "_initComplete", False):
+                self._pushFrameExDefaultsToFrontend()
         except Exception:
             pass
 
@@ -243,7 +265,8 @@ class VoicingToneMixin:
     def _set_frameExSharpness(self, val):
         try:
             self._curFrameExSharpness = int(val)
-            self._pushFrameExDefaultsToFrontend()
+            if getattr(self, "_initComplete", False):
+                self._pushFrameExDefaultsToFrontend()
         except Exception:
             pass
 
