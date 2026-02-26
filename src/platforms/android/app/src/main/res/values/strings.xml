@@ -24,6 +24,7 @@
     <string name="pitch_section_title">Pitch</string>
     <string name="pitch_mode_label">Pitch Mode</string>
     <string name="inflection_scale_label">Inflection Scale</string>
+    <string name="inflection_label">Inflection</string>
     <string name="pitch_mode_espeak">eSpeak Style</string>
     <string name="pitch_mode_legacy">Legacy</string>
     <string name="pitch_mode_fujisaki">Fujisaki Style</string>
@@ -54,6 +55,11 @@
     <string name="jitter_label">Jitter</string>
     <string name="shimmer_label">Shimmer</string>
     <string name="glottal_sharpness_label">Glottal Sharpness</string>
+
+    <!-- Advanced tab: Output -->
+    <string name="output_section_title">Output</string>
+    <string name="system_volume_label">Volume</string>
+    <string name="sample_rate_label">Sample Rate</string>
 
     <!-- Advanced tab: Language filter -->
     <string name="choose_languages_button">Choose Available Engine Languages\u2026</string>

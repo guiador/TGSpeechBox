@@ -207,10 +207,7 @@ class AudioThread(threading.Thread):
                 pass
 
     def _createWavePlayer(self, device):
-        """Create a WavePlayer for audio output.
-
-        Uses purpose=AudioPurpose.SPEECH which is available in NVDA 2023.3+.
-        """
+        """Create a WavePlayer for audio output."""
         return nvwave.WavePlayer(
             channels=1,
             samplesPerSec=self._sampleRate,

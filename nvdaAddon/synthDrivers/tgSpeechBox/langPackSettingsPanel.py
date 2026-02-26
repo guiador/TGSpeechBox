@@ -10,9 +10,9 @@ The panel intentionally avoids a full YAML UI; it only edits ``settings:`` keys.
 Implementation notes:
   - NVDA can import synth drivers before the GUI is fully initialized.
     Importing wx/gui modules at *module import time* can therefore fail.
-  - To keep this robust across NVDA 2024.1 .. 2026.1, all GUI imports and the
-    SettingsPanel subclass definition are done lazily when registerSettingsPanel
-    is called (typically from SynthDriver.__init__).
+  - NVDA can import synth drivers before the GUI is initialized, so all GUI
+    imports and the SettingsPanel subclass definition are done lazily when
+    registerSettingsPanel is called (typically from SynthDriver.__init__).
 """
 
 from __future__ import annotations
@@ -208,38 +208,6 @@ def _getPanelClass():
 
         # ----- NVDA SettingsPanel hooks -----
 
-        def _addLabeledControlCompat(self, sHelper, label, controlClass, **kwargs):
-            """Add a labeled control with compatibility for older NVDA versions.
-            
-            Older NVDA versions (e.g., 2023.2 with Python 3.10) have a more limited
-            addLabeledControl that doesn't support all control types like wx.ComboBox.
-            This helper creates the label and control manually if needed.
-            """
-            import wx
-            
-            # First, try the modern NVDA approach
-            try:
-                return sHelper.addLabeledControl(label, controlClass, **kwargs)
-            except (NotImplementedError, TypeError, AttributeError):
-                pass
-            
-            # Fallback: create label and control manually
-            # Create horizontal sizer for label + control
-            hSizer = wx.BoxSizer(wx.HORIZONTAL)
-            
-            # Create label
-            labelCtrl = wx.StaticText(self, label=label)
-            hSizer.Add(labelCtrl, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 5)
-            
-            # Create the control
-            ctrl = controlClass(self, **kwargs)
-            hSizer.Add(ctrl, 1, wx.EXPAND)
-            
-            # Add the horizontal sizer to the helper's main sizer
-            sHelper.addItem(hSizer)
-            
-            return ctrl
-
         def makeSettings(self, settingsSizer):
             # Import GUI pieces lazily.
             try:
@@ -261,8 +229,7 @@ def _getPanelClass():
             )
 
             # Language tag control.
-            self.langTagCtrl = self._addLabeledControlCompat(
-                sHelper,
+            self.langTagCtrl = sHelper.addLabeledControl(
                 _("Language tag:"),
                 wx.ComboBox,
                 choices=self._getLanguageChoices(),
@@ -735,8 +702,7 @@ def _getPanelClass():
             # Build display names for the combo box (localized, human-readable).
             # Raw YAML keys are preserved in self._knownKeys for all YAML operations.
             self._knownKeyDisplayNames = [_displayNameForKey(k) for k in self._knownKeys]
-            self.settingKeyCtrl = self._addLabeledControlCompat(
-                sHelper,
+            self.settingKeyCtrl = sHelper.addLabeledControl(
                 _("Setting:"),
                 wx.ComboBox,
                 choices=self._knownKeyDisplayNames,
@@ -744,7 +710,7 @@ def _getPanelClass():
             )
             self.settingKeyCtrl.Bind(wx.EVT_COMBOBOX, self._onSettingKeyChanged)
 
-            self.valueCtrl = self._addLabeledControlCompat(sHelper, _("Value:"), wx.TextCtrl)
+            self.valueCtrl = sHelper.addLabeledControl(_("Value:"), wx.TextCtrl)
             self.valueCtrl.Bind(wx.EVT_TEXT, self._onGenericValueChanged)
 
             self.sourceLabel = sHelper.addItem(wx.StaticText(self, label=""))
@@ -1471,46 +1437,15 @@ def registerSettingsPanel() -> None:
     except Exception:
         return
 
-    # Resolve the dialog class across NVDA versions.
-    dlgCls = None
-    for name in ("NVDASettingsDialog", "SettingsDialog"):
-        dlgCls = getattr(settingsDialogs, name, None)
-        if dlgCls:
-            break
+    dlgCls = getattr(settingsDialogs, "NVDASettingsDialog", None)
     if dlgCls is None:
         return
 
     # Avoid duplicate registration.
-    try:
-        cats = getattr(dlgCls, "categoryClasses", None)
-        if isinstance(cats, (list, tuple)) and panelCls in cats:
-            return
-    except Exception:
-        pass
+    cats = getattr(dlgCls, "categoryClasses", None)
+    if isinstance(cats, (list, tuple)) and panelCls in cats:
+        return
 
-    # Newer NVDA builds: registerCategory().
-    try:
-        fn = getattr(dlgCls, "registerCategory", None)
-        if callable(fn):
-            fn(panelCls)
-            return
-    except Exception:
-        pass
-
-    # Older NVDA builds: categoryClasses list.
-    try:
-        if hasattr(dlgCls, "categoryClasses"):
-            dlgCls.categoryClasses.append(panelCls)
-            return
-    except Exception:
-        pass
-
-    # Last resort: some builds expose module-level helpers.
-    for name in ("registerCategory", "registerSettingsPanel"):
-        try:
-            fn = getattr(settingsDialogs, name, None)
-            if callable(fn):
-                fn(panelCls)
-                return
-        except Exception:
-            continue
+    # NVDA 2024.4+: append to categoryClasses list.
+    if cats is not None:
+        cats.append(panelCls)

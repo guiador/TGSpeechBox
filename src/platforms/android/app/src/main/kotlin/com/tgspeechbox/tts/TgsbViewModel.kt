@@ -17,6 +17,7 @@ import androidx.lifecycle.AndroidViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import java.util.Locale
+import kotlin.math.roundToInt
 
 /** One entry in the language dropdown (deduplicated). */
 data class LanguageItem(
@@ -29,6 +30,7 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
     companion object {
         private const val TAG = "TgsbUI"
         private const val PREF_PREFIX = "adv_"
+        val SAMPLE_RATES = listOf(11025, 16000, 22050, 44100)
     }
 
     private val prefs: SharedPreferences =
@@ -62,11 +64,19 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
 
     val pitchMode = MutableStateFlow(loadString("pitchMode", "espeak_style"))
     val inflectionScale = MutableStateFlow(loadSlider("inflectionScale", 58f))
+    val inflection = MutableStateFlow(loadSlider("inflection", 50f))
 
     // ── System rate override ────────────────────────────────────────
 
     val overrideSystemRate = MutableStateFlow(loadBool("overrideSystemRate", false))
     val globalRate = MutableStateFlow(loadSlider("globalRate", 1.0f))
+
+    // ── Output ───────────────────────────────────────────────────────
+
+    val systemVolume = MutableStateFlow(loadSlider("systemVolume", 1.0f))
+    val sampleRateIndex = MutableStateFlow(loadInt("sampleRate", 22050).let { rate ->
+        SAMPLE_RATES.indexOfFirst { it == rate }.coerceAtLeast(0).toFloat()
+    })
 
     // ── FrameEx sliders (0–100) ─────────────────────────────────────
 
@@ -120,6 +130,9 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
             applyVoicingTone()
             applyFrameExDefaults()
             applyPitchSettings()
+            engine.setVolume(systemVolume.value)
+            val savedRate = SAMPLE_RATES[sampleRateIndex.value.roundToInt().coerceIn(0, SAMPLE_RATES.size - 1)]
+            engine.setSampleRate(savedRate)
 
             engine.onSpeakingChanged = { speaking ->
                 isSpeaking.value = speaking
@@ -195,8 +208,16 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
 
     fun onPitchModeChanged(mode: String)       { pitchMode.value = mode;       saveString("pitchMode", mode);       applyPitchSettings() }
     fun onInflectionScaleChanged(v: Float)     { inflectionScale.value = v;    saveSlider("inflectionScale", v);    applyPitchSettings() }
+    fun onInflectionChanged(v: Float)          { inflection.value = v;         saveSlider("inflection", v);         applyPitchSettings() }
     fun onOverrideSystemRateChanged(v: Boolean){ overrideSystemRate.value = v;  saveBool("overrideSystemRate", v) }
     fun onGlobalRateChanged(v: Float)          { globalRate.value = v;          saveSlider("globalRate", v) }
+    fun onSystemVolumeChanged(v: Float)        { systemVolume.value = v;        saveSlider("systemVolume", v);       engine.setVolume(v) }
+    fun onSampleRateChanged(index: Float) {
+        sampleRateIndex.value = index
+        val rate = SAMPLE_RATES[index.roundToInt().coerceIn(0, SAMPLE_RATES.size - 1)]
+        saveInt("sampleRate", rate)
+        engine.setSampleRate(rate)
+    }
 
     // ── Slider → engine value mapping (matches NVDA driver math) ────
 
@@ -242,6 +263,7 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
     private fun applyPitchSettings() {
         engine.setPitchMode(pitchMode.value)
         engine.setInflectionScale((inflectionScale.value / 100f).toDouble())
+        engine.setInflection((inflection.value / 100f).toDouble())
     }
 
     // ── Language filter ─────────────────────────────────────────────
@@ -280,6 +302,13 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun saveBool(key: String, value: Boolean) {
         prefs.edit().putBoolean("${PREF_PREFIX}$key", value).apply()
+    }
+
+    private fun loadInt(key: String, default: Int): Int =
+        prefs.getInt("${PREF_PREFIX}$key", default)
+
+    private fun saveInt(key: String, value: Int) {
+        prefs.edit().putInt("${PREF_PREFIX}$key", value).apply()
     }
 
     private fun buildLanguageList(): List<LanguageItem> {

@@ -116,19 +116,13 @@ class NvspFrontend(object):
         self._dllDirCookie = None
         self._abiVersion = 1  # assume v1 until we check
 
-        # Python 3.8+ tightened Windows DLL search rules. If nvspFrontend.dll ever
-        # grows extra local dependencies, keeping its directory on the DLL search
-        # path makes loading more reliable.
-        if hasattr(os, "add_dll_directory"):
-            try:
-                self._dllDirCookie = os.add_dll_directory(os.path.dirname(self._dllPath))
-            except OSError:
-                log.debug("TGSpeechBox: os.add_dll_directory failed for %r", self._dllPath, exc_info=True)
-                self._dllDirCookie = None
-            except Exception:
-                # Be defensive: this should never crash the synth driver.
-                log.debug("TGSpeechBox: unexpected error in os.add_dll_directory", exc_info=True)
-                self._dllDirCookie = None
+        # Keep nvspFrontend.dll's directory on the DLL search path in case
+        # it ever grows extra local dependencies.
+        try:
+            self._dllDirCookie = os.add_dll_directory(os.path.dirname(self._dllPath))
+        except OSError:
+            log.debug("TGSpeechBox: os.add_dll_directory failed for %r", self._dllPath, exc_info=True)
+            self._dllDirCookie = None
 
         try:
             self._dll = ctypes.cdll.LoadLibrary(self._dllPath)

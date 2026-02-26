@@ -133,6 +133,9 @@ struct TgsbEngine {
     double userAspirationTiltDbPerOct;
     double userCascadeBwScale;
     double userTremorDepth;
+
+    /* Pitch inflection (0..1), default 0.5 */
+    double inflection;
 };
 
 /* Frame callback context */
@@ -232,6 +235,7 @@ TgsbEngine *tgsb_create(const char *espeakDataPath,
     engine->sampleRate = sampleRate;
     engine->stopRequested = 0;
     engine->voiceIndex = 0; /* Adam */
+    engine->inflection = 0.5;
 
     return engine;
 }
@@ -328,7 +332,7 @@ void tgsb_queue_text(TgsbEngine *engine,
 
         nvspFrontend_queueIPA_Ex(
             engine->frontend, ipa,
-            speed, pitch, 0.5, clauseStr, 0,
+            speed, pitch, engine->inflection, clauseStr, 0,
             onFrame, &ctx
         );
     }
@@ -435,6 +439,52 @@ void tgsb_set_legacy_pitch_inflection_scale(TgsbEngine *engine, double scale)
 {
     if (!engine || !engine->frontend) return;
     nvspFrontend_setLegacyPitchInflectionScale(engine->frontend, scale);
+}
+
+void tgsb_set_inflection(TgsbEngine *engine, double inflection)
+{
+    if (!engine) return;
+    if (inflection < 0.0) inflection = 0.0;
+    if (inflection > 1.0) inflection = 1.0;
+    engine->inflection = inflection;
+}
+
+void tgsb_set_sample_rate(TgsbEngine *engine, int sampleRate)
+{
+    if (!engine || sampleRate <= 0) return;
+    if (sampleRate == engine->sampleRate) return;
+
+    /* Reinitialize speechPlayer with new sample rate */
+    if (engine->player) {
+        speechPlayer_terminate(engine->player);
+    }
+    engine->player = speechPlayer_initialize(sampleRate);
+    engine->sampleRate = sampleRate;
+
+    /* Re-apply voicing tone settings */
+    if (engine->hasUserTone) {
+        speechPlayer_voicingTone_t tone = speechPlayer_getDefaultVoicingTone();
+        const VoicePreset *vp = &kPresets[engine->voiceIndex];
+        if (vp->hasVoicedTilt)
+            tone.voicedTiltDbPerOct = vp->voicedTiltDbPerOct;
+
+        tone.voicedTiltDbPerOct += engine->userVoicedTiltDbPerOct;
+        tone.noiseGlottalModDepth = engine->userNoiseGlottalModDepth;
+        tone.pitchSyncF1DeltaHz = engine->userPitchSyncF1DeltaHz;
+        tone.pitchSyncB1DeltaHz = engine->userPitchSyncB1DeltaHz;
+        tone.speedQuotient = engine->userSpeedQuotient;
+        tone.aspirationTiltDbPerOct = engine->userAspirationTiltDbPerOct;
+        tone.cascadeBwScale = engine->userCascadeBwScale;
+        tone.tremorDepth = engine->userTremorDepth;
+
+        speechPlayer_setVoicingTone(engine->player, &tone);
+    } else {
+        speechPlayer_voicingTone_t tone = speechPlayer_getDefaultVoicingTone();
+        const VoicePreset *vp = &kPresets[engine->voiceIndex];
+        if (vp->hasVoicedTilt)
+            tone.voicedTiltDbPerOct = vp->voicedTiltDbPerOct;
+        speechPlayer_setVoicingTone(engine->player, &tone);
+    }
 }
 
 } /* extern "C" */

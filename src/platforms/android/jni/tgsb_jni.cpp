@@ -139,6 +139,12 @@ typedef struct {
     double userAspirationTiltDbPerOct;
     double userCascadeBwScale;
     double userTremorDepth;
+
+    /* Inflection (pitch range) — 0.0..1.0, default 0.5 */
+    double inflection;
+
+    /* Output volume — 0.0..1.0, multiplied into the gain stage */
+    double volume;
 } TgsbEngine;
 
 /* Frame callback context */
@@ -254,7 +260,7 @@ static void synthesizeClauses(TgsbEngine *engine,
             char clauseStr[2] = { clauseType, 0 };
             nvspFrontend_queueIPA_Ex(
                 engine->frontend, ipa,
-                speed, basePitch, 0.5, clauseStr, 0,
+                speed, basePitch, engine->inflection, clauseStr, 0,
                 cb, ctx
             );
         }
@@ -318,6 +324,8 @@ Java_com_tgspeechbox_tts_TgsbTtsService_nativeCreate(
     engine->sampleRate = sampleRate;
     engine->stopRequested = 0;
     engine->voiceIndex = 0; /* Adam */
+    engine->inflection = 0.5;
+    engine->volume = 1.0;
 
     env->ReleaseStringUTFChars(espeakDataPath, dataPath);
     env->ReleaseStringUTFChars(packDirPath, packDir);
@@ -433,10 +441,11 @@ Java_com_tgspeechbox_tts_TgsbTtsService_nativePullAudio(
      * TGSpeechBox output is conservative (~60% headroom); scale up
      * so the engine sits at a normal volume without the user having
      * to crank accessibility volume. */
-    static const double kGain = 3.0;
+    static const double kBaseGain = 3.0;
+    double gain = kBaseGain * engine->volume;
     int16_t pcm[4096];
     for (int i = 0; i < n; i++) {
-        double s = buf[i].value * kGain;
+        double s = buf[i].value * gain;
         if (s > 32767.0) s = 32767.0;
         if (s < -32767.0) s = -32767.0;
         pcm[i] = (int16_t)s;
@@ -580,6 +589,67 @@ Java_com_tgspeechbox_tts_TgsbTtsService_nativeSetInflectionScale(
     nvspFrontend_setLegacyPitchInflectionScale(engine->frontend, scale);
 }
 
+JNIEXPORT void JNICALL
+Java_com_tgspeechbox_tts_TgsbTtsService_nativeSetInflection(
+    JNIEnv *env, jobject thiz, jlong handle, jdouble value
+) {
+    TgsbEngine *engine = (TgsbEngine *)(intptr_t)handle;
+    if (!engine) return;
+    double v = value;
+    if (v < 0.0) v = 0.0;
+    if (v > 1.0) v = 1.0;
+    engine->inflection = v;
+}
+
+JNIEXPORT void JNICALL
+Java_com_tgspeechbox_tts_TgsbTtsService_nativeSetSampleRate(
+    JNIEnv *env, jobject thiz, jlong handle, jint sampleRate
+) {
+    TgsbEngine *engine = (TgsbEngine *)(intptr_t)handle;
+    if (!engine || sampleRate <= 0) return;
+    if (sampleRate == engine->sampleRate) return;
+
+    /* Reinitialize speechPlayer with new sample rate */
+    if (engine->player) {
+        speechPlayer_terminate(engine->player);
+    }
+    engine->player = speechPlayer_initialize(sampleRate);
+    engine->sampleRate = sampleRate;
+
+    /* Re-apply voicing tone settings */
+    if (engine->hasUserTone) {
+        applyVoicingTone(engine,
+            engine->userVoicedTiltDbPerOct,
+            engine->userNoiseGlottalModDepth,
+            engine->userPitchSyncF1DeltaHz,
+            engine->userPitchSyncB1DeltaHz,
+            engine->userSpeedQuotient,
+            engine->userAspirationTiltDbPerOct,
+            engine->userCascadeBwScale,
+            engine->userTremorDepth);
+    } else {
+        speechPlayer_voicingTone_t tone = speechPlayer_getDefaultVoicingTone();
+        const VoicePreset *vp = &kPresets[engine->voiceIndex];
+        if (vp->hasVoicedTilt)
+            tone.voicedTiltDbPerOct = vp->voicedTiltDbPerOct;
+        speechPlayer_setVoicingTone(engine->player, &tone);
+    }
+
+    LOGI("Sample rate changed to %d", sampleRate);
+}
+
+JNIEXPORT void JNICALL
+Java_com_tgspeechbox_tts_TgsbTtsService_nativeSetVolume(
+    JNIEnv *env, jobject thiz, jlong handle, jdouble value
+) {
+    TgsbEngine *engine = (TgsbEngine *)(intptr_t)handle;
+    if (!engine) return;
+    double v = value;
+    if (v < 0.0) v = 0.0;
+    if (v > 1.0) v = 1.0;
+    engine->volume = v;
+}
+
 /* ------------------------------------------------------------------ */
 /* Standalone engine for MainActivity                                  */
 /*                                                                     */
@@ -679,10 +749,11 @@ Java_com_tgspeechbox_tts_TgsbSpeakEngine_nativePullAudio(
                                      (unsigned int)count, buf);
     if (n <= 0) return 0;
 
-    static const double kGain = 3.0;
+    static const double kBaseGain = 3.0;
+    double gain = kBaseGain * engine->volume;
     int16_t pcm[4096];
     for (int i = 0; i < n; i++) {
-        double s = buf[i].value * kGain;
+        double s = buf[i].value * gain;
         if (s > 32767.0) s = 32767.0;
         if (s < -32767.0) s = -32767.0;
         pcm[i] = (int16_t)s;
@@ -731,6 +802,30 @@ Java_com_tgspeechbox_tts_TgsbSpeakEngine_nativeSetInflectionScale(
 ) {
     Java_com_tgspeechbox_tts_TgsbTtsService_nativeSetInflectionScale(
         env, thiz, handle, scale);
+}
+
+JNIEXPORT void JNICALL
+Java_com_tgspeechbox_tts_TgsbSpeakEngine_nativeSetInflection(
+    JNIEnv *env, jobject thiz, jlong handle, jdouble value
+) {
+    Java_com_tgspeechbox_tts_TgsbTtsService_nativeSetInflection(
+        env, thiz, handle, value);
+}
+
+JNIEXPORT void JNICALL
+Java_com_tgspeechbox_tts_TgsbSpeakEngine_nativeSetVolume(
+    JNIEnv *env, jobject thiz, jlong handle, jdouble value
+) {
+    Java_com_tgspeechbox_tts_TgsbTtsService_nativeSetVolume(
+        env, thiz, handle, value);
+}
+
+JNIEXPORT void JNICALL
+Java_com_tgspeechbox_tts_TgsbSpeakEngine_nativeSetSampleRate(
+    JNIEnv *env, jobject thiz, jlong handle, jint sampleRate
+) {
+    Java_com_tgspeechbox_tts_TgsbTtsService_nativeSetSampleRate(
+        env, thiz, handle, sampleRate);
 }
 
 } /* extern "C" */

@@ -177,12 +177,16 @@ def splitByScript(text, baseLang, latinFallback="en"):
             tags.append("L")
         else:
             tags.append("N")
-    
-    # Resolve neutrals: attach each '?' to the script of the nearest
-    # non-neutral neighbor.  Prefer the FOLLOWING script (so a space
-    # before "Hello" goes with "Hello"), falling back to the preceding.
+
+
+
+    # Resolve neutrals.  The goal:
+    #   - Whitespace/punctuation between same-script letters → that script
+    #   - Whitespace/punctuation at a script boundary → attach to following
+    #   - Digits → ALWAYS native script (numbers should be spoken in the
+    #     user's language, not the Latin fallback)
     resolved = list(tags)
-    
+
     # Forward pass: propagate last known script into neutrals.
     lastScript = "N"  # default: base language
     for i in range(len(resolved)):
@@ -190,18 +194,27 @@ def splitByScript(text, baseLang, latinFallback="en"):
             resolved[i] = lastScript
         else:
             lastScript = resolved[i]
-    
+
+
     # Backward pass: neutrals BEFORE a script change should attach forward.
     # Walk backward; if a neutral is followed by a different script, adopt it.
     nextScript = "N"
     for i in range(len(resolved) - 1, -1, -1):
         if tags[i] == "?":
-            # If the forward script differs from what the forward pass assigned,
-            # prefer the forward (following) script.
             resolved[i] = nextScript
         else:
             nextScript = resolved[i]
-    
+
+
+    # Digit override: force all digit characters to native script.
+    # Numbers like "2026" should always be read in the user's language,
+    # not the Latin fallback.  Surrounding whitespace is left to the
+    # normal resolution (it will merge with whichever script is adjacent).
+    for i in range(len(resolved)):
+        if text[i].isdigit():
+            resolved[i] = "N"
+
+
     # Group consecutive same-script characters into segments.
     if not resolved:
         return [(text, None)]

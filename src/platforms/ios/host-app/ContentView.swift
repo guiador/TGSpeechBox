@@ -110,6 +110,14 @@ struct ContentView: View {
                         .accessibilityLabel("Pitch")
                         .accessibilityValue("\(Int(engine.pitch)) hertz")
                 }
+                HStack {
+                    Text("Inflection: \(Int(engine.inflectionValue))")
+                        .frame(width: 100, alignment: .leading)
+                        .accessibilityHidden(true)
+                    Slider(value: $engine.inflectionValue, in: 0...100, step: 1)
+                        .accessibilityLabel("Inflection")
+                        .accessibilityValue("\(Int(engine.inflectionValue))")
+                }
             }
 
             // Speak / Stop buttons

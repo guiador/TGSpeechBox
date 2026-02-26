@@ -26,7 +26,12 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
     private var volume: Float32 = 1.0
     private let outputMutex = DispatchSemaphore(value: 1)
 
-    private let sampleRate: Double = 22050.0
+    // ASBD output rate — fixed at 44100, never changes after init.
+    private let sampleRate: Double = 44100.0
+
+    // DSP rate — the rate speechPlayer actually runs at.
+    // Can differ from sampleRate; output is resampled to match ASBD.
+    private var dspRate: Int
 
     // Cached state to avoid redundant bridge calls & UserDefaults reads
     private var cachedVoice: String = ""
@@ -69,17 +74,30 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
         ("uk-UA", "uk",    "uk"),
         ("hu-HU", "hu",    "hu"),
         ("fi-FI", "fi",    "fi"),
+        ("tr-TR", "tr",    "tr"),
         ("zh-CN", "cmn",   "zh"),
     ]
 
     // MARK: - Initialization
 
+    private static func loadDspRate() -> Int {
+        let d = UserDefaults(suiteName: "group.com.tgspeechbox.app")
+        let valid: Set<Int> = [11025, 16000, 22050, 44100]
+        if let d = d, d.object(forKey: "adv_sampleRate") != nil {
+            let saved = d.integer(forKey: "adv_sampleRate")
+            if valid.contains(saved) { return saved }
+        }
+        return 22050
+    }
+
     @objc
     public override init(componentDescription: AudioComponentDescription,
                          options: AudioComponentInstantiationOptions = []) throws {
 
+        dspRate = Self.loadDspRate()
+
         let asbd = AudioStreamBasicDescription(
-            mSampleRate: 22050,
+            mSampleRate: 44100,
             mFormatID: kAudioFormatLinearPCM,
             mFormatFlags: kAudioFormatFlagsNativeFloatPacked
                         | kAudioFormatFlagIsNonInterleaved,
@@ -114,7 +132,7 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
         let packDir = bundle + "/packs"
         guard fm.fileExists(atPath: espeakDataPath),
               fm.fileExists(atPath: packDir) else { return }
-        engine = tgsb_create(espeakDataPath, packDir, Int32(sampleRate))
+        engine = tgsb_create(espeakDataPath, packDir, Int32(dspRate))
     }
 
     deinit {
@@ -162,21 +180,37 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
         _ speechRequest: AVSpeechSynthesisProviderRequest
     ) {
         let plainText = extractPlainText(from: speechRequest.ssmlRepresentation)
-        guard let eng = engine else {
-            // No engine — still need to signal render block to complete
-            // so VoiceOver doesn't hang waiting for audio.
-            outputMutex.wait()
-            output = [0]   // single silent frame
-            outputOffset = 0
-            outputMutex.signal()
-            return
-        }
         guard !plainText.isEmpty else {
             // Empty text — provide a single silent frame so the render
             // block can signal offlineUnitRenderAction_Complete and
             // VoiceOver proceeds to the next utterance (e.g. hint).
             outputMutex.wait()
             output = [0]
+            outputOffset = 0
+            outputMutex.signal()
+            return
+        }
+
+        // Re-read engine settings only when version changes
+        let curVersion = UserDefaults(suiteName: "group.com.tgspeechbox.app")?
+            .integer(forKey: "adv_settingsVersion") ?? 0
+        if curVersion != cachedSettingsVersion {
+            if let e = engine {
+                let newRate = Self.loadDspRate()
+                if newRate != dspRate {
+                    tgsb_set_sample_rate(e, Int32(newRate))
+                    dspRate = newRate
+                }
+                applyEngineSettings(e)
+            }
+            cachedSettingsVersion = curVersion
+        }
+
+        guard let eng = engine else {
+            // No engine — still need to signal render block to complete
+            // so VoiceOver doesn't hang waiting for audio.
+            outputMutex.wait()
+            output = [0]   // single silent frame
             outputOffset = 0
             outputMutex.signal()
             return
@@ -214,19 +248,12 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
             cachedTgsbLang = tgsbLang
         }
 
-        // Re-read engine settings only when version changes
-        let curVersion = UserDefaults(suiteName: "group.com.tgspeechbox.app")?
-            .integer(forKey: "adv_settingsVersion") ?? 0
-        if curVersion != cachedSettingsVersion {
-            applyEngineSettings(eng)
-            cachedSettingsVersion = curVersion
-        }
-
         tgsb_queue_text(eng, plainText, speed, pitch)
 
         // Pull PCM and convert Int16 → Float32 using vDSP
+        let curDspRate = dspRate
         var samples: [Float32] = []
-        samples.reserveCapacity(22050 * 2)
+        samples.reserveCapacity(curDspRate * 2)
 
         while true {
             let n = Int(tgsb_pull_audio(eng, &pullChunk, Int32(pullChunk.count)))
@@ -235,12 +262,10 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
             samples.append(contentsOf: repeatElement(Float32(0), count: n))
             pullChunk.withUnsafeBufferPointer { srcBuf in
                 samples.withUnsafeMutableBufferPointer { dstBuf in
-                    // vDSP: convert Int16 → Float32 in one call
                     vDSP_vflt16(
                         srcBuf.baseAddress!, 1,
                         dstBuf.baseAddress! + startIdx, 1,
                         vDSP_Length(n))
-                    // vDSP: divide by 32768.0 to normalize
                     var scale = Float32(1.0 / 32768.0)
                     vDSP_vsmul(
                         dstBuf.baseAddress! + startIdx, 1,
@@ -249,6 +274,12 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
                         vDSP_Length(n))
                 }
             }
+        }
+
+        // Resample from DSP rate to ASBD rate (44100) if needed
+        let asbdRate = Int(sampleRate)
+        if curDspRate != asbdRate && !samples.isEmpty {
+            samples = resampleLinear(samples, from: curDspRate, to: asbdRate)
         }
 
         // Hand complete buffer to the render block
@@ -372,6 +403,29 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
 
         let inflScale = load("inflectionScale", 58) / 100.0
         tgsb_set_legacy_pitch_inflection_scale(eng, inflScale)
+
+        let infl = load("inflection", 50) / 100.0
+        tgsb_set_inflection(eng, infl)
+    }
+
+    // MARK: - Resampling
+
+    /// Linear-interpolation resample from one rate to another.
+    private func resampleLinear(_ input: [Float32], from srcRate: Int, to dstRate: Int) -> [Float32] {
+        let ratio = Double(dstRate) / Double(srcRate)
+        let outCount = Int(Double(input.count) * ratio)
+        guard outCount > 0 else { return [] }
+        var out = [Float32](repeating: 0, count: outCount)
+        let lastIdx = input.count - 1
+        for i in 0..<outCount {
+            let srcPos = Double(i) / ratio
+            let idx = Int(srcPos)
+            let frac = Float32(srcPos - Double(idx))
+            let s0 = input[min(idx, lastIdx)]
+            let s1 = input[min(idx + 1, lastIdx)]
+            out[i] = s0 + frac * (s1 - s0)
+        }
+        return out
     }
 
     // MARK: - Helpers
