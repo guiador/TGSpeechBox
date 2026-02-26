@@ -146,6 +146,14 @@ normalization:
     - from: "ɜ"
       to: "ɝ"
 
+    # START lexical set (park, party, shard, card, garden, market…):
+    # Same fix as en-us — ɑ before ɹ sounds too open/Australian in the
+    # formant synth.  Map to ʌ for natural North American "ah" quality.
+    - from: "ɑːɹ"
+      to:   "ʌɹ"
+    - from: "ɑɹ"
+      to:   "ʌɹ"
+
     # Use the dedicated US/CA /r/ variant.
     - from: "ɹ"
       to: "ɻ"
