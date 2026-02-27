@@ -650,6 +650,13 @@ normalization:
     - from: "ɝ"
       to: "ɜ"
 
+    # GOAT (əʊ): monophthongize to əː. The diphthong collapse glide from
+    # ə→ʊ created a perceptible "ow" sweep that made words like "combobox"
+    # sound drawn-out. RP GOAT onset is ə (not o like GenAm), so we keep
+    # the schwa quality as a long monophthong.
+    - from: "əʊ"
+      to:   "əː"
+
     # NEAR vowel: collapse word-final iə to short schwa tail.
     - from: "iə"
       to:   "iᵊ"
