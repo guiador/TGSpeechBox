@@ -224,7 +224,7 @@ settings:
     durationFloorMs: 60
     onsetHoldExponent: 1.3
     microFrameIntervalMs: 8
-    bandwidthWideningFactor: 0.35
+    bandwidthWideningFactor: 0.12
   lengthContrast:
     enabled: false
   allophoneRules:
