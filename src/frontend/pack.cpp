@@ -1086,6 +1086,7 @@ if (const yaml_min::Node* ar = settings.get("allophoneRules"); ar && ar->isMap()
       getStrFrom(item, "tokenType", rule.tokenType);
       getStrFrom(item, "position", rule.position);
       getStrFrom(item, "stress", rule.stress);
+      getStrFrom(item, "place", rule.place);
 
       // Parse phonemes (UTF-8 → u32)
       if (const yaml_min::Node* ph = item.get("phonemes"); ph && ph->isSeq()) {

@@ -16,7 +16,7 @@ settings:
   stopClosureVowelGapMs: 18
   stopClosureVowelFadeMs: 4
   stopClosureClusterGapMs: 20
-  stopClosureClusterFadeMs: 16
+  stopClosureClusterFadeMs: 10
   stopClosureWordBoundaryClusterGapMs: 24
   stopClosureWordBoundaryClusterFadeMs: 4
 
@@ -60,7 +60,7 @@ settings:
   semivowelOffglideScale: 0.65
 
   # Keep defaults conservative: avoid heavy cross-phoneme shaping here.
-  coarticulationEnabled: false
+  coarticulationEnabled: true
   trajectoryLimitEnabled: true
   microprosodyEnabled: true
   segmentBoundarySkipVowelToLiquid: false
@@ -97,7 +97,7 @@ settings:
   phraseFinalLengtheningNucleusScale: 1.22
   phraseFinalLengtheningNucleusDiphthongScale: 1.08
   phraseFinalLengtheningCodaScale: 1.10
-  phraseFinalLengtheningCodaStopScale: 1.0
+  phraseFinalLengtheningCodaStopScale: 1.12
   phraseFinalLengtheningCodaFricativeScale: 1.15
   # Phrase-final nasal sustain: nasals linger at clause boundaries.
   phraseFinalLengtheningCodaNasalScale: 1.25
@@ -139,7 +139,7 @@ settings:
   microprosodyMaxTotalDeltaHz: 10.0
   nasalizationAnticipatoryEnabled: false
   prominence:
-    enabled: true
+    enabled: false
 
     # English: stress marks are the primary source. Vowel length is
     # phonemic but eSpeak already marks stress, so longVowelWeight
@@ -350,24 +350,62 @@ settings:
     #  insertFadeMs: 3.0
     #  insertContexts: ["V_#"]
 
+    # ── Voiceless stop burst rebalance ─────────────────────────────
+    # Base phonemes have very high frication relative to burst energy:
+    #   /t/ fricationAmplitude=0.92 vs /t͡ʃ/ fricationAmplitude=0.88
+    #   /p/ fricationAmplitude=0.75 vs /f/  fricationAmplitude=1.00
+    # Without correction, /t/ and /p/ sound almost identical because
+    # the frication noise dominates — the burst spectral shape (which
+    # encodes place: low pa1/pa2 for labial, mid pa3 for alveolar)
+    # gets masked.  Fix: cut frication, boost burst + aspiration so
+    # the place-distinguishing burst shape can be heard.
+      - name: voiceless_stop_burst_boost
+        flags: [stop]
+        notFlags: [voiced]
+        action: scale
+        fieldScales:
+          fricationAmplitude: 0.82
+          aspirationAmplitude: 1.35
+          pa1: 1.25
+          pa2: 1.20
+
     # ── Unreleased word-final stops (softer, airier release) ─────
-    # Spectral shaping: cut low-freq thump (pa1, pa2), boost high-freq
-    # air (pa4, pa5) to make the burst sound released-but-soft rather
-    # than hard and clicky. Works within the existing time budget —
-    # no extra tokens, no added gaps.
+    # Frication cut hard (×0.55) so burst transient is audible.
+    # Aspiration gently reduced (×0.60) — still present, not crushed.
+    # Low-frequency burst components (pa1, pa2) are scaled DOWN so
+    # the remaining burst energy concentrates in mid-high frequencies
+    # (pa3+) — this helps the burst cut through after sibilants like
+    # /s/ in "list", where low frequencies are already full of noise.
+    # NO upward tilt (pa4/pa5 left at 1.0) — the old ×1.3/×1.4
+    # pushed energy into affricate territory and made /t/ ≈ /t͡ʃ/.
       - name: unreleased_word_final
         flags: [stop]
         notFlags: [voiced]
         position: word-final
         action: scale
-        durationScale: 0.85
         fieldScales:
-          fricationAmplitude: 0.84
-          aspirationAmplitude: 0.55
-          pa1: 0.3
-          pa2: 0.5
-          pa4: 1.3
-          pa5: 1.4
+          fricationAmplitude: 0.55
+          aspirationAmplitude: 0.60
+          pa1: 0.40
+          pa2: 0.55
+
+    # ── Labial word-final boost ────────────────────────────────────
+    # Labial stops (/p/, /b/) have weaker bursts than alveolars or
+    # velars because the lip seal radiates less high-frequency energy.
+    # The general unreleased_word_final rule above cuts them too hard,
+    # making /p/ in words like "lisp" or "help" nearly inaudible.
+    # This place-specific rule compensates with extra aspiration and
+    # low-frequency burst energy so labials stay perceptible.
+      - name: labial_word_final_boost
+        flags: [stop]
+        notFlags: [voiced]
+        place: labial
+        position: word-final
+        action: scale
+        fieldScales:
+          aspirationAmplitude: 1.50
+          pa1: 1.40
+          pa2: 1.30
   boundarySmoothing:
     enabled: true
 

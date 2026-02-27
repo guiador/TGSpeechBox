@@ -267,7 +267,18 @@ static bool ruleMatches(
     }
   }
 
-  // 5) Position — use phoneme-aware neighbors (skip closure/aspiration)
+  // 5) Place of articulation
+  if (rule.place != "any" && !rule.place.empty()) {
+    if (!t.def) return false;
+    Place p = getPlace(t.def->key);
+    if      (rule.place == "labial")   { if (p != Place::Labial)   return false; }
+    else if (rule.place == "alveolar") { if (p != Place::Alveolar) return false; }
+    else if (rule.place == "palatal")  { if (p != Place::Palatal)  return false; }
+    else if (rule.place == "velar")    { if (p != Place::Velar)    return false; }
+    else return false;  // unknown place value — never match
+  }
+
+  // 6) Position — use phoneme-aware neighbors (skip closure/aspiration)
   const Token* prev = prevPhoneme(tokens, i);
   const Token* next = nextPhoneme(tokens, i);
   const bool prevIsVowel = (prev && tokIsVowel(*prev));

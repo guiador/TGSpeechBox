@@ -254,6 +254,9 @@ struct AllophoneRule {
     // "any", "stressed", "unstressed", "next-unstressed", "prev-stressed"
     std::string stress = "any";
 
+    // "any", "labial", "alveolar", "palatal", "velar"
+    std::string place = "any";
+
     std::vector<std::u32string> after;      // prev phoneme key filter
     std::vector<std::u32string> before;     // next phoneme key filter
 

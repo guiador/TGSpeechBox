@@ -1151,6 +1151,7 @@ std::vector<AllophoneRuleEntry> LanguageYaml::allophoneRules() const {
     r.notFlags = readStringSeq(item.get("notFlags"));
     if (const Node* n = item.get("tokenType")) if (n->isScalar()) r.tokenType = n->scalar;
     if (const Node* n = item.get("position")) if (n->isScalar()) r.position = n->scalar;
+    if (const Node* n = item.get("place")) if (n->isScalar()) r.place = n->scalar;
     if (const Node* n = item.get("stress")) if (n->isScalar()) r.stress = n->scalar;
     r.after = readStringSeq(item.get("after"));
     r.before = readStringSeq(item.get("before"));
@@ -1225,6 +1226,7 @@ void LanguageYaml::setAllophoneRules(const std::vector<AllophoneRuleEntry>& rule
     if (!r.notFlags.empty()) mapSet(item, "notFlags", makeStringSeqNode(r.notFlags));
     if (r.tokenType != "phoneme") mapSet(item, "tokenType", makeScalar(r.tokenType));
     if (r.position != "any") mapSet(item, "position", makeScalar(r.position));
+    if (r.place != "any") mapSet(item, "place", makeScalar(r.place));
     if (r.stress != "any") mapSet(item, "stress", makeScalar(r.stress));
     if (!r.after.empty()) mapSet(item, "after", makeStringSeqNode(r.after));
     if (!r.before.empty()) mapSet(item, "before", makeStringSeqNode(r.before));
