@@ -545,10 +545,18 @@ void emitFrames(
         double attackMs = t.def->hasFricAttackMs ? t.def->fricAttackMs : 3.0;
         double decayMs = t.def->hasFricDecayMs ? t.def->fricDecayMs : 4.0;
 
-        // Skip attack ramp in post-stop clusters (/ks/, /ts/, /ps/, etc.)
-        // where the stop burst already provides transient energy.
+        // Post-stop fricatives (/kʃ/ in "action", /ks/ in "box"):
+        // Use a shortened attack ramp so the stop burst has headroom to
+        // register as a separate articulation before the fricative takes
+        // over.  Without this, the fricative slams in at full amplitude
+        // and masks the preceding burst (especially problematic for /kʃ/
+        // where the spectral overlap in 1.5-3 kHz is heavy).
+        if (prevTokenWasStop) {
+          attackMs = std::min(attackMs, 2.5);
+        }
+
         // Only emit micro-frames if token is long enough for attack + decay + 2ms sustain
-        if (!prevTokenWasStop && attackMs + decayMs + 2.0 < t.durationMs) {
+        if (attackMs + decayMs + 2.0 < t.durationMs) {
           const int faIdx = static_cast<int>(FieldId::fricationAmplitude);
 
           // Pitch interpolation across 3 micro-frames
