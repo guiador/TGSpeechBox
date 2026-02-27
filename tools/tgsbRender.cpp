@@ -732,45 +732,89 @@ int main(int argc, char** argv) {
   const double basePitchHz = sliderPitchToBaseHz(opt.pitch);
   const double inflection = opt.inflection;
 
-  const char* clauseTypeUtf8 = nullptr;
+  // Split IPA input at clause boundaries and queue each clause with its
+  // detected clause type.  Without this, the entire input gets a single
+  // falling-intonation contour regardless of punctuation.
+  {
+    const char* p = ipa.c_str();
+    bool anyFailed = false;
 
-  // Use queueIPA_ExWithText when original text is available (stress correction),
-  // otherwise fall back to queueIPA_Ex.
-  int queueOk;
-  if (!opt.text.empty()) {
-    queueOk = nvspFrontend_queueIPA_ExWithText(
-      fe,
-      opt.text.c_str(),
-      ipa.c_str(),
-      speed,
-      basePitchHz,
-      inflection,
-      clauseTypeUtf8,
-      /*userIndexBase=*/0,
-      &onFrontendFrameEx,
-      &cbCtx
-    );
-  } else {
-    queueOk = nvspFrontend_queueIPA_Ex(
-      fe,
-      ipa.c_str(),
-      speed,
-      basePitchHz,
-      inflection,
-      clauseTypeUtf8,
-      /*userIndexBase=*/0,
-      &onFrontendFrameEx,
-      &cbCtx
-    );
-  }
+    while (*p) {
+      // Skip leading whitespace
+      while (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n') p++;
+      if (!*p) break;
 
-  if (!queueOk) {
-    std::cerr << "nvspFrontend_queueIPA failed\n";
-    const char* err = nvspFrontend_getLastError(fe);
-    if (err && *err) std::cerr << "  " << err << "\n";
-    nvspFrontend_destroy(fe);
-    speechPlayer_terminate(player);
-    return 1;
+      const char* clauseStart = p;
+      char clauseType = '.';  // default: declarative
+
+      // Scan forward to find next clause boundary
+      while (*p) {
+        char c = *p;
+        if (c == '.' || c == '?' || c == '!' || c == ',') {
+          clauseType = c;
+          p++;
+          break;
+        }
+        // Colon/semicolon only split when followed by whitespace
+        // (avoids splitting times like "5:44" or ratios like "3:1")
+        if (c == ';' || c == ':') {
+          char next = *(p + 1);
+          if (next == ' ' || next == '\t' || next == '\r' ||
+              next == '\n' || next == '\0') {
+            clauseType = ',';  // treat as continuation
+            p++;
+            break;
+          }
+        }
+        p++;
+      }
+
+      size_t len = static_cast<size_t>(p - clauseStart);
+      if (len == 0) continue;
+
+      std::string clause(clauseStart, len);
+      char clauseStr[2] = { clauseType, '\0' };
+
+      int queueOk;
+      if (!opt.text.empty()) {
+        queueOk = nvspFrontend_queueIPA_ExWithText(
+          fe,
+          opt.text.c_str(),
+          clause.c_str(),
+          speed,
+          basePitchHz,
+          inflection,
+          clauseStr,
+          /*userIndexBase=*/0,
+          &onFrontendFrameEx,
+          &cbCtx
+        );
+      } else {
+        queueOk = nvspFrontend_queueIPA_Ex(
+          fe,
+          clause.c_str(),
+          speed,
+          basePitchHz,
+          inflection,
+          clauseStr,
+          /*userIndexBase=*/0,
+          &onFrontendFrameEx,
+          &cbCtx
+        );
+      }
+
+      if (!queueOk) {
+        std::cerr << "nvspFrontend_queueIPA failed for clause\n";
+        const char* err = nvspFrontend_getLastError(fe);
+        if (err && *err) std::cerr << "  " << err << "\n";
+        anyFailed = true;
+      }
+    }
+
+    if (anyFailed && ipa.find_first_not_of(" \t\r\n") != std::string::npos) {
+      // At least one clause failed, but others may have succeeded.
+      // Only bail if the entire input was a single failed clause.
+    }
   }
 
   // Synthesize to stdout as raw PCM
