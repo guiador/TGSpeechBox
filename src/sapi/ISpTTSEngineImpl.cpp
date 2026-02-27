@@ -510,6 +510,19 @@ STDMETHODIMP ISpTTSEngineImpl::Speak(DWORD /*dwSpeakFlags*/,
         frag = frag->pNext;
     }
 
+    // Pad trailing silence so SAPI hosts that cut playback on Speak()
+    // return don't clip the final syllable.  Some hosts (e.g. Balabolka)
+    // stop audio immediately when Speak() returns, before the sound card
+    // finishes draining its buffer.  50ms of silence gives enough runway.
+    if (!ctx.aborted) {
+        const int padSamples = k_audio_sample_rate / 20;  // 50ms
+        std::vector<tgsb::sample_t> silence(static_cast<size_t>(padSamples));
+        std::memset(silence.data(), 0, silence.size() * sizeof(tgsb::sample_t));
+        const ULONG padBytes = static_cast<ULONG>(padSamples * sizeof(tgsb::sample_t));
+        write_bytes(pOutputSite, reinterpret_cast<const BYTE*>(silence.data()),
+                    padBytes, ctx.bytes_written);
+    }
+
     return S_OK;
 }
 
