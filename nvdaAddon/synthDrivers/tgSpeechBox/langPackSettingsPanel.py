@@ -463,6 +463,14 @@ def _getPanelClass():
                 "coarticulationVelarScale",
                 "coarticulationWordInitialFadeScale",
 
+                # --- Coda noise taper (fricative→stop continuity) ---
+                "codaNoiseTaperEnabled",
+                "codaNoiseTaperPreGain",
+                "codaNoiseTaperEarlyFricScale",
+                "codaNoiseTaperEarlyAspAmp",
+                "codaNoiseTaperLateFricScale",
+                "codaNoiseTaperLateAspAmp",
+
                 # --- Defaults ---
                 "defaultFadeMs",
                 "defaultGlottalOpenQuotient",

@@ -210,6 +210,23 @@ These settings control the short "silence gap" inserted before stops/affricates 
 - `stopClosureWordBoundaryClusterFadeMs` (number, default `0.0`)
   - If set (>0), overrides the cluster gap timing only when the stop/affricate is at a word boundary (word start).
 
+### Coda noise taper (fricative→stop continuity)
+When a fricative precedes a coda stop (e.g. /st/ in "list", /sk/ in "risk"), the closure gap normally emits true silence, which drains the DSP's resonators and triggers aggressive burst detection on the following stop. The coda noise taper replaces that silence with a two-phase source path crossfade:
+
+- **Early taper**: frication fading (parallel-dominant, sibilant tail)
+- **Late taper**: aspiration rising (cascade-dominant, formants blending toward the stop's place)
+
+This rotates the noise character from sibilant to aspirated across the closure so the burst fires into warm cascade resonators. The DSP's adaptive burst detection sees small dFric and stays on the sustain LP path, preserving spectral continuity. Only activates for coda clusters (`!wordStart` guard) — onset clusters like /st/ in "style" are unaffected.
+
+- `codaNoiseTaperEnabled` (bool, default `true`): Master enable for the taper.
+- `codaNoiseTaperPreGain` (number, default `0.40`): preFormantGain during taper (keeps both signal paths alive).
+- `codaNoiseTaperEarlyFricScale` (number, default `0.45`): Early taper frication as fraction of preceding fricative level.
+- `codaNoiseTaperEarlyAspAmp` (number, default `0.04`): Early taper aspiration amplitude (cascade barely waking).
+- `codaNoiseTaperLateFricScale` (number, default `0.08`): Late taper frication as fraction of preceding level (parallel almost gone).
+- `codaNoiseTaperLateAspAmp` (number, default `0.22`): Late taper aspiration amplitude (cascade now dominant).
+
+The late taper also blends F2/F3 40% toward the stop's formant targets, smoothing the spectral handoff for cross-place clusters like /sk/ and /sp/.
+
 ### Segment boundary timing (between chunks)
 These settings help when callers stitch speech from multiple chunks (common in NVDA UI speech: label / role / value).
 - `segmentBoundaryGapMs` (number, default `0.0`)
