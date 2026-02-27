@@ -1,0 +1,81 @@
+#!/bin/sh
+# tgsb-speak — clause-aware wrapper for the eSpeak → tgsbRender → aplay pipeline.
+#
+# Splits input text at sentence boundaries (quote-aware) so each clause
+# gets its own --clause type for correct intonation contours.
+#
+# Usage (from tgsb-generic.conf):
+#   tgsb-speak "$DATA" $LANGUAGE $VOICE $RATE $PITCH $VOLUME
+#
+# Requires: espeak-ng, tgsbRender, aplay in PATH.
+# Install tgsbRender to /usr/local/bin or adjust PATH.
+
+set -e
+
+TEXT="$1"
+LANG="${2:-en}"
+VOICE="${3:-default}"
+RATE="${4:-0}"
+PITCH="${5:-50}"
+VOLUME="${6:-1.0}"
+PACKDIR="${TGSB_PACKDIR:-/usr/share/tgspeechbox}"
+SAMPLERATE="${TGSB_SAMPLERATE:-16000}"
+
+# Split text at sentence boundaries, keeping closing quotes with
+# their sentence.  Each line of output is one clause.
+split_clauses() {
+  python3 -c '
+import sys, re
+
+text = sys.argv[1] if len(sys.argv) > 1 else ""
+if not text.strip():
+    sys.exit(0)
+
+# Split at sentence-ending punctuation, allowing closing quotes/brackets
+# to stay attached to the sentence they belong to.
+# Pattern: punctuation + optional closing chars + whitespace
+parts = re.split(r"(?<=[.?!])[)\]\"\x27\u2019\u201D]*\s+", text.strip())
+
+for part in parts:
+    part = part.strip()
+    if part:
+        print(part)
+' "$1"
+}
+
+# Detect clause type from a text string (quote-aware backward scan).
+detect_clause() {
+  python3 -c '
+import sys, re
+
+text = sys.argv[1] if len(sys.argv) > 1 else ""
+# Strip trailing whitespace and closing quotes/brackets
+text = text.rstrip()
+text = text.rstrip(")\"]'\''\\u2019\\u201D")
+if text and text[-1] in ".?!,":
+    print(text[-1])
+else:
+    print(".")
+' "$1"
+}
+
+# Process each clause through the pipeline.
+split_clauses "$TEXT" | while IFS= read -r clause; do
+  [ -z "$clause" ] && continue
+
+  ctype=$(detect_clause "$clause")
+
+  printf '%s' "$clause" \
+    | espeak-ng -q -v "$LANG" --ipa=1 --stdin \
+    | tgsbRender \
+        --packdir "$PACKDIR" \
+        --lang "$LANG" \
+        --voice "$VOICE" \
+        --text "$clause" \
+        --clause "$ctype" \
+        --rate "$RATE" \
+        --pitch "$PITCH" \
+        --volume "$VOLUME" \
+        --samplerate "$SAMPLERATE" \
+    | aplay -q -r "$SAMPLERATE" -f S16_LE -t raw -
+done
