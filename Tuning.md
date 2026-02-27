@@ -375,7 +375,7 @@ settings:
 | `flags` | list | Required phoneme flags (ALL must match): `stop`, `vowel`, `voiced`, `nasal`, `liquid`, `semivowel`, `affricate`, `tap`, `trill` |
 | `notFlags` | list | Excluded phoneme flags (rule won't match if ANY of these are set) |
 | `tokenType` | string | Token type filter: `"phoneme"` (default), `"aspiration"`, `"closure"` |
-| `position` | string | Positional filter: `"word-initial"`, `"word-final"`, `"intervocalic"`, `"post-vocalic"`, `"pre-vocalic"`, `"syllabic"` |
+| `position` | string | Positional filter: `"word-initial"`, `"word-final"`, `"intervocalic"`, `"post-vocalic"`, `"pre-vocalic"`, `"syllabic"`, `"tied-from"` (diphthong offglide), `"tied-to"` (diphthong onset) |
 | `stress` | string | Stress filter: `"stressed"`, `"unstressed"`, `"next-unstressed"`, `"prev-stressed"` |
 | `after` | list | Previous phoneme must be one of these IPA keys |
 | `before` | list | Next phoneme must be one of these IPA keys |
@@ -1824,6 +1824,7 @@ settings:
     microFrameIntervalMs: 8     # base interval; pitch-scaled down at higher F0
     onsetHoldExponent: 1.4      # >1.0 lingers at onset before sweeping (pow(frac, exp))
     amplitudeDipFactor: 0.03    # midpoint amplitude dip (sin curve, 0 = none)
+    bandwidthWideningFactor: 0.0  # widen cb1-3 during glide to reduce resonator grittiness
 ```
 
 **Settings reference:**
@@ -1835,6 +1836,7 @@ settings:
 | `microFrameIntervalMs` | `8.0` | Base interval between micro-frame waypoints. **Pitch-adaptive**: at higher F0 the interval is automatically scaled down (`interval * 100/pitch`, floored at 3ms) because fewer harmonics per formant bandwidth makes crossfade phasing more audible. At 100Hz the value is used as-is; at 200Hz it halves. The frame count is clamped to 3–10. |
 | `onsetHoldExponent` | `1.4` | Exponent applied to the interpolation fraction before cosine smoothing: `pow(frac, exp)`. Values > 1.0 make the glide linger at the onset target before sweeping toward the offset. Audible range is roughly 0.1–2.0. |
 | `amplitudeDipFactor` | `0.03` | Controls a small amplitude dip at the midpoint of the glide (via `sin(pi * frac)`). Mimics the natural slight weakening at the transition between vowel qualities. Set to 0 to disable. |
+| `bandwidthWideningFactor` | `0.0` | Widens cascade bandwidths (cb1/cb2/cb3) during the glide to reduce IIR resonator grittiness from rapid formant changes. Half the widening is constant (covers onset/offset), half peaks at midpoint. A value of 0.35 means 17.5% widening at edges, 35% at midpoint. Set to 0 to disable. |
 
 **Pipeline interactions:**
 

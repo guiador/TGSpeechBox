@@ -871,6 +871,7 @@ static std::vector<std::string> knownLanguageSettingKeys() {
     "diphthongDurationFloorMs",
     "diphthongMicroFrameIntervalMs",
     "diphthongOnsetHoldExponent",
+    "diphthongBandwidthWideningFactor",
     "lengthContrastEnabled",
     "lengthContrastGeminateClosureScale",
     "lengthContrastGeminateReleaseScale",

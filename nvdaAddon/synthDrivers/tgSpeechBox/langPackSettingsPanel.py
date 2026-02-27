@@ -339,6 +339,7 @@ def _getPanelClass():
                 "diphthongCollapse.enabled",
                 "diphthongCollapse.microFrameIntervalMs",
                 "diphthongCollapse.onsetHoldExponent",
+                "diphthongCollapse.bandwidthWideningFactor",
 
                 # --- Length contrast ---
                 "lengthContrast.enabled",
