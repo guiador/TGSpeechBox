@@ -138,6 +138,7 @@ struct Options {
   std::string language = "en";    // e.g. "en", "en-us", "fr".
   std::string voiceProfile = "";  // Voice profile name (empty = default)
   std::string text = "";          // Original text for stress correction (optional)
+  std::string clauseOverride = "";  // Explicit clause type override (e.g. "?" "!" "," ".")
 
   // Speech Dispatcher (SSIP) conventions are typically -100..+100 for rate.
   // We accept that and map it to a speed multiplier.
@@ -201,6 +202,7 @@ static void printHelp(const char* argv0) {
     << "  --voice <name>        Voice profile name (loads voicingTone from YAML)\n"
     << "  --list-voices         List available voice profiles and exit\n"
     << "  --text <string>       Original text for stress correction (optional)\n"
+    << "  --clause <char>       Clause type override: . ? ! , (default: auto-detect)\n"
     << "  --rate <int>          SSIP-style rate -100..100 (default: 0)\n"
     << "  --pitch <int>         Pitch 0..100 (default: 50)\n"
     << "  --volume <float>      Output gain multiplier (default: 1.0)\n"
@@ -321,6 +323,10 @@ static Options parseArgs(int argc, char** argv) {
     }
     if (a == "--text") {
       if (const char* v = requireValue("--text")) opt.text = v;
+      continue;
+    }
+    if (a == "--clause") {
+      if (const char* v = requireValue("--clause")) opt.clauseOverride = v;
       continue;
     }
     if (a == "--rate") { parseIntArg("--rate", opt.rate); continue; }
@@ -732,6 +738,31 @@ int main(int argc, char** argv) {
   const double basePitchHz = sliderPitchToBaseHz(opt.pitch);
   const double inflection = opt.inflection;
 
+  // Detect clause type from original text or explicit override.
+  // When --clause is given, use it directly.  When --text is given,
+  // do a quote-aware backward scan (same idea as the SAPI fix).
+  // This overrides the per-IPA-chunk forward scan below, since IPA
+  // typically doesn't contain sentence-ending punctuation.
+  char textClauseType = 0;  // 0 = not set, use per-chunk scan
+  if (!opt.clauseOverride.empty()) {
+    textClauseType = opt.clauseOverride[0];
+  } else if (!opt.text.empty()) {
+    for (auto it = opt.text.rbegin(); it != opt.text.rend(); ++it) {
+      char c = *it;
+      if (c == ' ' || c == '\t' || c == '\r' || c == '\n') continue;
+      // Skip closing quotes/brackets (ASCII)
+      if (c == '"' || c == '\'' || c == ')' || c == ']') continue;
+      // Skip UTF-8 lead byte for smart quotes (U+2019, U+201D)
+      if ((unsigned char)c >= 0x80) continue;
+      if (c == '.' || c == '?' || c == '!' || c == ',') {
+        textClauseType = c;
+        break;
+      }
+      break;  // non-whitespace, non-quote, non-punct — give up
+    }
+    if (!textClauseType) textClauseType = '.';
+  }
+
   // Split IPA input at clause boundaries and queue each clause with its
   // detected clause type.  Without this, the entire input gets a single
   // falling-intonation contour regardless of punctuation.
@@ -747,7 +778,7 @@ int main(int argc, char** argv) {
       const char* clauseStart = p;
       char clauseType = '.';  // default: declarative
 
-      // Scan forward to find next clause boundary
+      // Scan forward to find next clause boundary in the IPA
       while (*p) {
         char c = *p;
         if (c == '.' || c == '?' || c == '!' || c == ',') {
@@ -768,6 +799,9 @@ int main(int argc, char** argv) {
         }
         p++;
       }
+
+      // When text or --clause was provided, override the IPA-based scan.
+      if (textClauseType) clauseType = textClauseType;
 
       size_t len = static_cast<size_t>(p - clauseStart);
       if (len == 0) continue;
