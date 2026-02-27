@@ -1129,6 +1129,20 @@ void emitFramesEx(
           mf[va] *= ampScale;
         }
 
+        // Widen bandwidths during the glide to reduce resonator artifacts.
+        // Formants in motion naturally have wider bandwidths in real speech;
+        // without this, the IIR resonators produce grittiness when their
+        // coefficients change rapidly across short micro-frames.
+        // Half the widening is constant (covers onset/offset transitions),
+        // the other half peaks at midpoint (fastest formant movement).
+        const double bwWiden = lang.diphthongBandwidthWideningFactor;
+        if (bwWiden > 0.0) {
+          double bwScale = 1.0 + bwWiden * (0.5 + 0.5 * sin(M_PI * frac));
+          mf[static_cast<int>(FieldId::cb1)] *= bwScale;
+          mf[static_cast<int>(FieldId::cb2)] *= bwScale;
+          mf[static_cast<int>(FieldId::cb3)] *= bwScale;
+        }
+
         nvspFrontend_Frame frame;
         std::memcpy(&frame, mf, sizeof(frame));
 

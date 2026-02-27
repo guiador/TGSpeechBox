@@ -197,7 +197,7 @@ struct AREditState {
 };
 
 static const char* kTokenTypes[] = {"phoneme", "aspiration", "closure"};
-static const char* kPositions[] = {"any", "word-initial", "word-final", "intervocalic", "pre-vocalic", "post-vocalic", "syllabic"};
+static const char* kPositions[] = {"any", "word-initial", "word-final", "intervocalic", "pre-vocalic", "post-vocalic", "syllabic", "tied-from", "tied-to"};
 static const char* kPlaces[] = {"any", "labial", "alveolar", "palatal", "velar"};
 static const char* kStresses[] = {"any", "stressed", "unstressed", "next-unstressed", "prev-stressed"};
 static const char* kActions[] = {"replace", "scale", "shift", "insert-before", "insert-after"};
@@ -301,7 +301,7 @@ static INT_PTR CALLBACK AllophoneRuleEditDlgProc(HWND hDlg, UINT msg, WPARAM wPa
     addComboStrings(hDlg, IDC_AR_TOKENTYPE, kTokenTypes, 3);
     selectComboByText(hDlg, IDC_AR_TOKENTYPE, r.tokenType);
 
-    addComboStrings(hDlg, IDC_AR_POSITION, kPositions, 7);
+    addComboStrings(hDlg, IDC_AR_POSITION, kPositions, 9);
     selectComboByText(hDlg, IDC_AR_POSITION, r.position);
 
     addComboStrings(hDlg, IDC_AR_PLACE, kPlaces, 5);

@@ -222,8 +222,9 @@ settings:
   diphthongCollapse:
     enabled: true
     durationFloorMs: 60
-    onsetHoldExponent: 1.7
+    onsetHoldExponent: 1.3
     microFrameIntervalMs: 8
+    bandwidthWideningFactor: 0.35
   lengthContrast:
     enabled: false
   allophoneRules:
@@ -406,6 +407,18 @@ settings:
           aspirationAmplitude: 1.50
           pa1: 1.40
           pa2: 1.30
+
+      # ── Diphthong offglide sharpening ──────────────────────────────
+      # When /ɪ/ is the second element of a tied diphthong (FACE /eɪ/,
+      # PRICE /aɪ/, CHOICE /ɔɪ/), push formants toward /i/ territory
+      # so the glide is audible instead of collapsing into the onset.
+      - name: diphthong_offglide_sharpen_ɪ
+        phonemes: ["ɪ"]
+        position: tied-from
+        action: shift
+        fieldShifts:
+          cf1: -40
+          cf2: 150
   boundarySmoothing:
     enabled: true
 

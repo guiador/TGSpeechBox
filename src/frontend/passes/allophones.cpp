@@ -303,6 +303,10 @@ static bool ruleMatches(
     if (!prevIsVowel) return false;
   } else if (rule.position == "syllabic") {
     if (prevIsVowel || nextIsVowel) return false;
+  } else if (rule.position == "tied-from") {
+    if (!t.tiedFrom) return false;
+  } else if (rule.position == "tied-to") {
+    if (!t.tiedTo) return false;
   }
   // "any" = no position filter
 
