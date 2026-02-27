@@ -237,16 +237,16 @@ class SpeechPipelineMixin:
                     # - optional micro-pause insertion after the chunk
                     punctToken = None
                     s = chunk.rstrip()
-                    if s.endswith("..."):
+                    # Strip trailing closing quotes/brackets so ." and ?"
+                    # expose the actual punctuation mark for clause detection.
+                    s_stripped = s.rstrip(')\]"\u2019\u201D\'')
+                    if s_stripped.endswith("..."):
                         punctToken = "..."
                         # Frontend only reads 1 byte; treat ellipsis as '.' for prosody.
                         clauseType = "."
-                    elif s and (s[-1] in ".?!,:;"):
-                        punctToken = s[-1]
-                        clauseType = s[-1]
-                    elif s and (s[-1] == ","):
-                        punctToken = ","
-                        clauseType = ","
+                    elif s_stripped and (s_stripped[-1] in ".?!,:;"):
+                        punctToken = s_stripped[-1]
+                        clauseType = s_stripped[-1]
                     else:
                         clauseType = None
 

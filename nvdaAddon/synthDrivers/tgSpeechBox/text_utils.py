@@ -11,8 +11,11 @@ This module contains:
 import re
 
 
-# Split on punctuation+space for clause pauses
-re_textPause = re.compile(r"(?<=[.?!,:;])\s", re.DOTALL | re.UNICODE)
+# Split on punctuation+space for clause pauses.
+# Allow optional closing quotes/brackets between the punctuation mark and
+# the whitespace so that  ." The  and  ?" She  are recognized as clause
+# boundaries (not just  . The  and  ? She).
+re_textPause = re.compile(r'(?<=[.?!,:;])[)\]"\u2019\u201D\']*\s', re.DOTALL | re.UNICODE)
 
 # Normalize whitespace before feeding eSpeak
 _re_lineBreaks = re.compile(r"[\r\n\u2028\u2029]+", re.UNICODE)
