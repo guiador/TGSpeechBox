@@ -368,11 +368,10 @@ with `phonemes.yaml` and the `lang/` folder.
 
 ## License
 
-TGSpeechBox is covered by the GNU General Public License (Version 2).
+TGSpeechBox is licensed under the MIT License. See [LICENSE](LICENSE) for details.
 
-Copyright (c) 2014 TGSpeechBox contributors.
-
-This is a community-maintained fork. The original project was created by NV Access Limited.
+Copyright (c) 2014 NV Access Limited
+Copyright (c) 2025-2026 Tamas Geczy
 
 ## Links
 
