@@ -746,6 +746,36 @@ void emitFrames(
       continue;
     }
 
+    // ============================================
+    // WORD-BOUNDARY AMPLITUDE DIP
+    // ============================================
+    // Emit a brief reduced-amplitude micro-frame at every word start.
+    // Uniform cue: V#V, C#V, V#C all get the same subtle boundary marker.
+    // For C#C the consonant's own closure already provides the cue, but the
+    // extra dip just reinforces it harmlessly.
+    const double wbDipMs = lang.wordBoundaryDipMs;
+    double mainDur = t.durationMs;
+    double mainFade = t.fadeMs;
+
+    if (wbDipMs > 0.0 && t.wordStart && hadPrevFrame && mainDur > wbDipMs + 1.0) {
+      const double dipDepth = lang.wordBoundaryDipDepth;
+      const double dipDur = wbDipMs;
+
+      double dip[kFrameFieldCount];
+      std::memcpy(dip, base, sizeof(dip));
+      dip[va] *= dipDepth;
+      dip[fa] *= dipDepth;
+      dip[static_cast<int>(FieldId::aspirationAmplitude)] *= dipDepth;
+
+      nvspFrontend_Frame dipFrame;
+      std::memcpy(&dipFrame, dip, sizeof(dipFrame));
+      cb(userData, &dipFrame, dipDur, mainFade, userIndexBase);
+      hadPrevFrame = true;
+
+      mainDur -= dipDur;
+      mainFade = dipDur; // crossfade from dip back to full amplitude
+    }
+
     nvspFrontend_Frame frame;
     std::memcpy(&frame, base, sizeof(frame));
 
@@ -755,12 +785,12 @@ void emitFrames(
     trajectoryState->hasPrevFrame = true;
     trajectoryState->prevWasNasal = isNasal;
 
-    double emitFade = t.fadeMs;
-    if (prevTokenWasTap && t.durationMs > 0.0) {
-      emitFade = std::min(emitFade, t.durationMs * 0.35);
+    double emitFade = mainFade;
+    if (prevTokenWasTap && mainDur > 0.0) {
+      emitFade = std::min(emitFade, mainDur * 0.35);
     }
 
-    cb(userData, &frame, t.durationMs, emitFade, userIndexBase);
+    cb(userData, &frame, mainDur, emitFade, userIndexBase);
     hadPrevFrame = true;
 
     prevTokenWasTap = false;

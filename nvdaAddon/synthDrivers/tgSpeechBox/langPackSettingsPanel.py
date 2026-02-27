@@ -661,6 +661,10 @@ def _getPanelClass():
                 "trillModulationFadeMs",
                 "trillModulationMs",
 
+                # --- Word boundary ---
+                "wordBoundaryDipDepth",
+                "wordBoundaryDipMs",
+
                 # --- Voice profile ---
                 "voiceProfileName",
 

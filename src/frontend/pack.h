@@ -628,6 +628,13 @@ struct LanguagePack {
   double stressedVowelHiatusGapMs = 0.0;
   double stressedVowelHiatusFadeMs = 0.0;
 
+  // Uniform word-boundary amplitude dip: emit a brief reduced-amplitude
+  // micro-frame at every word start. This provides a consistent boundary
+  // cue regardless of phonetic context (V#V, C#V, V#C all treated equally).
+  // Disabled by default.
+  double wordBoundaryDipMs = 0.0;
+  double wordBoundaryDipDepth = 0.70; // amplitude multiplier (0.70 = 30% dip)
+
   // Spelling diphthong handling (optional).
   //
   // Some eSpeak IPA outputs for spelled-out acronyms run letter names together

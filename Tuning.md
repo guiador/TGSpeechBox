@@ -301,6 +301,13 @@ These settings can insert a tiny silence between two adjacent vowels when the *s
 - `stressedVowelHiatusGapMs` (number, default `0.0`): Gap duration in milliseconds at speed=1.0. The engine divides it by current speed.
 - `stressedVowelHiatusFadeMs` (number, default `0.0`): Fade duration (crossfade) for that gap frame.
 
+### Uniform word-boundary amplitude dip
+Emits a brief reduced-amplitude micro-frame at every `wordStart` token in `frame_emit.cpp`. This provides a consistent boundary cue regardless of phonetic context — V#V, C#V, V#C all get the same subtle energy dip. Consonant boundaries already have natural acoustic discontinuities, so the dip simply reinforces them; V#V (e.g. "the installer") benefits most because it's the only context lacking a natural break.
+- `wordBoundaryDipMs` (number, default `0.0`): Duration of the dip micro-frame in ms. Only fires when > 0 and the token has enough remaining duration. en-us uses `3.0`.
+- `wordBoundaryDipDepth` (number, default `0.70`): Amplitude multiplier during the dip (0.70 = 30% reduction). Applies to `voiceAmplitude`, `fricationAmplitude`, and `aspirationAmplitude`. en-us uses `0.50`.
+
+Nested key path: flat keys only (no nested block).
+
 ### Spelling diphthong handling
 This is a more speech-like alternative to inserting a pause. It changes how some letter-name diphthongs are rendered when the word looks like a spelled-out acronym.
 - `spellingDiphthongMode` (string, default "none"): One of:

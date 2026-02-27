@@ -1015,6 +1015,8 @@ static std::vector<std::string> knownLanguageSettingKeys() {
     "trajectoryLimitWindowMs",
     "trillModulationFadeMs",
     "trillModulationMs",
+    "wordBoundaryDipDepth",
+    "wordBoundaryDipMs",
     "wordFinalSchwaMinDurationMs",
     "wordFinalSchwaReductionEnabled",
     "wordFinalSchwaScale",

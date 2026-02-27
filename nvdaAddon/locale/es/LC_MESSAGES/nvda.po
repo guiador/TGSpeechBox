@@ -2727,6 +2727,16 @@ msgstr "Duración de Vocal antes de Nasal (ms)"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Word Boundary Dip Depth"
+msgstr "Profundidad de Caída en Límite de Palabra"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Word Boundary Dip Ms"
+msgstr "Caída en Límite de Palabra (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Word Final Schwa Min Duration (ms)"
 msgstr "Duración Mínima de Schwa Final de Palabra (ms)"
 

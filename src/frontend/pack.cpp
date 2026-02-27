@@ -579,6 +579,8 @@ getNum("primaryStressDiv", lp.primaryStressDiv);
   // Optional: intra-word vowel hiatus break on stressed vowel starts.
   getNum("stressedVowelHiatusGapMs", lp.stressedVowelHiatusGapMs);
   getNum("stressedVowelHiatusFadeMs", lp.stressedVowelHiatusFadeMs);
+  getNum("wordBoundaryDipMs", lp.wordBoundaryDipMs);
+  getNum("wordBoundaryDipDepth", lp.wordBoundaryDipDepth);
 
   getNum("lengthenedScale", lp.lengthenedScale);
   getNum("lengthenedScaleHu", lp.lengthenedScaleHu);

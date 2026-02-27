@@ -2706,6 +2706,16 @@ msgstr "Magánhangzó nazális előtt időtartam (ms)"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Word Boundary Dip Depth"
+msgstr "Szóhatár amplitúdó-csökkenés mélysége"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Word Boundary Dip Ms"
+msgstr "Szóhatár amplitúdó-csökkenés (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Word Final Schwa Min Duration (ms)"
 msgstr "Szóvégi svá minimális időtartam (ms)"
 
