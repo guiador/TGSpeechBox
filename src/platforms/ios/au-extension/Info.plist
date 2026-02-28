@@ -30,7 +30,7 @@
                     <key>manufacturer</key>
                     <string>TGSp</string>
                     <key>name</key>
-                    <string>TGSp: TGSpeechBox</string>
+                    <string>TGSpeechBox: TTS</string>
                     <key>description</key>
                     <string>TGSpeechBox Speech Synthesizer</string>
                     <key>version</key>

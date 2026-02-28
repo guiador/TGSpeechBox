@@ -4,9 +4,15 @@
  * 13 engine sliders (8 VoicingTone + 5 FrameEx), pitch mode picker,
  * inflection scale slider, and volume — all stored in AppGroup
  * UserDefaults so the AU extension picks them up for VoiceOver.
+ *
+ * Settings are stored per-voice (Adam, Benjamin, etc.) so each voice
+ * can be tuned independently. Output settings (sample rate, pause mode,
+ * volume) are global.
  */
 
 import SwiftUI
+
+private let kVoiceNames = ["Adam", "Benjamin", "Caleb", "David", "Robert"]
 
 private let kPitchModes = [
     ("espeak_style",   "eSpeak Style"),
@@ -32,6 +38,9 @@ private let kSampleRates: [(value: Int, label: String)] = [
 struct EngineSettingsView: View {
     @ObservedObject var engine: TgsbEngine
     @Binding var engineStarted: Bool
+
+    // Which voice we're editing
+    @State private var selectedVoice: String
 
     // VoicingTone sliders (0–100)
     @State private var voiceTilt: Double
@@ -74,26 +83,32 @@ struct EngineSettingsView: View {
 
         let d = UserDefaults(suiteName: kAppGroupId)
 
-        _voiceTilt       = State(initialValue: Self.load(d, "voiceTilt", 50))
-        _speedQuotient   = State(initialValue: Self.load(d, "speedQuotient", 50))
-        _aspirationTilt  = State(initialValue: Self.load(d, "aspirationTilt", 50))
-        _cascadeBwScale  = State(initialValue: Self.load(d, "cascadeBwScale", 50))
-        _noiseGlottalMod = State(initialValue: Self.load(d, "noiseGlottalMod", 0))
-        _pitchSyncF1     = State(initialValue: Self.load(d, "pitchSyncF1", 50))
-        _pitchSyncB1     = State(initialValue: Self.load(d, "pitchSyncB1", 50))
-        _voiceTremor     = State(initialValue: Self.load(d, "voiceTremor", 0))
+        let voice = d?.string(forKey: "adv_selectedVoice") ?? "adam"
+        _selectedVoice = State(initialValue: voice)
 
-        _creakiness       = State(initialValue: Self.load(d, "creakiness", 0))
-        _breathiness      = State(initialValue: Self.load(d, "breathiness", 0))
-        _jitter           = State(initialValue: Self.load(d, "jitter", 0))
-        _shimmer          = State(initialValue: Self.load(d, "shimmer", 0))
-        _glottalSharpness = State(initialValue: Self.load(d, "glottalSharpness", 50))
+        _voiceTilt       = State(initialValue: Self.loadV(d, "voiceTilt", 50, voice))
+        _speedQuotient   = State(initialValue: Self.loadV(d, "speedQuotient", 50, voice))
+        _aspirationTilt  = State(initialValue: Self.loadV(d, "aspirationTilt", 50, voice))
+        _cascadeBwScale  = State(initialValue: Self.loadV(d, "cascadeBwScale", 50, voice))
+        _noiseGlottalMod = State(initialValue: Self.loadV(d, "noiseGlottalMod", 0, voice))
+        _pitchSyncF1     = State(initialValue: Self.loadV(d, "pitchSyncF1", 50, voice))
+        _pitchSyncB1     = State(initialValue: Self.loadV(d, "pitchSyncB1", 50, voice))
+        _voiceTremor     = State(initialValue: Self.loadV(d, "voiceTremor", 0, voice))
 
-        let savedMode = d?.string(forKey: "adv_pitchMode") ?? "espeak_style"
+        _creakiness       = State(initialValue: Self.loadV(d, "creakiness", 0, voice))
+        _breathiness      = State(initialValue: Self.loadV(d, "breathiness", 0, voice))
+        _jitter           = State(initialValue: Self.loadV(d, "jitter", 0, voice))
+        _shimmer          = State(initialValue: Self.loadV(d, "shimmer", 0, voice))
+        _glottalSharpness = State(initialValue: Self.loadV(d, "glottalSharpness", 50, voice))
+
+        let modeKey = "adv_pitchMode.\(voice)"
+        let savedMode = d?.string(forKey: modeKey)
+            ?? d?.string(forKey: "adv_pitchMode")
+            ?? "espeak_style"
         _pitchMode = State(initialValue: savedMode)
 
-        _inflectionScale = State(initialValue: Self.load(d, "inflectionScale", 58))
-        _inflection = State(initialValue: Self.load(d, "inflection", 50))
+        _inflectionScale = State(initialValue: Self.loadV(d, "inflectionScale", 58, voice))
+        _inflection = State(initialValue: Self.loadV(d, "inflection", 50, voice))
 
         let savedPause = d?.object(forKey: "adv_pauseMode") != nil
             ? d!.integer(forKey: "adv_pauseMode") : 1  // default: short
@@ -119,11 +134,29 @@ struct EngineSettingsView: View {
                 Button("Reset", role: .destructive) { resetToDefaults() }
                 Button("Cancel", role: .cancel) { }
             } message: {
-                Text("This will reset all engine settings to their default values.")
+                Text("This will reset engine settings for \(selectedVoice.capitalized) to their default values.")
             }
 
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
+
+                // ── Voice Picker ───────────────────────────
+                Text("Voice")
+                    .font(.headline)
+                    .accessibilityAddTraits(.isHeader)
+
+                Picker("Editing voice", selection: $selectedVoice) {
+                    ForEach(kVoiceNames, id: \.self) { name in
+                        Text(name).tag(name.lowercased())
+                    }
+                }
+                .pickerStyle(.segmented)
+                .accessibilityLabel("Editing voice")
+                .accessibilityValue(selectedVoice.capitalized)
+                .onChange(of: selectedVoice) { voice in
+                    defaults?.set(voice, forKey: "adv_selectedVoice")
+                    loadSettingsForVoice(voice)
+                }
 
                 // ── Pitch ───────────────────────────────────
                 Text("Pitch")
@@ -138,8 +171,9 @@ struct EngineSettingsView: View {
                 .accessibilityLabel("Pitch mode")
                 .accessibilityValue(pitchModeDisplayName)
                 .onChange(of: pitchMode) { val in
-                    defaults?.set(val, forKey: "adv_pitchMode")
+                    defaults?.set(val, forKey: "adv_pitchMode.\(selectedVoice)")
                     engine.setPitchMode(val)
+                    bumpVersion()
                 }
 
                 toneSlider("Inflection Scale", $inflectionScale, "inflectionScale")
@@ -189,9 +223,7 @@ struct EngineSettingsView: View {
                             let rate = kSampleRates[Int(val)].value
                             defaults?.set(rate, forKey: "adv_sampleRate")
                             engine.changeSampleRate(rate)
-                            let d = defaults
-                            let ver = (d?.integer(forKey: "adv_settingsVersion") ?? 0) + 1
-                            d?.set(ver, forKey: "adv_settingsVersion")
+                            bumpVersion()
                         }
                 }
                 .accessibilityElement(children: .combine)
@@ -208,9 +240,7 @@ struct EngineSettingsView: View {
                 .onChange(of: pauseMode) { val in
                     defaults?.set(val, forKey: "adv_pauseMode")
                     engine.setPauseMode(val)
-                    let d = defaults
-                    let ver = (d?.integer(forKey: "adv_settingsVersion") ?? 0) + 1
-                    d?.set(ver, forKey: "adv_settingsVersion")
+                    bumpVersion()
                 }
 
                 HStack {
@@ -229,6 +259,34 @@ struct EngineSettingsView: View {
         }
         .accessibilityLabel("Engine settings")
         } // VStack
+    }
+
+    // MARK: - Load settings for voice switch
+
+    private func loadSettingsForVoice(_ voice: String) {
+        let d = defaults
+
+        voiceTilt       = Self.loadV(d, "voiceTilt", 50, voice)
+        speedQuotient   = Self.loadV(d, "speedQuotient", 50, voice)
+        aspirationTilt  = Self.loadV(d, "aspirationTilt", 50, voice)
+        cascadeBwScale  = Self.loadV(d, "cascadeBwScale", 50, voice)
+        noiseGlottalMod = Self.loadV(d, "noiseGlottalMod", 0, voice)
+        pitchSyncF1     = Self.loadV(d, "pitchSyncF1", 50, voice)
+        pitchSyncB1     = Self.loadV(d, "pitchSyncB1", 50, voice)
+        voiceTremor     = Self.loadV(d, "voiceTremor", 0, voice)
+
+        creakiness       = Self.loadV(d, "creakiness", 0, voice)
+        breathiness      = Self.loadV(d, "breathiness", 0, voice)
+        jitter           = Self.loadV(d, "jitter", 0, voice)
+        shimmer          = Self.loadV(d, "shimmer", 0, voice)
+        glottalSharpness = Self.loadV(d, "glottalSharpness", 50, voice)
+
+        pitchMode = d?.string(forKey: "adv_pitchMode.\(voice)")
+            ?? d?.string(forKey: "adv_pitchMode")
+            ?? "espeak_style"
+
+        inflectionScale = Self.loadV(d, "inflectionScale", 58, voice)
+        inflection      = Self.loadV(d, "inflection", 50, voice)
     }
 
     // MARK: - Reset
@@ -250,24 +308,27 @@ struct EngineSettingsView: View {
         sampleRateIndex = 2   // 22050 Hz
         systemVolume = 1.0
 
-        // Persist all defaults
+        // Persist per-voice defaults
         let d = defaults
-        d?.set(voiceTilt,       forKey: "adv_voiceTilt")
-        d?.set(speedQuotient,   forKey: "adv_speedQuotient")
-        d?.set(aspirationTilt,  forKey: "adv_aspirationTilt")
-        d?.set(cascadeBwScale,  forKey: "adv_cascadeBwScale")
-        d?.set(noiseGlottalMod, forKey: "adv_noiseGlottalMod")
-        d?.set(pitchSyncF1,     forKey: "adv_pitchSyncF1")
-        d?.set(pitchSyncB1,     forKey: "adv_pitchSyncB1")
-        d?.set(voiceTremor,     forKey: "adv_voiceTremor")
-        d?.set(creakiness,      forKey: "adv_creakiness")
-        d?.set(breathiness,     forKey: "adv_breathiness")
-        d?.set(jitter,          forKey: "adv_jitter")
-        d?.set(shimmer,         forKey: "adv_shimmer")
-        d?.set(glottalSharpness, forKey: "adv_glottalSharpness")
-        d?.set(pitchMode,       forKey: "adv_pitchMode")
-        d?.set(inflectionScale, forKey: "adv_inflectionScale")
-        d?.set(inflection,      forKey: "adv_inflection")
+        let v = selectedVoice
+        d?.set(voiceTilt,       forKey: "adv_voiceTilt.\(v)")
+        d?.set(speedQuotient,   forKey: "adv_speedQuotient.\(v)")
+        d?.set(aspirationTilt,  forKey: "adv_aspirationTilt.\(v)")
+        d?.set(cascadeBwScale,  forKey: "adv_cascadeBwScale.\(v)")
+        d?.set(noiseGlottalMod, forKey: "adv_noiseGlottalMod.\(v)")
+        d?.set(pitchSyncF1,     forKey: "adv_pitchSyncF1.\(v)")
+        d?.set(pitchSyncB1,     forKey: "adv_pitchSyncB1.\(v)")
+        d?.set(voiceTremor,     forKey: "adv_voiceTremor.\(v)")
+        d?.set(creakiness,      forKey: "adv_creakiness.\(v)")
+        d?.set(breathiness,     forKey: "adv_breathiness.\(v)")
+        d?.set(jitter,          forKey: "adv_jitter.\(v)")
+        d?.set(shimmer,         forKey: "adv_shimmer.\(v)")
+        d?.set(glottalSharpness, forKey: "adv_glottalSharpness.\(v)")
+        d?.set(pitchMode,       forKey: "adv_pitchMode.\(v)")
+        d?.set(inflectionScale, forKey: "adv_inflectionScale.\(v)")
+        d?.set(inflection,      forKey: "adv_inflection.\(v)")
+
+        // Global output settings
         d?.set(pauseMode,       forKey: "adv_pauseMode")
         d?.set(22050,           forKey: "adv_sampleRate")
         d?.set(systemVolume,    forKey: "systemVolume")
@@ -296,7 +357,7 @@ struct EngineSettingsView: View {
                 .frame(width: 180, alignment: .leading)
             Slider(value: value, in: 0...100, step: 1)
                 .onChange(of: value.wrappedValue) { val in
-                    defaults?.set(val, forKey: "adv_\(key)")
+                    defaults?.set(val, forKey: "adv_\(key).\(selectedVoice)")
                     applyAllSettings()
                 }
         }
@@ -328,20 +389,32 @@ struct EngineSettingsView: View {
         engine.setInflectionScale(inflectionScale / 100.0)
         engine.setInflection(inflection / 100.0)
 
-        // Bump version so AU extension knows to re-read settings
+        bumpVersion()
+    }
+
+    private func bumpVersion() {
         let d = defaults
         let ver = (d?.integer(forKey: "adv_settingsVersion") ?? 0) + 1
         d?.set(ver, forKey: "adv_settingsVersion")
     }
 
-    // MARK: - UserDefaults loader
+    // MARK: - UserDefaults loader (per-voice with global fallback)
 
-    private static func load(
-        _ d: UserDefaults?, _ key: String, _ dflt: Double
+    /// Load a per-voice setting. Falls back to the old global key for
+    /// migration, then to the provided default.
+    private static func loadV(
+        _ d: UserDefaults?, _ key: String, _ dflt: Double, _ voice: String
     ) -> Double {
-        guard let d = d, d.object(forKey: "adv_\(key)") != nil else {
-            return dflt
+        guard let d = d else { return dflt }
+        let voiceKey = "adv_\(key).\(voice)"
+        if d.object(forKey: voiceKey) != nil {
+            return d.double(forKey: voiceKey)
         }
-        return d.double(forKey: "adv_\(key)")
+        // Fallback: old global key (pre-per-voice migration)
+        let globalKey = "adv_\(key)"
+        if d.object(forKey: globalKey) != nil {
+            return d.double(forKey: globalKey)
+        }
+        return dflt
     }
 }

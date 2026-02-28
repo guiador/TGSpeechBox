@@ -191,17 +191,23 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
             return
         }
 
-        // Re-read engine settings only when version changes
+        // Extract voice name and language from identifier
+        let parts = speechRequest.voice.identifier.split(separator: ".")
+        let voiceName = parts.count >= 3 ? String(parts[2]) : "adam"
+        let bcp47 = parts.count >= 4 ? String(parts[3]) : "en-us"
+
+        // Re-read engine settings when version changes or voice changes
         let curVersion = UserDefaults(suiteName: "group.com.tgspeechbox.app")?
             .integer(forKey: "adv_settingsVersion") ?? 0
-        if curVersion != cachedSettingsVersion {
+        let voiceChanged = voiceName != cachedVoice
+        if curVersion != cachedSettingsVersion || voiceChanged {
             if let e = engine {
                 let newRate = Self.loadDspRate()
                 if newRate != dspRate {
                     tgsb_set_sample_rate(e, Int32(newRate))
                     dspRate = newRate
                 }
-                applyEngineSettings(e)
+                applyEngineSettings(e, voice: voiceName)
             }
             cachedSettingsVersion = curVersion
         }
@@ -215,10 +221,6 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
             outputMutex.signal()
             return
         }
-
-        let parts = speechRequest.voice.identifier.split(separator: ".")
-        let voiceName = parts.count >= 3 ? String(parts[2]) : "adam"
-        let bcp47 = parts.count >= 4 ? String(parts[3]) : "en-us"
 
         let langEntry = Self.languageMap.first {
             $0.bcp47.lowercased() == bcp47.lowercased()
@@ -353,13 +355,21 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
 
     // MARK: - Engine Settings from AppGroup
 
-    private func applyEngineSettings(_ eng: OpaquePointer) {
+    private func applyEngineSettings(_ eng: OpaquePointer, voice: String) {
         let d = UserDefaults(suiteName: "group.com.tgspeechbox.app")
 
+        // Per-voice key with fallback to old global key for migration
         func load(_ key: String, _ dflt: Double) -> Double {
-            guard let d = d, d.object(forKey: "adv_\(key)") != nil
-            else { return dflt }
-            return d.double(forKey: "adv_\(key)")
+            guard let d = d else { return dflt }
+            let voiceKey = "adv_\(key).\(voice)"
+            if d.object(forKey: voiceKey) != nil {
+                return d.double(forKey: voiceKey)
+            }
+            let globalKey = "adv_\(key)"
+            if d.object(forKey: globalKey) != nil {
+                return d.double(forKey: globalKey)
+            }
+            return dflt
         }
 
         // VoicingTone: convert 0–100 sliders to engine parameters
@@ -397,8 +407,10 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
 
         tgsb_set_frame_ex_defaults(eng, creak, breath, jit, shim, sharp)
 
-        // Pitch mode
-        let mode = d?.string(forKey: "adv_pitchMode") ?? "espeak_style"
+        // Pitch mode (per-voice with global fallback)
+        let mode = d?.string(forKey: "adv_pitchMode.\(voice)")
+            ?? d?.string(forKey: "adv_pitchMode")
+            ?? "espeak_style"
         tgsb_set_pitch_mode(eng, mode)
 
         let inflScale = load("inflectionScale", 58) / 100.0
@@ -407,6 +419,7 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
         let infl = load("inflection", 50) / 100.0
         tgsb_set_inflection(eng, infl)
 
+        // Pause mode stays global (not voice-specific)
         let pauseMode = d?.object(forKey: "adv_pauseMode") != nil
             ? d!.integer(forKey: "adv_pauseMode") : 1  // default: short
         tgsb_set_pause_mode(eng, Int32(pauseMode))
