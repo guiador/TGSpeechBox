@@ -24,7 +24,7 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
     private var output: [Float32] = []
     private var outputOffset: Int = 0
     private var volume: Float32 = 1.0
-    private let outputMutex = DispatchSemaphore(value: 1)
+    private var outputLock = os_unfair_lock()
 
     // ASBD output rate — fixed at 44100, never changes after init.
     private let sampleRate: Double = 44100.0
@@ -184,10 +184,10 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
             // Empty text — provide a single silent frame so the render
             // block can signal offlineUnitRenderAction_Complete and
             // VoiceOver proceeds to the next utterance (e.g. hint).
-            outputMutex.wait()
+            os_unfair_lock_lock(&outputLock)
             output = [0]
             outputOffset = 0
-            outputMutex.signal()
+            os_unfair_lock_unlock(&outputLock)
             return
         }
 
@@ -215,10 +215,10 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
         guard let eng = engine else {
             // No engine — still need to signal render block to complete
             // so VoiceOver doesn't hang waiting for audio.
-            outputMutex.wait()
+            os_unfair_lock_lock(&outputLock)
             output = [0]   // single silent frame
             outputOffset = 0
-            outputMutex.signal()
+            os_unfair_lock_unlock(&outputLock)
             return
         }
 
@@ -284,21 +284,58 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
             samples = resampleLinear(samples, from: curDspRate, to: asbdRate)
         }
 
+        // NVDA-style DAC settling: silence prefix + cosine fade-in.
+        // Apple's AU host opens/closes the render session per utterance,
+        // so the DAC comes out of idle each time — causing a hardware pop.
+        // Prepend 3ms silence to let the DAC stabilize, then apply a 12ms
+        // cosine fade-in to smoothly ramp from zero. NVDA uses this exact
+        // technique (audio.py lines 99-160) for the same reason.
+        if !samples.isEmpty {
+            let silenceCount = Int(sampleRate * 0.003)   // 3ms
+            let fadeCount = Int(sampleRate * 0.012)       // 12ms
+            let silence = [Float32](repeating: 0, count: silenceCount)
+            let fadeLen = min(fadeCount, samples.count)
+
+            // Cosine fade: (1 - cos(pi * i / N)) / 2, from 0.0 to 1.0
+            for i in 0..<fadeLen {
+                let t = Float32(i) / Float32(fadeLen)
+                let env = (1.0 - cos(t * .pi)) / 2.0
+                samples[i] *= env
+            }
+
+            samples = silence + samples
+        }
+
         // Hand complete buffer to the render block
-        outputMutex.wait()
+        os_unfair_lock_lock(&outputLock)
         output = samples
         outputOffset = 0
         volume = vol
-        outputMutex.signal()
+        os_unfair_lock_unlock(&outputLock)
     }
 
     public override func cancelSpeechRequest() {
         if let e = engine { tgsb_stop(e) }
 
-        outputMutex.wait()
-        output.removeAll(keepingCapacity: true)
-        outputOffset = 0
-        outputMutex.signal()
+        os_unfair_lock_lock(&outputLock)
+        // Fade-out the remaining buffer instead of abruptly clearing it.
+        // An instant cut from mid-waveform to silence is a discontinuity
+        // that the DAC reproduces as an audible pop/click.
+        let remaining = output.count - outputOffset
+        let fadeLen = min(64, remaining)   // ~1.5ms at 44100
+        if fadeLen > 1 {
+            for i in 0..<fadeLen {
+                output[outputOffset + i] *=
+                    Float32(fadeLen - i) / Float32(fadeLen)
+            }
+            // Keep only the fade-out tail for the render block to drain
+            output = Array(output[outputOffset..<(outputOffset + fadeLen)])
+            outputOffset = 0
+        } else {
+            output.removeAll(keepingCapacity: true)
+            outputOffset = 0
+        }
+        os_unfair_lock_unlock(&outputLock)
     }
 
     // MARK: - Audio Render
@@ -308,21 +345,30 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
             actionFlags, timestamp, frameCount, outputBusNumber,
             outputAudioBufferList, _, _ in
 
-            self.outputMutex.wait()
-
-            let available = self.output.count - self.outputOffset
-            let toCopy = min(Int(frameCount), available)
-
             let outBuf = UnsafeMutableAudioBufferListPointer(
                 outputAudioBufferList)[0]
             let outFrames = outBuf.mData!
                 .assumingMemoryBound(to: Float32.self)
+            let frames = Int(frameCount)
+
+            // Zero-fill upfront — guarantees silence if we can't lock
+            outFrames.assign(repeating: 0, count: frames)
+            outputAudioBufferList.pointee.mBuffers.mDataByteSize =
+                UInt32(frames * MemoryLayout<Float32>.size)
+
+            // Non-blocking trylock: never stall the real-time audio thread.
+            // If cancel/synthesize holds the lock, just deliver silence.
+            guard os_unfair_lock_trylock(&self.outputLock) else {
+                return noErr
+            }
+
+            let available = self.output.count - self.outputOffset
+            let toCopy = min(frames, available)
 
             if toCopy > 0 {
                 let start = self.outputOffset
                 var vol = self.volume
                 self.output.withUnsafeBufferPointer { buf in
-                    // vDSP: copy + scale in one vectorized call
                     vDSP_vsmul(buf.baseAddress! + start, 1,
                                &vol,
                                outFrames, 1,
@@ -331,24 +377,13 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
                 self.outputOffset += toCopy
             }
 
-            // Zero-fill any remaining frames in this render call
-            for i in toCopy..<Int(frameCount) { outFrames[i] = 0 }
-
-            // Tell the system how many bytes we actually wrote
-            outputAudioBufferList.pointee.mBuffers.mDataByteSize =
-                UInt32(toCopy * MemoryLayout<Float32>.size)
-
-            // Signal completion when buffer is fully drained, matching
-            // eSpeak-NG's render pattern.  This tells VoiceOver the
-            // current utterance is done; it will issue a new
-            // synthesizeSpeechRequest for subsequent text (e.g. hints).
             if self.outputOffset >= self.output.count {
                 actionFlags.pointee = .offlineUnitRenderAction_Complete
                 self.output.removeAll(keepingCapacity: true)
                 self.outputOffset = 0
             }
 
-            self.outputMutex.signal()
+            os_unfair_lock_unlock(&self.outputLock)
             return noErr
         }
     }
