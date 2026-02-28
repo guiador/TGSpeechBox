@@ -203,6 +203,12 @@ class TgsbEngine: ObservableObject {
         tgsb_set_inflection(eng, value)
     }
 
+    /// Set pause mode (0=off, 1=short, 2=long).
+    func setPauseMode(_ mode: Int) {
+        guard let eng = engine else { return }
+        tgsb_set_pause_mode(eng, Int32(mode))
+    }
+
     /// Read all adv_* settings from AppGroup UserDefaults and apply.
     func applyEngineSettings() {
         guard engine != nil else { return }
@@ -235,6 +241,10 @@ class TgsbEngine: ObservableObject {
         setPitchMode(mode)
         setInflectionScale(load("inflectionScale", 58) / 100.0)
         setInflection(load("inflection", 50) / 100.0)
+
+        let pauseMode = d?.object(forKey: "adv_pauseMode") != nil
+            ? d!.integer(forKey: "adv_pauseMode") : 1  // default: short
+        setPauseMode(pauseMode)
     }
 
     func speak(_ text: String) {

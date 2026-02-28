@@ -406,6 +406,10 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
 
         let infl = load("inflection", 50) / 100.0
         tgsb_set_inflection(eng, infl)
+
+        let pauseMode = d?.object(forKey: "adv_pauseMode") != nil
+            ? d!.integer(forKey: "adv_pauseMode") : 1  // default: short
+        tgsb_set_pause_mode(eng, Int32(pauseMode))
     }
 
     // MARK: - Resampling

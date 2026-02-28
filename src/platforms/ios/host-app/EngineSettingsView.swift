@@ -16,6 +16,12 @@ private let kPitchModes = [
     ("klatt_style",    "Klatt Style"),
 ]
 
+private let kPauseModes = [
+    (0, "Off"),
+    (1, "Short"),
+    (2, "Long"),
+]
+
 private let kSampleRates: [(value: Int, label: String)] = [
     (11025, "11,025 Hz"),
     (16000, "16,000 Hz"),
@@ -52,6 +58,9 @@ struct EngineSettingsView: View {
     // Sample rate (slider index into kSampleRates: 0–3)
     @State private var sampleRateIndex: Double
 
+    // Pause mode (0=off, 1=short, 2=long)
+    @State private var pauseMode: Int
+
     // Volume
     @State private var systemVolume: Double
 
@@ -85,6 +94,10 @@ struct EngineSettingsView: View {
 
         _inflectionScale = State(initialValue: Self.load(d, "inflectionScale", 58))
         _inflection = State(initialValue: Self.load(d, "inflection", 50))
+
+        let savedPause = d?.object(forKey: "adv_pauseMode") != nil
+            ? d!.integer(forKey: "adv_pauseMode") : 1  // default: short
+        _pauseMode = State(initialValue: savedPause)
 
         let savedRate = d?.object(forKey: "adv_sampleRate") != nil
             ? d!.integer(forKey: "adv_sampleRate") : 22050
@@ -185,6 +198,21 @@ struct EngineSettingsView: View {
                 .accessibilityLabel("Sample rate")
                 .accessibilityValue(kSampleRates[Int(sampleRateIndex)].label)
 
+                Picker("Pause Mode", selection: $pauseMode) {
+                    ForEach(kPauseModes, id: \.0) { mode in
+                        Text(mode.1).tag(mode.0)
+                    }
+                }
+                .accessibilityLabel("Pause mode")
+                .accessibilityValue(kPauseModes.first { $0.0 == pauseMode }?.1 ?? "Short")
+                .onChange(of: pauseMode) { val in
+                    defaults?.set(val, forKey: "adv_pauseMode")
+                    engine.setPauseMode(val)
+                    let d = defaults
+                    let ver = (d?.integer(forKey: "adv_settingsVersion") ?? 0) + 1
+                    d?.set(ver, forKey: "adv_settingsVersion")
+                }
+
                 HStack {
                     Text("Volume: \(Int(systemVolume * 100))%")
                         .frame(width: 180, alignment: .leading)
@@ -218,6 +246,7 @@ struct EngineSettingsView: View {
         pitchMode = "espeak_style"
         inflectionScale = 58; inflection = 50
 
+        pauseMode = 1         // short
         sampleRateIndex = 2   // 22050 Hz
         systemVolume = 1.0
 
@@ -239,11 +268,13 @@ struct EngineSettingsView: View {
         d?.set(pitchMode,       forKey: "adv_pitchMode")
         d?.set(inflectionScale, forKey: "adv_inflectionScale")
         d?.set(inflection,      forKey: "adv_inflection")
+        d?.set(pauseMode,       forKey: "adv_pauseMode")
         d?.set(22050,           forKey: "adv_sampleRate")
         d?.set(systemVolume,    forKey: "systemVolume")
 
         // Apply to engine
         engine.setPitchMode(pitchMode)
+        engine.setPauseMode(pauseMode)
         engine.changeSampleRate(22050)
         applyAllSettings()
     }
