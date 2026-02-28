@@ -181,36 +181,22 @@ struct EngineSettingsView: View {
                     .font(.headline)
                     .accessibilityAddTraits(.isHeader)
 
-                #if os(tvOS)
-                HStack {
-                    Text("Sample Rate: \(kSampleRates[Int(sampleRateIndex)].label)")
-                        .frame(minWidth: 220, alignment: .leading)
-                    Button("-") {
-                        sampleRateIndex = max(0, sampleRateIndex - 1)
-                        applySampleRate()
-                    }
-                    Button("+") {
-                        sampleRateIndex = min(Double(kSampleRates.count - 1),
-                                              sampleRateIndex + 1)
-                        applySampleRate()
-                    }
-                }
-                .accessibilityElement(children: .combine)
-                .accessibilityLabel("Sample rate")
-                .accessibilityValue(kSampleRates[Int(sampleRateIndex)].label)
-                #else
                 HStack {
                     Text("Sample Rate: \(kSampleRates[Int(sampleRateIndex)].label)")
                         .frame(width: 220, alignment: .leading)
                     Slider(value: $sampleRateIndex, in: 0...Double(kSampleRates.count - 1), step: 1)
-                        .onChange(of: sampleRateIndex) { _ in
-                            applySampleRate()
+                        .onChange(of: sampleRateIndex) { val in
+                            let rate = kSampleRates[Int(val)].value
+                            defaults?.set(rate, forKey: "adv_sampleRate")
+                            engine.changeSampleRate(rate)
+                            let d = defaults
+                            let ver = (d?.integer(forKey: "adv_settingsVersion") ?? 0) + 1
+                            d?.set(ver, forKey: "adv_settingsVersion")
                         }
                 }
                 .accessibilityElement(children: .combine)
                 .accessibilityLabel("Sample rate")
                 .accessibilityValue(kSampleRates[Int(sampleRateIndex)].label)
-                #endif
 
                 Picker("Pause Mode", selection: $pauseMode) {
                     ForEach(kPauseModes, id: \.0) { mode in
@@ -227,23 +213,6 @@ struct EngineSettingsView: View {
                     d?.set(ver, forKey: "adv_settingsVersion")
                 }
 
-                #if os(tvOS)
-                HStack {
-                    Text("Volume: \(Int(systemVolume * 100))%")
-                        .frame(minWidth: 180, alignment: .leading)
-                    Button("-") {
-                        systemVolume = max(0.1, systemVolume - 0.05)
-                        defaults?.set(systemVolume, forKey: "systemVolume")
-                    }
-                    Button("+") {
-                        systemVolume = min(1.0, systemVolume + 0.05)
-                        defaults?.set(systemVolume, forKey: "systemVolume")
-                    }
-                }
-                .accessibilityElement(children: .combine)
-                .accessibilityLabel("System voice volume")
-                .accessibilityValue("\(Int(systemVolume * 100)) percent")
-                #else
                 HStack {
                     Text("Volume: \(Int(systemVolume * 100))%")
                         .frame(width: 180, alignment: .leading)
@@ -255,7 +224,6 @@ struct EngineSettingsView: View {
                 .accessibilityElement(children: .combine)
                 .accessibilityLabel("System voice volume")
                 .accessibilityValue("\(Int(systemVolume * 100)) percent")
-                #endif
             }
             .padding(20)
         }
@@ -323,25 +291,6 @@ struct EngineSettingsView: View {
         _ value: Binding<Double>,
         _ key: String
     ) -> some View {
-        #if os(tvOS)
-        HStack {
-            Text("\(label): \(Int(value.wrappedValue))")
-                .frame(minWidth: 220, alignment: .leading)
-            Button("-") {
-                value.wrappedValue = max(0, value.wrappedValue - 1)
-                defaults?.set(value.wrappedValue, forKey: "adv_\(key)")
-                applyAllSettings()
-            }
-            Button("+") {
-                value.wrappedValue = min(100, value.wrappedValue + 1)
-                defaults?.set(value.wrappedValue, forKey: "adv_\(key)")
-                applyAllSettings()
-            }
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(label)
-        .accessibilityValue("\(Int(value.wrappedValue))")
-        #else
         HStack {
             Text("\(label): \(Int(value.wrappedValue))")
                 .frame(width: 180, alignment: .leading)
@@ -354,18 +303,6 @@ struct EngineSettingsView: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel(label)
         .accessibilityValue("\(Int(value.wrappedValue))")
-        #endif
-    }
-
-    // MARK: - Sample Rate
-
-    private func applySampleRate() {
-        let rate = kSampleRates[Int(sampleRateIndex)].value
-        defaults?.set(rate, forKey: "adv_sampleRate")
-        engine.changeSampleRate(rate)
-        let d = defaults
-        let ver = (d?.integer(forKey: "adv_settingsVersion") ?? 0) + 1
-        d?.set(ver, forKey: "adv_settingsVersion")
     }
 
     // MARK: - Apply
