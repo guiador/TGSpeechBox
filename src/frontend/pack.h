@@ -668,7 +668,7 @@ double lengthContrastPreGeminateVowelScale = 0.85;
   double diphthongMicroFrameIntervalMs = 8.0;       // max(3, dur/interval) capped at 10; pitch-scaled
   double diphthongDurationFloorMs = 50.0;            // rate_comp minimum for merged diphthongs
   double diphthongOnsetHoldExponent = 1.4;           // pow(frac, exp): >1 = linger at onset
-  double diphthongBandwidthWideningFactor = 0.0;     // 0=off, 0.3=30% wider at midpoint
+  double diphthongOnsetSettleMs = 0.0;               // extra ms added to first micro-frame for resonator settling
 
   double lengthenedScaleHu = 1.3;
   bool applyLengthenedScaleToVowelsOnly = true;

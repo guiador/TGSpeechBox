@@ -938,7 +938,7 @@ getNum("diphthongAmplitudeDipFactor", lp.diphthongAmplitudeDipFactor);
 getNum("diphthongMicroFrameIntervalMs", lp.diphthongMicroFrameIntervalMs);
 getNum("diphthongDurationFloorMs", lp.diphthongDurationFloorMs);
 getNum("diphthongOnsetHoldExponent", lp.diphthongOnsetHoldExponent);
-getNum("diphthongBandwidthWideningFactor", lp.diphthongBandwidthWideningFactor);
+getNum("diphthongOnsetSettleMs", lp.diphthongOnsetSettleMs);
 
 // Nested settings blocks inside `settings:` (optional; override flat keys)
 if (const yaml_min::Node* bs = settings.get("boundarySmoothing"); bs && bs->isMap()) {
@@ -1073,7 +1073,7 @@ if (const yaml_min::Node* dc = settings.get("diphthongCollapse"); dc && dc->isMa
   getNumFrom(*dc, "microFrameIntervalMs", lp.diphthongMicroFrameIntervalMs);
   getNumFrom(*dc, "durationFloorMs", lp.diphthongDurationFloorMs);
   getNumFrom(*dc, "onsetHoldExponent", lp.diphthongOnsetHoldExponent);
-  getNumFrom(*dc, "bandwidthWideningFactor", lp.diphthongBandwidthWideningFactor);
+  getNumFrom(*dc, "onsetSettleMs", lp.diphthongOnsetSettleMs);
 }
 
 // Data-driven allophone rules (replaces old positionalAllophones: block).

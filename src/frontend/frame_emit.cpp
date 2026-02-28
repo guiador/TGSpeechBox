@@ -266,7 +266,18 @@ void emitFrames(
       const double pitchDelta = endPitch - startPitch;
       const double dipFactor = pack.lang.diphthongAmplitudeDipFactor;
       const double onsetHold = pack.lang.diphthongOnsetHoldExponent;
-      const double segDur = totalDur / N;
+      const double baseSegDur = totalDur / N;
+
+      // Onset settle: give the first micro-frame extra time so the
+      // resonator can settle from the preceding consonant before the
+      // formant sweep begins.  Borrowed from remaining segments.
+      double seg0Dur = baseSegDur;
+      double otherSegDur = baseSegDur;
+      const double settleMs = pack.lang.diphthongOnsetSettleMs;
+      if (settleMs > 0.0 && N > 1) {
+        seg0Dur = std::min(baseSegDur + settleMs, totalDur * 0.5);
+        otherSegDur = (totalDur - seg0Dur) / (N - 1);
+      }
 
       for (int seg = 0; seg < N; ++seg) {
         double frac = (N > 1) ? (static_cast<double>(seg) / (N - 1)) : 0.0;
@@ -296,10 +307,11 @@ void emitFrames(
         nvspFrontend_Frame frame;
         std::memcpy(&frame, mf, sizeof(frame));
 
-        double fadeIn = (seg == 0) ? t.fadeMs : segDur;
-        if (fadeIn > segDur) fadeIn = segDur;
+        const double thisDur = (seg == 0) ? seg0Dur : otherSegDur;
+        double fadeIn = (seg == 0) ? t.fadeMs : thisDur;
+        if (fadeIn > thisDur) fadeIn = thisDur;
 
-        cb(userData, &frame, segDur, fadeIn, userIndexBase);
+        cb(userData, &frame, thisDur, fadeIn, userIndexBase);
       }
 
       trajectoryState->prevCf2 = calculateFreqAtFadePosition(startCf2, endCf2, 1.0);
@@ -1121,7 +1133,18 @@ void emitFramesEx(
       const double pitchDelta = endPitch - startPitch;
       const double dipFactor = lang.diphthongAmplitudeDipFactor;
       const double onsetHold = lang.diphthongOnsetHoldExponent;
-      const double segDur = totalDur / N;
+      const double baseSegDur = totalDur / N;
+
+      // Onset settle: give the first micro-frame extra time so the
+      // resonator can settle from the preceding consonant before the
+      // formant sweep begins.  Borrowed from remaining segments.
+      double seg0Dur = baseSegDur;
+      double otherSegDur = baseSegDur;
+      const double settleMs = lang.diphthongOnsetSettleMs;
+      if (settleMs > 0.0 && N > 1) {
+        seg0Dur = std::min(baseSegDur + settleMs, totalDur * 0.5);
+        otherSegDur = (totalDur - seg0Dur) / (N - 1);
+      }
 
       // Pre-compute all N waypoints so each frame can reference the next.
       // 6 formants per waypoint: cf1,cf2,cf3,pf1,pf2,pf3
@@ -1167,20 +1190,6 @@ void emitFramesEx(
           mf[va] *= ampScale;
         }
 
-        // Widen bandwidths during the glide to reduce resonator artifacts.
-        // Formants in motion naturally have wider bandwidths in real speech;
-        // without this, the IIR resonators produce grittiness when their
-        // coefficients change rapidly across short micro-frames.
-        // Half the widening is constant (covers onset/offset transitions),
-        // the other half peaks at midpoint (fastest formant movement).
-        const double bwWiden = lang.diphthongBandwidthWideningFactor;
-        if (bwWiden > 0.0) {
-          double bwScale = 1.0 + bwWiden * (0.5 + 0.5 * sin(M_PI * frac));
-          mf[static_cast<int>(FieldId::cb1)] *= bwScale;
-          mf[static_cast<int>(FieldId::cb2)] *= bwScale;
-          mf[static_cast<int>(FieldId::cb3)] *= bwScale;
-        }
-
         nvspFrontend_Frame frame;
         std::memcpy(&frame, mf, sizeof(frame));
 
@@ -1204,9 +1213,10 @@ void emitFramesEx(
           mfEx.endPf3 = NAN;
         }
 
-        // Fade: first micro-frame uses token's entry fade, rest use segDur.
-        double fadeIn = (seg == 0) ? t.fadeMs : segDur;
-        if (fadeIn > segDur) fadeIn = segDur;
+        // Fade: first micro-frame uses token's entry fade, rest use thisDur.
+        const double thisDur = (seg == 0) ? seg0Dur : otherSegDur;
+        double fadeIn = (seg == 0) ? t.fadeMs : thisDur;
+        if (fadeIn > thisDur) fadeIn = thisDur;
 
         // Don't re-fire Fujisaki commands on internal micro-frames.
         if (seg > 0) {
@@ -1215,7 +1225,7 @@ void emitFramesEx(
           mfEx.fujisakiReset = 0.0;
         }
 
-        cb(userData, &frame, &mfEx, segDur, fadeIn, userIndexBase);
+        cb(userData, &frame, &mfEx, thisDur, fadeIn, userIndexBase);
         hadPrevFrame = true;
       }
 
