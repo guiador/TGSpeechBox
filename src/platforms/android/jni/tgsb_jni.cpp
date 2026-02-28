@@ -145,6 +145,9 @@ typedef struct {
 
     /* Output volume — 0.0..1.0, multiplied into the gain stage */
     double volume;
+
+    /* Pause mode: 0=off, 1=short, 2=long */
+    int pauseMode;
 } TgsbEngine;
 
 /* Frame callback context */
@@ -264,6 +267,28 @@ static void synthesizeClauses(TgsbEngine *engine,
                 cb, ctx
             );
         }
+
+        /* Punctuation pause — matches NVDA driver durations.
+         * Short: 35 ms sentence-final, 25 ms comma
+         * Long:  60 ms sentence-final, 50 ms comma */
+        if (engine->pauseMode > 0 && ctx->frameCount > 0) {
+            double pauseMs = 0.0;
+            if (clauseType == '.' || clauseType == '!' ||
+                clauseType == '?' || clauseType == ':' || clauseType == ';') {
+                pauseMs = engine->pauseMode == 2 ? 60.0 : 35.0;
+            } else if (clauseType == ',') {
+                pauseMs = engine->pauseMode == 2 ? 50.0 : 25.0;
+            }
+            if (pauseMs > 0.0) {
+                unsigned int samples = (unsigned int)(
+                    pauseMs * engine->sampleRate / 1000.0 + 0.5);
+                unsigned int fadeSamp = (unsigned int)(
+                    2.0 * engine->sampleRate / 1000.0 + 0.5);
+                speechPlayer_queueFrame(engine->player, NULL,
+                    samples, fadeSamp, 0, 0);
+            }
+        }
+
         free(clause);
     }
 }
@@ -650,6 +675,18 @@ Java_com_tgspeechbox_tts_TgsbTtsService_nativeSetVolume(
     engine->volume = v;
 }
 
+JNIEXPORT void JNICALL
+Java_com_tgspeechbox_tts_TgsbTtsService_nativeSetPauseMode(
+    JNIEnv *env, jobject thiz, jlong handle, jint mode
+) {
+    TgsbEngine *engine = (TgsbEngine *)(intptr_t)handle;
+    if (!engine) return;
+    int m = (int)mode;
+    if (m < 0) m = 0;
+    if (m > 2) m = 2;
+    engine->pauseMode = m;
+}
+
 /* ------------------------------------------------------------------ */
 /* Standalone engine for MainActivity                                  */
 /*                                                                     */
@@ -826,6 +863,14 @@ Java_com_tgspeechbox_tts_TgsbSpeakEngine_nativeSetSampleRate(
 ) {
     Java_com_tgspeechbox_tts_TgsbTtsService_nativeSetSampleRate(
         env, thiz, handle, sampleRate);
+}
+
+JNIEXPORT void JNICALL
+Java_com_tgspeechbox_tts_TgsbSpeakEngine_nativeSetPauseMode(
+    JNIEnv *env, jobject thiz, jlong handle, jint mode
+) {
+    Java_com_tgspeechbox_tts_TgsbTtsService_nativeSetPauseMode(
+        env, thiz, handle, mode);
 }
 
 } /* extern "C" */

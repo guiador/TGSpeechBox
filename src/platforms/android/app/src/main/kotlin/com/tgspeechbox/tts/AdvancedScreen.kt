@@ -11,6 +11,7 @@ package com.tgspeechbox.tts
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -24,12 +25,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SnackbarHostState
@@ -49,6 +47,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.isTraversalGroup
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -57,13 +56,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AdvancedScreen(
     viewModel: TgsbViewModel,
     snackbarHostState: SnackbarHostState
 ) {
     var showLanguageDialog by remember { mutableStateOf(false) }
+    var showResetDialog by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -71,265 +70,315 @@ fun AdvancedScreen(
             .verticalScroll(rememberScrollState())
             .padding(20.dp)
     ) {
+        // ── Reset to Defaults ───────────────────────────────────────
+        Column(modifier = Modifier.semantics { isTraversalGroup = true }) {
+            Button(
+                onClick = { showResetDialog = true },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(stringResource(R.string.reset_defaults_button))
+            }
+        }
+
+        Spacer(Modifier.height(20.dp))
+
         // ── Pitch section ───────────────────────────────────────────
-        Text(
-            text = stringResource(R.string.pitch_section_title),
-            style = MaterialTheme.typography.headlineMedium,
-            modifier = Modifier.semantics { heading() }
-        )
+        Column(modifier = Modifier.semantics { isTraversalGroup = true }) {
+            Text(
+                text = stringResource(R.string.pitch_section_title),
+                style = MaterialTheme.typography.headlineMedium,
+                modifier = Modifier.semantics { heading() }
+            )
 
-        Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(12.dp))
 
-        PitchModeDropdown(viewModel)
+            PitchModeDropdown(viewModel)
 
-        Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(8.dp))
 
-        VoicingToneSlider(
-            label = stringResource(R.string.inflection_scale_label),
-            flow = viewModel.inflectionScale,
-            onChange = { viewModel.onInflectionScaleChanged(it) },
-            format = { v -> "${v.roundToInt()}" }
-        )
+            VoicingToneSlider(
+                label = stringResource(R.string.inflection_scale_label),
+                flow = viewModel.inflectionScale,
+                onChange = { viewModel.onInflectionScaleChanged(it) },
+                format = { v -> "${v.roundToInt()}" }
+            )
+        }
 
         Spacer(Modifier.height(20.dp))
 
         // ── Voice Quality section ───────────────────────────────────
-        Text(
-            text = stringResource(R.string.voice_quality_title),
-            style = MaterialTheme.typography.headlineMedium,
-            modifier = Modifier.semantics { heading() }
-        )
+        Column(modifier = Modifier.semantics { isTraversalGroup = true }) {
+            Text(
+                text = stringResource(R.string.voice_quality_title),
+                style = MaterialTheme.typography.headlineMedium,
+                modifier = Modifier.semantics { heading() }
+            )
 
-        Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(12.dp))
 
-        VoicingToneSlider(
-            label = stringResource(R.string.inflection_label),
-            flow = viewModel.inflection,
-            onChange = { viewModel.onInflectionChanged(it) },
-            format = { v -> "${v.roundToInt()}" }
-        )
-        VoicingToneSlider(
-            label = stringResource(R.string.voice_tilt_label),
-            flow = viewModel.voiceTilt,
-            onChange = { viewModel.onVoiceTiltChanged(it) },
-            format = { v -> "${(v - 50).roundToInt()}" }
-        )
-        VoicingToneSlider(
-            label = stringResource(R.string.speed_quotient_label),
-            flow = viewModel.speedQuotient,
-            onChange = { viewModel.onSpeedQuotientChanged(it) },
-            format = { v -> "${v.roundToInt()}" }
-        )
-        VoicingToneSlider(
-            label = stringResource(R.string.aspiration_tilt_label),
-            flow = viewModel.aspirationTilt,
-            onChange = { viewModel.onAspirationTiltChanged(it) },
-            format = { v -> "${(v - 50).roundToInt()}" }
-        )
-        VoicingToneSlider(
-            label = stringResource(R.string.cascade_bw_label),
-            flow = viewModel.cascadeBwScale,
-            onChange = { viewModel.onCascadeBwScaleChanged(it) },
-            format = { v -> "${v.roundToInt()}" }
-        )
-        VoicingToneSlider(
-            label = stringResource(R.string.noise_glottal_mod_label),
-            flow = viewModel.noiseGlottalMod,
-            onChange = { viewModel.onNoiseGlottalModChanged(it) },
-            format = { v -> "${v.roundToInt()}" }
-        )
-        VoicingToneSlider(
-            label = stringResource(R.string.pitch_sync_f1_label),
-            flow = viewModel.pitchSyncF1,
-            onChange = { viewModel.onPitchSyncF1Changed(it) },
-            format = { v -> "${(v - 50).roundToInt()}" }
-        )
-        VoicingToneSlider(
-            label = stringResource(R.string.pitch_sync_b1_label),
-            flow = viewModel.pitchSyncB1,
-            onChange = { viewModel.onPitchSyncB1Changed(it) },
-            format = { v -> "${(v - 50).roundToInt()}" }
-        )
-        VoicingToneSlider(
-            label = stringResource(R.string.voice_tremor_label),
-            flow = viewModel.voiceTremor,
-            onChange = { viewModel.onVoiceTremorChanged(it) },
-            format = { v -> "${v.roundToInt()}" }
-        )
+            VoicingToneSlider(
+                label = stringResource(R.string.inflection_label),
+                flow = viewModel.inflection,
+                onChange = { viewModel.onInflectionChanged(it) },
+                format = { v -> "${v.roundToInt()}" }
+            )
+            VoicingToneSlider(
+                label = stringResource(R.string.voice_tilt_label),
+                flow = viewModel.voiceTilt,
+                onChange = { viewModel.onVoiceTiltChanged(it) },
+                format = { v -> "${(v - 50).roundToInt()}" }
+            )
+            VoicingToneSlider(
+                label = stringResource(R.string.speed_quotient_label),
+                flow = viewModel.speedQuotient,
+                onChange = { viewModel.onSpeedQuotientChanged(it) },
+                format = { v -> "${v.roundToInt()}" }
+            )
+            VoicingToneSlider(
+                label = stringResource(R.string.aspiration_tilt_label),
+                flow = viewModel.aspirationTilt,
+                onChange = { viewModel.onAspirationTiltChanged(it) },
+                format = { v -> "${(v - 50).roundToInt()}" }
+            )
+            VoicingToneSlider(
+                label = stringResource(R.string.cascade_bw_label),
+                flow = viewModel.cascadeBwScale,
+                onChange = { viewModel.onCascadeBwScaleChanged(it) },
+                format = { v -> "${v.roundToInt()}" }
+            )
+            VoicingToneSlider(
+                label = stringResource(R.string.noise_glottal_mod_label),
+                flow = viewModel.noiseGlottalMod,
+                onChange = { viewModel.onNoiseGlottalModChanged(it) },
+                format = { v -> "${v.roundToInt()}" }
+            )
+            VoicingToneSlider(
+                label = stringResource(R.string.pitch_sync_f1_label),
+                flow = viewModel.pitchSyncF1,
+                onChange = { viewModel.onPitchSyncF1Changed(it) },
+                format = { v -> "${(v - 50).roundToInt()}" }
+            )
+            VoicingToneSlider(
+                label = stringResource(R.string.pitch_sync_b1_label),
+                flow = viewModel.pitchSyncB1,
+                onChange = { viewModel.onPitchSyncB1Changed(it) },
+                format = { v -> "${(v - 50).roundToInt()}" }
+            )
+            VoicingToneSlider(
+                label = stringResource(R.string.voice_tremor_label),
+                flow = viewModel.voiceTremor,
+                onChange = { viewModel.onVoiceTremorChanged(it) },
+                format = { v -> "${v.roundToInt()}" }
+            )
+        }
 
         Spacer(Modifier.height(20.dp))
 
         // ── Per-Frame Voice Quality section ─────────────────────────
-        Text(
-            text = stringResource(R.string.frame_quality_title),
-            style = MaterialTheme.typography.headlineMedium,
-            modifier = Modifier.semantics { heading() }
-        )
+        Column(modifier = Modifier.semantics { isTraversalGroup = true }) {
+            Text(
+                text = stringResource(R.string.frame_quality_title),
+                style = MaterialTheme.typography.headlineMedium,
+                modifier = Modifier.semantics { heading() }
+            )
 
-        Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(12.dp))
 
-        VoicingToneSlider(
-            label = stringResource(R.string.creakiness_label),
-            flow = viewModel.creakiness,
-            onChange = { viewModel.onCreakinessChanged(it) },
-            format = { v -> "${v.roundToInt()}" }
-        )
-        VoicingToneSlider(
-            label = stringResource(R.string.breathiness_label),
-            flow = viewModel.breathiness,
-            onChange = { viewModel.onBreathinessChanged(it) },
-            format = { v -> "${v.roundToInt()}" }
-        )
-        VoicingToneSlider(
-            label = stringResource(R.string.jitter_label),
-            flow = viewModel.jitter,
-            onChange = { viewModel.onJitterChanged(it) },
-            format = { v -> "${v.roundToInt()}" }
-        )
-        VoicingToneSlider(
-            label = stringResource(R.string.shimmer_label),
-            flow = viewModel.shimmer,
-            onChange = { viewModel.onShimmerChanged(it) },
-            format = { v -> "${v.roundToInt()}" }
-        )
-        VoicingToneSlider(
-            label = stringResource(R.string.glottal_sharpness_label),
-            flow = viewModel.glottalSharpness,
-            onChange = { viewModel.onGlottalSharpnessChanged(it) },
-            format = { v -> "${v.roundToInt()}" }
-        )
+            VoicingToneSlider(
+                label = stringResource(R.string.creakiness_label),
+                flow = viewModel.creakiness,
+                onChange = { viewModel.onCreakinessChanged(it) },
+                format = { v -> "${v.roundToInt()}" }
+            )
+            VoicingToneSlider(
+                label = stringResource(R.string.breathiness_label),
+                flow = viewModel.breathiness,
+                onChange = { viewModel.onBreathinessChanged(it) },
+                format = { v -> "${v.roundToInt()}" }
+            )
+            VoicingToneSlider(
+                label = stringResource(R.string.jitter_label),
+                flow = viewModel.jitter,
+                onChange = { viewModel.onJitterChanged(it) },
+                format = { v -> "${v.roundToInt()}" }
+            )
+            VoicingToneSlider(
+                label = stringResource(R.string.shimmer_label),
+                flow = viewModel.shimmer,
+                onChange = { viewModel.onShimmerChanged(it) },
+                format = { v -> "${v.roundToInt()}" }
+            )
+            VoicingToneSlider(
+                label = stringResource(R.string.glottal_sharpness_label),
+                flow = viewModel.glottalSharpness,
+                onChange = { viewModel.onGlottalSharpnessChanged(it) },
+                format = { v -> "${v.roundToInt()}" }
+            )
+        }
 
         Spacer(Modifier.height(20.dp))
 
         // ── System Rate Override section ────────────────────────────
-        Text(
-            text = stringResource(R.string.system_rate_title),
-            style = MaterialTheme.typography.headlineMedium,
-            modifier = Modifier.semantics { heading() }
-        )
-
-        Spacer(Modifier.height(12.dp))
-
-        val overrideRate by viewModel.overrideSystemRate.collectAsState()
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .toggleable(
-                    value = overrideRate,
-                    onValueChange = { viewModel.onOverrideSystemRateChanged(it) },
-                    role = androidx.compose.ui.semantics.Role.Checkbox
-                )
-                .padding(vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Checkbox(
-                checked = overrideRate,
-                onCheckedChange = null
+        Column(modifier = Modifier.semantics { isTraversalGroup = true }) {
+            Text(
+                text = stringResource(R.string.system_rate_title),
+                style = MaterialTheme.typography.headlineMedium,
+                modifier = Modifier.semantics { heading() }
             )
-            Column(modifier = Modifier.padding(start = 12.dp)) {
-                Text(
-                    text = stringResource(R.string.override_rate_label),
-                    style = MaterialTheme.typography.bodyLarge
-                )
-                Text(
-                    text = stringResource(R.string.override_rate_description),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
 
-        val globalRateVal by viewModel.globalRate.collectAsState()
-        val rateLabel = "${stringResource(R.string.global_rate_label)}: ${"%.1f".format(globalRateVal)}x"
+            Spacer(Modifier.height(12.dp))
 
-        Text(
-            text = rateLabel,
-            style = MaterialTheme.typography.bodyLarge,
-            color = if (overrideRate) MaterialTheme.colorScheme.onSurface
-                    else MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.clearAndSetSemantics {}
-        )
-        Slider(
-            value = globalRateVal,
-            onValueChange = { viewModel.onGlobalRateChanged(it) },
-            valueRange = 0.3f..3.0f,
-            steps = 26,
-            enabled = overrideRate,
-            modifier = Modifier
-                .fillMaxWidth()
-                .semantics {
-                    contentDescription = rateLabel
-                    stateDescription = "${"%.1f".format(globalRateVal)}x"
+            val overrideRate by viewModel.overrideSystemRate.collectAsState()
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .toggleable(
+                        value = overrideRate,
+                        onValueChange = { viewModel.onOverrideSystemRateChanged(it) },
+                        role = androidx.compose.ui.semantics.Role.Checkbox
+                    )
+                    .padding(vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Checkbox(
+                    checked = overrideRate,
+                    onCheckedChange = null
+                )
+                Column(modifier = Modifier.padding(start = 12.dp)) {
+                    Text(
+                        text = stringResource(R.string.override_rate_label),
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    Text(
+                        text = stringResource(R.string.override_rate_description),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
-        )
+            }
+
+            val globalRateVal by viewModel.globalRate.collectAsState()
+            val rateLabel = "${stringResource(R.string.global_rate_label)}: ${"%.1f".format(globalRateVal)}x"
+
+            Text(
+                text = rateLabel,
+                style = MaterialTheme.typography.bodyLarge,
+                color = if (overrideRate) MaterialTheme.colorScheme.onSurface
+                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.clearAndSetSemantics {}
+            )
+            Slider(
+                value = globalRateVal,
+                onValueChange = { viewModel.onGlobalRateChanged(it) },
+                valueRange = 0.3f..3.0f,
+                steps = 26,
+                enabled = overrideRate,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .semantics {
+                        contentDescription = rateLabel
+                        stateDescription = "${"%.1f".format(globalRateVal)}x"
+                    }
+            )
+        }
 
         Spacer(Modifier.height(20.dp))
 
         // ── Output section ──────────────────────────────────────────
-        Text(
-            text = stringResource(R.string.output_section_title),
-            style = MaterialTheme.typography.headlineMedium,
-            modifier = Modifier.semantics { heading() }
-        )
+        Column(modifier = Modifier.semantics { isTraversalGroup = true }) {
+            Text(
+                text = stringResource(R.string.output_section_title),
+                style = MaterialTheme.typography.headlineMedium,
+                modifier = Modifier.semantics { heading() }
+            )
 
-        Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(12.dp))
 
-        val volumeVal by viewModel.systemVolume.collectAsState()
-        val volumePercent = (volumeVal * 100).roundToInt()
-        val volumeLabel = "${stringResource(R.string.system_volume_label)}: $volumePercent%"
+            PauseModeDropdown(viewModel)
 
-        Text(
-            text = volumeLabel,
-            style = MaterialTheme.typography.bodyLarge,
-            modifier = Modifier.clearAndSetSemantics {}
-        )
-        Slider(
-            value = volumeVal,
-            onValueChange = { viewModel.onSystemVolumeChanged(it) },
-            valueRange = 0.05f..1.0f,
-            steps = 18,
-            modifier = Modifier
-                .fillMaxWidth()
-                .semantics {
-                    contentDescription = volumeLabel
-                    stateDescription = "$volumePercent%"
-                }
-        )
+            Spacer(Modifier.height(8.dp))
 
-        Spacer(Modifier.height(8.dp))
+            val volumeVal by viewModel.systemVolume.collectAsState()
+            val volumePercent = (volumeVal * 100).roundToInt()
+            val volumeLabel = "${stringResource(R.string.system_volume_label)}: $volumePercent%"
 
-        val sampleRateIdx by viewModel.sampleRateIndex.collectAsState()
-        val sampleRates = TgsbViewModel.SAMPLE_RATES
-        val currentRate = sampleRates[sampleRateIdx.roundToInt().coerceIn(0, sampleRates.size - 1)]
-        val sampleRateLabel = "${stringResource(R.string.sample_rate_label)}: $currentRate Hz"
+            Text(
+                text = volumeLabel,
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.clearAndSetSemantics {}
+            )
+            Slider(
+                value = volumeVal,
+                onValueChange = { viewModel.onSystemVolumeChanged(it) },
+                valueRange = 0.05f..1.0f,
+                steps = 18,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .semantics {
+                        contentDescription = volumeLabel
+                        stateDescription = "$volumePercent%"
+                    }
+            )
 
-        Text(
-            text = sampleRateLabel,
-            style = MaterialTheme.typography.bodyLarge,
-            modifier = Modifier.clearAndSetSemantics {}
-        )
-        Slider(
-            value = sampleRateIdx,
-            onValueChange = { viewModel.onSampleRateChanged(it) },
-            valueRange = 0f..(sampleRates.size - 1).toFloat(),
-            steps = sampleRates.size - 2,
-            modifier = Modifier
-                .fillMaxWidth()
-                .semantics {
-                    contentDescription = sampleRateLabel
-                    stateDescription = "$currentRate Hz"
-                }
-        )
+            Spacer(Modifier.height(8.dp))
+
+            val sampleRateIdx by viewModel.sampleRateIndex.collectAsState()
+            val sampleRates = TgsbViewModel.SAMPLE_RATES
+            val currentRate = sampleRates[sampleRateIdx.roundToInt().coerceIn(0, sampleRates.size - 1)]
+            val sampleRateLabel = "${stringResource(R.string.sample_rate_label)}: $currentRate Hz"
+
+            Text(
+                text = sampleRateLabel,
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.clearAndSetSemantics {}
+            )
+            Slider(
+                value = sampleRateIdx,
+                onValueChange = { viewModel.onSampleRateChanged(it) },
+                valueRange = 0f..(sampleRates.size - 1).toFloat(),
+                steps = sampleRates.size - 2,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .semantics {
+                        contentDescription = sampleRateLabel
+                        stateDescription = "$currentRate Hz"
+                    }
+            )
+        }
 
         Spacer(Modifier.height(24.dp))
 
         // ── Engine Languages button ─────────────────────────────────
-        OutlinedButton(
-            onClick = { showLanguageDialog = true },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(stringResource(R.string.choose_languages_button))
+        Column(modifier = Modifier.semantics { isTraversalGroup = true }) {
+            OutlinedButton(
+                onClick = { showLanguageDialog = true },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(stringResource(R.string.choose_languages_button))
+            }
         }
+    }
+
+    // ── Reset to Defaults confirmation dialog ──────────────────────
+    if (showResetDialog) {
+        AlertDialog(
+            onDismissRequest = { showResetDialog = false },
+            title = { Text(stringResource(R.string.reset_defaults_title)) },
+            text = { Text(stringResource(R.string.reset_defaults_message)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.resetToDefaults()
+                    showResetDialog = false
+                }) {
+                    Text(stringResource(R.string.reset_button))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showResetDialog = false }) {
+                    Text(stringResource(R.string.cancel_button))
+                }
+            }
+        )
     }
 
     // ── Language filter dialog ───────────────────────────────────────
@@ -344,10 +393,10 @@ fun AdvancedScreen(
 
 /**
  * Pitch mode dropdown — 5 options matching iOS/macOS.
- * Uses Surface instead of OutlinedTextField so TalkBack announces
- * it as a dropdown, not an "edit box".
+ * Uses plain Box + DropdownMenu instead of ExposedDropdownMenuBox
+ * to avoid TalkBack traversal order bugs (ExposedDropdownMenuBox
+ * creates internal Surface traversal groups that confuse linear nav).
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun PitchModeDropdown(viewModel: TgsbViewModel) {
     val pitchModes = listOf(
@@ -365,18 +414,14 @@ private fun PitchModeDropdown(viewModel: TgsbViewModel) {
 
     var expanded by remember { mutableStateOf(false) }
 
-    ExposedDropdownMenuBox(
-        expanded = expanded,
-        onExpandedChange = { expanded = it }
-    ) {
+    Box(modifier = Modifier.fillMaxWidth()) {
         Surface(
+            onClick = { expanded = true },
             modifier = Modifier
                 .fillMaxWidth()
-                .menuAnchor(MenuAnchorType.PrimaryNotEditable)
                 .semantics {
                     role = androidx.compose.ui.semantics.Role.DropdownList
                     contentDescription = "$label: $currentLabel"
-
                 },
             shape = MaterialTheme.shapes.small,
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
@@ -400,10 +445,9 @@ private fun PitchModeDropdown(viewModel: TgsbViewModel) {
                         modifier = Modifier.clearAndSetSemantics {}
                     )
                 }
-                ExposedDropdownMenuDefaults.TrailingIcon(expanded)
             }
         }
-        ExposedDropdownMenu(
+        DropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false }
         ) {
@@ -412,6 +456,75 @@ private fun PitchModeDropdown(viewModel: TgsbViewModel) {
                     text = { Text(modeLabel) },
                     onClick = {
                         viewModel.onPitchModeChanged(modeId)
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Pause mode dropdown — 3 options (Off, Short, Long) matching iOS.
+ * Plain Box + DropdownMenu for correct TalkBack traversal order.
+ */
+@Composable
+private fun PauseModeDropdown(viewModel: TgsbViewModel) {
+    val pauseModes = listOf(
+        0 to stringResource(R.string.pause_mode_off),
+        1 to stringResource(R.string.pause_mode_short),
+        2 to stringResource(R.string.pause_mode_long),
+    )
+
+    val currentMode by viewModel.pauseMode.collectAsState()
+    val currentLabel = pauseModes.firstOrNull { it.first == currentMode }?.second
+        ?: pauseModes[1].second
+    val label = stringResource(R.string.pause_mode_label)
+
+    var expanded by remember { mutableStateOf(false) }
+
+    Box(modifier = Modifier.fillMaxWidth()) {
+        Surface(
+            onClick = { expanded = true },
+            modifier = Modifier
+                .fillMaxWidth()
+                .semantics {
+                    role = androidx.compose.ui.semantics.Role.DropdownList
+                    contentDescription = "$label: $currentLabel"
+                },
+            shape = MaterialTheme.shapes.small,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.clearAndSetSemantics {}
+                    )
+                    Text(
+                        text = currentLabel,
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.clearAndSetSemantics {}
+                    )
+                }
+            }
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            for ((modeId, modeLabel) in pauseModes) {
+                DropdownMenuItem(
+                    text = { Text(modeLabel) },
+                    onClick = {
+                        viewModel.onPauseModeChanged(modeId)
                         expanded = false
                     }
                 )

@@ -204,6 +204,7 @@ class TgsbTtsService : TextToSpeechService() {
     private external fun nativeSetInflection(handle: Long, value: Double)
     private external fun nativeSetVolume(handle: Long, value: Double)
     private external fun nativeSetSampleRate(handle: Long, sampleRate: Int)
+    private external fun nativeSetPauseMode(handle: Long, mode: Int)
 
     override fun onCreate() {
         super.onCreate()
@@ -308,6 +309,9 @@ class TgsbTtsService : TextToSpeechService() {
         val sampleRate = prefs.getInt("${p}sampleRate", SAMPLE_RATE)
         nativeSetSampleRate(nativeHandle, sampleRate)
         currentSampleRate = sampleRate
+
+        val pauseMode = prefs.getInt("${p}pauseMode", 1)  // default: short
+        nativeSetPauseMode(nativeHandle, pauseMode)
     }
 
     override fun onDestroy() {

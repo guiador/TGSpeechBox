@@ -91,6 +91,7 @@ class TgsbSpeakEngine(private val context: Context) {
     private external fun nativeSetInflection(handle: Long, value: Double)
     private external fun nativeSetVolume(handle: Long, value: Double)
     private external fun nativeSetSampleRate(handle: Long, sampleRate: Int)
+    private external fun nativeSetPauseMode(handle: Long, mode: Int)
 
     // ── Lifecycle ────────────────────────────────────────────────────
 
@@ -190,6 +191,11 @@ class TgsbSpeakEngine(private val context: Context) {
         if (nativeHandle != 0L) {
             nativeSetVolume(nativeHandle, currentVolume.toDouble())
         }
+    }
+
+    fun setPauseMode(mode: Int) {
+        if (nativeHandle == 0L) return
+        nativeSetPauseMode(nativeHandle, mode)
     }
 
     // ── Speak / Stop ─────────────────────────────────────────────────

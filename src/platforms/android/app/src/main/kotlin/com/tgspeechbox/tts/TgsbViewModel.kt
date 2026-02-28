@@ -73,6 +73,7 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
 
     // ── Output ───────────────────────────────────────────────────────
 
+    val pauseMode = MutableStateFlow(loadInt("pauseMode", 1))  // 0=off, 1=short, 2=long
     val systemVolume = MutableStateFlow(loadSlider("systemVolume", 1.0f))
     val sampleRateIndex = MutableStateFlow(loadInt("sampleRate", 22050).let { rate ->
         SAMPLE_RATES.indexOfFirst { it == rate }.coerceAtLeast(0).toFloat()
@@ -133,6 +134,7 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
             engine.setVolume(systemVolume.value)
             val savedRate = SAMPLE_RATES[sampleRateIndex.value.roundToInt().coerceIn(0, SAMPLE_RATES.size - 1)]
             engine.setSampleRate(savedRate)
+            engine.setPauseMode(pauseMode.value)
 
             engine.onSpeakingChanged = { speaking ->
                 isSpeaking.value = speaking
@@ -162,6 +164,7 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
         applyVoicingTone()
         applyFrameExDefaults()
         applyPitchSettings()
+        engine.setPauseMode(pauseMode.value)
 
         errorMessage.value = null
         engine.speak(text, speedRate.value.toDouble(), pitchHz.value.toDouble())
@@ -217,6 +220,51 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
         val rate = SAMPLE_RATES[index.roundToInt().coerceIn(0, SAMPLE_RATES.size - 1)]
         saveInt("sampleRate", rate)
         engine.setSampleRate(rate)
+    }
+    fun onPauseModeChanged(mode: Int) {
+        pauseMode.value = mode
+        saveInt("pauseMode", mode)
+        engine.setPauseMode(mode)
+    }
+
+    // ── Reset to defaults ──────────────────────────────────────────
+
+    fun resetToDefaults() {
+        // VoicingTone sliders
+        voiceTilt.value = 50f;       onVoiceTiltChanged(50f)
+        speedQuotient.value = 50f;   onSpeedQuotientChanged(50f)
+        aspirationTilt.value = 50f;  onAspirationTiltChanged(50f)
+        cascadeBwScale.value = 50f;  onCascadeBwScaleChanged(50f)
+        noiseGlottalMod.value = 0f;  onNoiseGlottalModChanged(0f)
+        pitchSyncF1.value = 50f;     onPitchSyncF1Changed(50f)
+        pitchSyncB1.value = 50f;     onPitchSyncB1Changed(50f)
+        voiceTremor.value = 0f;      onVoiceTremorChanged(0f)
+
+        // FrameEx sliders
+        creakiness.value = 0f;       onCreakinessChanged(0f)
+        breathiness.value = 0f;      onBreathinessChanged(0f)
+        jitter.value = 0f;           onJitterChanged(0f)
+        shimmer.value = 0f;          onShimmerChanged(0f)
+        glottalSharpness.value = 50f; onGlottalSharpnessChanged(50f)
+
+        // Pitch
+        onPitchModeChanged("espeak_style")
+        inflectionScale.value = 58f; onInflectionScaleChanged(58f)
+        inflection.value = 50f;      onInflectionChanged(50f)
+
+        // System rate
+        onOverrideSystemRateChanged(false)
+        globalRate.value = 1.0f;     onGlobalRateChanged(1.0f)
+
+        // Output
+        onPauseModeChanged(1)  // short
+        onSampleRateChanged(2f)  // 22050 Hz
+        onSystemVolumeChanged(1.0f)
+
+        // Reset language filter — all checked
+        val allKeys = allLocaleEntries.map { it.first }.toSet()
+        _enabledLocaleKeys.value = allKeys
+        prefs.edit().remove(TgsbTtsService.PREF_SUPPORTED_LANGUAGES).apply()
     }
 
     // ── Slider → engine value mapping (matches NVDA driver math) ────
