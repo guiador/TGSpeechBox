@@ -384,6 +384,7 @@ settings:
 | `tokenType` | string | Token type filter: `"phoneme"` (default), `"aspiration"`, `"closure"` |
 | `position` | string | Positional filter: `"word-initial"`, `"word-final"`, `"intervocalic"`, `"post-vocalic"`, `"pre-vocalic"`, `"syllabic"`, `"tied-from"` (diphthong offglide), `"tied-to"` (diphthong onset) |
 | `stress` | string | Stress filter: `"stressed"`, `"unstressed"`, `"next-unstressed"`, `"prev-stressed"` |
+| `place` | string | Place of articulation filter: `"labial"`, `"alveolar"`, `"palatal"`, `"velar"`. Default `"any"`. Place is derived from the phoneme's IPA key via `getPlace()` (e.g. /p,b,m,f,v,w/ → labial, /t,d,n,s,z,l,ɹ,ɾ/ → alveolar, /ʃ,ʒ,t͡ʃ,d͡ʒ,j,ɲ/ → palatal, /k,ɡ,ŋ/ → velar). Tie-bar affricates (U+0361) are recognized. |
 | `after` | list | Previous phoneme must be one of these IPA keys |
 | `before` | list | Next phoneme must be one of these IPA keys |
 | `afterFlags` | list | Previous phoneme must have ALL listed flags |
@@ -439,6 +440,27 @@ The `afterFlags`/`beforeFlags`/`notAfterFlags`/`notBeforeFlags` fields let you m
 ```
 
 The flag names used in these fields are the same as `flags`/`notFlags`: `stop`, `vowel`, `voiced`, `nasal`, `liquid`, `semivowel`, `affricate`, `tap`, `trill`.
+
+#### Place of articulation matching
+
+The `place` field filters by articulatory position, derived from the phoneme's IPA key via `getPlace()`. This is useful for place-specific tuning without listing every phoneme at that place.
+
+```yaml
+# Example: boost labial stops at word-final position (lip seal radiates
+# less high-frequency energy, so they need extra burst/aspiration)
+- name: labial_word_final_boost
+  flags: [stop]
+  notFlags: [voiced]
+  place: labial
+  position: word-final
+  action: scale
+  fieldScales:
+    aspirationAmplitude: 1.50
+    pa1: 1.40
+    pa2: 1.30
+```
+
+Place mappings: **labial** (/p,b,m,f,v,w,ʍ,ɸ,β/), **alveolar** (/t,d,n,s,z,l,r,ɹ,ɾ,θ,ð,ɬ,ɮ,ɻ,ɖ,ʈ,ɳ,ɽ/), **palatal** (/ʃ,ʒ,t͡ʃ,d͡ʒ,j,ɲ,ç,ʝ,c,ɟ,ʎ/ — tie-bar affricates recognized), **velar** (/k,g,ŋ,x,ɣ,ɰ/). Phonemes not in any group return `Unknown` and won't match any place filter.
 
 #### Important notes
 
