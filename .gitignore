@@ -11,8 +11,16 @@ build-x64/
 build-x86/
 .claude/
 briefing.md
+claude-release.md
+rln-*.txt
 nvdaAddon/synthDrivers/tgSpeechBox/speechPlayer.py
 tools/gen_nvda_api_ref.py
+
+# ── Build artifacts and release staging ──────────────────────
+build-test/
+release/
+installer/Output/
+nul
 
 # ── Mobile (platforms/) ──────────────────────────────────────
 # Android
