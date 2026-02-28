@@ -325,6 +325,20 @@ void emitFrames(
       const double endPf2V = t.hasEndPf2 ? t.endPf2 : endCf2;
       const double endPf3V = t.hasEndPf3 ? t.endPf3 : endCf3;
 
+      // End bandwidths: use offset vowel's values if set, else hold onset.
+      const double startCb1 = base[static_cast<int>(FieldId::cb1)];
+      const double startCb2 = base[static_cast<int>(FieldId::cb2)];
+      const double startCb3 = base[static_cast<int>(FieldId::cb3)];
+      const double startPb1 = base[static_cast<int>(FieldId::pb1)];
+      const double startPb2 = base[static_cast<int>(FieldId::pb2)];
+      const double startPb3 = base[static_cast<int>(FieldId::pb3)];
+      const double endCb1 = t.hasEndCb1 ? t.endCb1 : startCb1;
+      const double endCb2 = t.hasEndCb2 ? t.endCb2 : startCb2;
+      const double endCb3 = t.hasEndCb3 ? t.endCb3 : startCb3;
+      const double endPb1 = t.hasEndPb1 ? t.endPb1 : startPb1;
+      const double endPb2 = t.hasEndPb2 ? t.endPb2 : startPb2;
+      const double endPb3 = t.hasEndPb3 ? t.endPb3 : startPb3;
+
       const double startPitch = base[vp];
       const double endPitch = base[evp];
       const double pitchDelta = endPitch - startPitch;
@@ -363,6 +377,12 @@ void emitFrames(
         mf[static_cast<int>(FieldId::pf1)] = calculateFreqAtFadePosition(startPf1, endPf1V, s);
         mf[static_cast<int>(FieldId::pf2)] = calculateFreqAtFadePosition(startPf2, endPf2V, s);
         mf[static_cast<int>(FieldId::pf3)] = calculateFreqAtFadePosition(startPf3, endPf3V, s);
+        mf[static_cast<int>(FieldId::cb1)] = calculateFreqAtFadePosition(startCb1, endCb1, s);
+        mf[static_cast<int>(FieldId::cb2)] = calculateFreqAtFadePosition(startCb2, endCb2, s);
+        mf[static_cast<int>(FieldId::cb3)] = calculateFreqAtFadePosition(startCb3, endCb3, s);
+        mf[static_cast<int>(FieldId::pb1)] = calculateFreqAtFadePosition(startPb1, endPb1, s);
+        mf[static_cast<int>(FieldId::pb2)] = calculateFreqAtFadePosition(startPb2, endPb2, s);
+        mf[static_cast<int>(FieldId::pb3)] = calculateFreqAtFadePosition(startPb3, endPb3, s);
 
         double t0 = (N > 1) ? (static_cast<double>(seg) / N) : 0.0;
         double t1 = (N > 1) ? (static_cast<double>(seg + 1) / N) : 1.0;
@@ -1187,6 +1207,14 @@ void emitFramesEx(
       const double startPf2 = base[static_cast<int>(FieldId::pf2)];
       const double startPf3 = base[static_cast<int>(FieldId::pf3)];
 
+      // Start bandwidths (from onset vowel's base frame).
+      const double startCb1 = base[static_cast<int>(FieldId::cb1)];
+      const double startCb2 = base[static_cast<int>(FieldId::cb2)];
+      const double startCb3 = base[static_cast<int>(FieldId::cb3)];
+      const double startPb1 = base[static_cast<int>(FieldId::pb1)];
+      const double startPb2 = base[static_cast<int>(FieldId::pb2)];
+      const double startPb3 = base[static_cast<int>(FieldId::pb3)];
+
       const double endCascF1 = nvsp_isnan(frameEx.endCf1) ? startCf1 : frameEx.endCf1;
       const double endCascF2 = nvsp_isnan(frameEx.endCf2) ? startCf2 : frameEx.endCf2;
       const double endCascF3 = nvsp_isnan(frameEx.endCf3) ? startCf3 : frameEx.endCf3;
@@ -1197,6 +1225,14 @@ void emitFramesEx(
                               ? frameEx.endPf2 : endCascF2;
       const double endParF3 = (t.hasEndPf3 && !nvsp_isnan(frameEx.endPf3))
                               ? frameEx.endPf3 : endCascF3;
+
+      // End bandwidths: use offset vowel's values if set, else hold onset.
+      const double endCascB1 = t.hasEndCb1 ? t.endCb1 : startCb1;
+      const double endCascB2 = t.hasEndCb2 ? t.endCb2 : startCb2;
+      const double endCascB3 = t.hasEndCb3 ? t.endCb3 : startCb3;
+      const double endParB1 = t.hasEndPb1 ? t.endPb1 : startPb1;
+      const double endParB2 = t.hasEndPb2 ? t.endPb2 : startPb2;
+      const double endParB3 = t.hasEndPb3 ? t.endPb3 : startPb3;
 
       const double startPitch = base[vp];
       const double endPitch = base[evp];
@@ -1229,6 +1265,8 @@ void emitFramesEx(
       static constexpr int kMaxFrames = 10;
       double wpCf1[kMaxFrames], wpCf2[kMaxFrames], wpCf3[kMaxFrames];
       double wpPf1[kMaxFrames], wpPf2[kMaxFrames], wpPf3[kMaxFrames];
+      double wpCb1[kMaxFrames], wpCb2[kMaxFrames], wpCb3[kMaxFrames];
+      double wpPb1[kMaxFrames], wpPb2[kMaxFrames], wpPb3[kMaxFrames];
 
       for (int seg = 0; seg < N; ++seg) {
         double frac = (N > 1) ? (static_cast<double>(seg) / (N - 1)) : 0.0;
@@ -1241,6 +1279,12 @@ void emitFramesEx(
         wpPf1[seg] = calculateFreqAtFadePosition(startPf1, endParF1, s);
         wpPf2[seg] = calculateFreqAtFadePosition(startPf2, endParF2, s);
         wpPf3[seg] = calculateFreqAtFadePosition(startPf3, endParF3, s);
+        wpCb1[seg] = calculateFreqAtFadePosition(startCb1, endCascB1, s);
+        wpCb2[seg] = calculateFreqAtFadePosition(startCb2, endCascB2, s);
+        wpCb3[seg] = calculateFreqAtFadePosition(startCb3, endCascB3, s);
+        wpPb1[seg] = calculateFreqAtFadePosition(startPb1, endParB1, s);
+        wpPb2[seg] = calculateFreqAtFadePosition(startPb2, endParB2, s);
+        wpPb3[seg] = calculateFreqAtFadePosition(startPb3, endParB3, s);
       }
 
       // Emit micro-frames with endCf pointing to the next waypoint.
@@ -1254,6 +1298,12 @@ void emitFramesEx(
         mf[static_cast<int>(FieldId::pf1)] = wpPf1[seg];
         mf[static_cast<int>(FieldId::pf2)] = wpPf2[seg];
         mf[static_cast<int>(FieldId::pf3)] = wpPf3[seg];
+        mf[static_cast<int>(FieldId::cb1)] = wpCb1[seg];
+        mf[static_cast<int>(FieldId::cb2)] = wpCb2[seg];
+        mf[static_cast<int>(FieldId::cb3)] = wpCb3[seg];
+        mf[static_cast<int>(FieldId::pb1)] = wpPb1[seg];
+        mf[static_cast<int>(FieldId::pb2)] = wpPb2[seg];
+        mf[static_cast<int>(FieldId::pb3)] = wpPb3[seg];
 
         // Pitch: linear ramp sliced proportionally.
         double t0 = (N > 1) ? (static_cast<double>(seg) / N) : 0.0;

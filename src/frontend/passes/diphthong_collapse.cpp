@@ -31,6 +31,12 @@ bool runDiphthongCollapse(
   const int cf1 = static_cast<int>(FieldId::cf1);
   const int cf2 = static_cast<int>(FieldId::cf2);
   const int cf3 = static_cast<int>(FieldId::cf3);
+  const int cb1 = static_cast<int>(FieldId::cb1);
+  const int cb2 = static_cast<int>(FieldId::cb2);
+  const int cb3 = static_cast<int>(FieldId::cb3);
+  const int pb1 = static_cast<int>(FieldId::pb1);
+  const int pb2 = static_cast<int>(FieldId::pb2);
+  const int pb3 = static_cast<int>(FieldId::pb3);
   const int pf1 = static_cast<int>(FieldId::pf1);
   const int pf2 = static_cast<int>(FieldId::pf2);
   const int pf3 = static_cast<int>(FieldId::pf3);
@@ -76,6 +82,16 @@ bool runDiphthongCollapse(
     a.hasEndPf1 = true;  a.endPf1 = getField(b, pf1);
     a.hasEndPf2 = true;  a.endPf2 = getField(b, pf2);
     a.hasEndPf3 = true;  a.endPf3 = getField(b, pf3);
+
+    // End bandwidths: take B's cb1/2/3 so micro-frames can interpolate
+    // bandwidths alongside frequencies.  Without this, onset bandwidths
+    // are held constant — producing smeared, wobbly offsets.
+    a.hasEndCb1 = true;  a.endCb1 = getField(b, cb1);
+    a.hasEndCb2 = true;  a.endCb2 = getField(b, cb2);
+    a.hasEndCb3 = true;  a.endCb3 = getField(b, cb3);
+    a.hasEndPb1 = true;  a.endPb1 = getField(b, pb1);
+    a.hasEndPb2 = true;  a.endPb2 = getField(b, pb2);
+    a.hasEndPb3 = true;  a.endPb3 = getField(b, pb3);
 
     // Pitch: onset from A, offset from B.
     // A's voicePitch stays as-is.  Set endVoicePitch to B's pitch.
