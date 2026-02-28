@@ -206,15 +206,21 @@ public:
         const double shelfMixMs = 4.0;
         shelfMixAlpha = 1.0 - exp(-1.0 / (sampleRate * (shelfMixMs * 0.001)));
 
-        // Peak limiter: catches transient spikes from stop bursts
-        // Attack: ~0.1ms (instant catch), Release: ~50ms (smooth recovery)
-        // Threshold: -3dB below nominal peak (~3.86 in pre-scaled units)
-        const double limiterAttackMs = 0.1;
+        // Peak limiter: catches transient spikes from stop bursts.
+        // Attack: 2ms — tracks multi-cycle envelope, not individual pitch
+        // peaks.  The old 0.1ms attack caused pitch-rate gain pumping on
+        // high-pitched diphthong sweeps (harmonics crossing formant peaks
+        // one at a time → per-period amplitude spikes → limiter shimmer).
+        // Stop burst transients are 3-5ms wide, so 2ms still catches them.
+        // Release: 50ms (smooth recovery).
+        // Threshold: 4.0 — gives more headroom so the limiter stays out
+        // of steady voiced segments.  Hard clip at ±32767 with 6000x
+        // scaling means absolute max is ~5.46, so 4.0 still has margin.
+        const double limiterAttackMs = 2.0;
         const double limiterReleaseMs = 50.0;
         limiterAttackAlpha = 1.0 - exp(-1.0 / (sampleRate * (limiterAttackMs * 0.001)));
         limiterReleaseAlpha = 1.0 - exp(-1.0 / (sampleRate * (limiterReleaseMs * 0.001)));
-        // 32767 / 6000 = ~5.46 full scale; -3dB = 0.707 * 5.46 = ~3.86
-        limiterThreshold = 3.86;
+        limiterThreshold = 4.0;
 
         // Cascade duck smoother: ~3ms time constant.
         // Fast enough to engage during a burst (~6ms hold), slow enough
