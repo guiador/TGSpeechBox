@@ -1412,6 +1412,11 @@ msgstr "Duración de Vocal Predeterminada (ms)"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Diphthong Collapse: Onset Settle Ms"
+msgstr "Colapso de Diptongo: Asentamiento Inicial (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "English Long U Key"
 msgstr "Tecla de U Larga Inglesa"
 

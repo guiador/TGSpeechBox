@@ -1686,6 +1686,11 @@ msgstr "Kettőshangzó összevonás: Indulás tartási kitevő"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Diphthong Collapse: Onset Settle Ms"
+msgstr "Kettőshangzó összevonás: Indulási megállapodás (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Length Contrast Enabled"
 msgstr "Hosszúsági kontraszt Engedélyezve"
 

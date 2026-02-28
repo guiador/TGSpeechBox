@@ -1686,6 +1686,11 @@ msgstr "Colapso de Ditongo: Expoente de Retenção de Início"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Diphthong Collapse: Onset Settle Ms"
+msgstr "Colapso de Ditongo: Assentamento Inicial (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Length Contrast Enabled"
 msgstr "Contraste de Comprimento Habilitado"
 
