@@ -4,6 +4,7 @@ options:
   deploymentTarget:
     macOS: "13.0"
     iOS: "16.0"
+    tvOS: "16.0"
   xcodeVersion: "26.2"
 
 settings:
@@ -37,7 +38,7 @@ targets:
         PRODUCT_NAME: TGSpeechBox
         INFOPLIST_KEY_CFBundleDisplayName: TGSpeechBox
         MARKETING_VERSION: "3.0.0"
-        CURRENT_PROJECT_VERSION: "7"
+        CURRENT_PROJECT_VERSION: "9"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         INFOPLIST_KEY_LSApplicationCategoryType: "public.app-category.utilities"
         SWIFT_OBJC_BRIDGING_HEADER: bridge/BridgingHeader.h
@@ -86,7 +87,7 @@ targets:
         GENERATE_INFOPLIST_FILE: NO
         INFOPLIST_FILE: au-extension/Info.plist
         MARKETING_VERSION: "3.0.0"
-        CURRENT_PROJECT_VERSION: "7"
+        CURRENT_PROJECT_VERSION: "9"
         SWIFT_OBJC_BRIDGING_HEADER: bridge/BridgingHeader.h
         CODE_SIGN_ENTITLEMENTS: au-extension/TGSpeechBoxSynthExtension.entitlements
         HEADER_SEARCH_PATHS:
@@ -120,7 +121,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.tgspeechbox.app.phonemizer
         GENERATE_INFOPLIST_FILE: YES
         MARKETING_VERSION: "3.0.0"
-        CURRENT_PROJECT_VERSION: "7"
+        CURRENT_PROJECT_VERSION: "9"
         CODE_SIGN_ENTITLEMENTS: phonemizer-ext/TGSBPhonemizerService.entitlements
         SWIFT_OBJC_BRIDGING_HEADER: phonemizer-ext/PhonemizerBridgingHeader.h
         HEADER_SEARCH_PATHS:
@@ -160,7 +161,7 @@ targets:
         TARGETED_DEVICE_FAMILY: "1,2"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         MARKETING_VERSION: "3.0.0"
-        CURRENT_PROJECT_VERSION: "7"
+        CURRENT_PROJECT_VERSION: "9"
         INFOPLIST_KEY_UISupportedInterfaceOrientations: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         SWIFT_OBJC_BRIDGING_HEADER: bridge/BridgingHeader.h
@@ -209,7 +210,7 @@ targets:
         CODE_SIGN_ENTITLEMENTS: au-extension/TGSpeechBoxSynthExtension-iOS.entitlements
         TARGETED_DEVICE_FAMILY: "1,2"
         MARKETING_VERSION: "3.0.0"
-        CURRENT_PROJECT_VERSION: "7"
+        CURRENT_PROJECT_VERSION: "9"
         HEADER_SEARCH_PATHS:
           - $(PROJECT_DIR)/../../../espeak-phonemizer
           - $(PROJECT_DIR)/../../../../espeak-ng/src/include
@@ -219,6 +220,95 @@ targets:
           - $(PROJECT_DIR)/build/ios/tgsb_static
           - $(PROJECT_DIR)/build/ios/espeak_phonemizer
           - $(PROJECT_DIR)/build/ios/ucd-tools
+        OTHER_LDFLAGS:
+          - -ltgspeechbox_static
+          - -ltgsbFrontend_static
+          - -lespeak_phonemizer
+          - -lucd
+          - -lc++
+          - -lm
+
+  # ── tvOS ───────────────────────────────────────────────
+
+  TGSpeechBox-tvOS:
+    type: application
+    platform: tvOS
+    sources:
+      - path: host-app
+        type: group
+      - path: bridge
+        type: group
+      - path: ../../../resources/espeak-ng-data
+        type: folder
+        buildPhase: resources
+      - path: ../../../packs
+        type: folder
+        buildPhase: resources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.tgspeechbox.app
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_NAME: TGSpeechBox
+        INFOPLIST_KEY_CFBundleDisplayName: TGSpeechBox
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        MARKETING_VERSION: "3.0.0"
+        CURRENT_PROJECT_VERSION: "9"
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        SWIFT_OBJC_BRIDGING_HEADER: bridge/BridgingHeader.h
+        CODE_SIGN_ENTITLEMENTS: host-app/TGSpeechBox-tvOS.entitlements
+        HEADER_SEARCH_PATHS:
+          - $(PROJECT_DIR)/../../../espeak-phonemizer
+          - $(PROJECT_DIR)/../../../../espeak-ng/src/include
+          - $(PROJECT_DIR)/../../../src
+          - $(PROJECT_DIR)/../../../src/frontend
+        LIBRARY_SEARCH_PATHS:
+          - $(PROJECT_DIR)/build/tvos/tgsb_static
+          - $(PROJECT_DIR)/build/tvos/espeak_phonemizer
+          - $(PROJECT_DIR)/build/tvos/ucd-tools
+        OTHER_LDFLAGS:
+          - -ltgspeechbox_static
+          - -ltgsbFrontend_static
+          - -lespeak_phonemizer
+          - -lucd
+          - -lc++
+          - -lm
+    dependencies:
+      - target: TGSpeechBoxSynthExtension-tvOS
+        embed: true
+        codeSign: true
+
+  TGSpeechBoxSynthExtension-tvOS:
+    type: app-extension
+    platform: tvOS
+    sources:
+      - path: au-extension
+        type: group
+      - path: bridge
+        type: group
+      - path: ../../../resources/espeak-ng-data
+        type: folder
+        buildPhase: resources
+      - path: ../../../packs
+        type: folder
+        buildPhase: resources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.tgspeechbox.app.synth-extension
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: au-extension/Info.plist
+        SWIFT_OBJC_BRIDGING_HEADER: bridge/BridgingHeader.h
+        CODE_SIGN_ENTITLEMENTS: au-extension/TGSpeechBoxSynthExtension-tvOS.entitlements
+        MARKETING_VERSION: "3.0.0"
+        CURRENT_PROJECT_VERSION: "9"
+        HEADER_SEARCH_PATHS:
+          - $(PROJECT_DIR)/../../../espeak-phonemizer
+          - $(PROJECT_DIR)/../../../../espeak-ng/src/include
+          - $(PROJECT_DIR)/../../../src
+          - $(PROJECT_DIR)/../../../src/frontend
+        LIBRARY_SEARCH_PATHS:
+          - $(PROJECT_DIR)/build/tvos/tgsb_static
+          - $(PROJECT_DIR)/build/tvos/espeak_phonemizer
+          - $(PROJECT_DIR)/build/tvos/ucd-tools
         OTHER_LDFLAGS:
           - -ltgspeechbox_static
           - -ltgsbFrontend_static

@@ -56,6 +56,9 @@ struct ContentView: View {
                     .frame(minHeight: 100)
                     .border(Color.gray.opacity(0.3))
                     .accessibilityLabel("Text to speak")
+                #elseif os(tvOS)
+                TextField("Text to speak", text: $text)
+                    .accessibilityLabel("Text to speak")
                 #else
                 TextEditor(text: $text)
                     .frame(minHeight: 100)
@@ -94,6 +97,17 @@ struct ContentView: View {
 
             // Speed and pitch sliders
             VStack(spacing: 8) {
+                #if os(tvOS)
+                tvStepper("Speed", value: $engine.speed,
+                          range: 0.3...3.0, step: 0.1,
+                          format: { String(format: "%.1fx", $0) })
+                tvStepper("Pitch", value: $engine.pitch,
+                          range: 40...300, step: 5,
+                          format: { "\(Int($0)) Hz" })
+                tvStepper("Inflection", value: $engine.inflectionValue,
+                          range: 0...100, step: 1,
+                          format: { "\(Int($0))" })
+                #else
                 HStack {
                     Text("Speed: \(engine.speed, specifier: "%.1f")x")
                         .frame(width: 100, alignment: .leading)
@@ -118,6 +132,7 @@ struct ContentView: View {
                         .accessibilityLabel("Inflection")
                         .accessibilityValue("\(Int(engine.inflectionValue))")
                 }
+                #endif
             }
 
             // Speak / Stop buttons
@@ -138,7 +153,9 @@ struct ContentView: View {
                         .frame(minWidth: 80)
                 }
                 .disabled(engine.isSpeaking || text.isEmpty)
+                #if !os(tvOS)
                 .keyboardShortcut(.return, modifiers: .command)
+                #endif
                 .accessibilityLabel("Speak")
                 .accessibilityHint("Press to speak the entered text")
 
@@ -149,7 +166,9 @@ struct ContentView: View {
                         .frame(minWidth: 80)
                 }
                 .disabled(!engine.isSpeaking)
+                #if !os(tvOS)
                 .keyboardShortcut(.escape, modifiers: [])
+                #endif
                 .accessibilityLabel("Stop")
                 .accessibilityHint("Press to stop speaking")
             }
@@ -157,4 +176,31 @@ struct ContentView: View {
         }
         .padding(20)
     }
+
+    #if os(tvOS)
+    @ViewBuilder
+    private func tvStepper(
+        _ label: String,
+        value: Binding<Double>,
+        range: ClosedRange<Double>,
+        step: Double,
+        format: (Double) -> String
+    ) -> some View {
+        HStack {
+            Text("\(label): \(format(value.wrappedValue))")
+                .frame(minWidth: 180, alignment: .leading)
+            Button("-") {
+                value.wrappedValue = max(range.lowerBound,
+                                         value.wrappedValue - step)
+            }
+            Button("+") {
+                value.wrappedValue = min(range.upperBound,
+                                         value.wrappedValue + step)
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(label)
+        .accessibilityValue(format(value.wrappedValue))
+    }
+    #endif
 }
