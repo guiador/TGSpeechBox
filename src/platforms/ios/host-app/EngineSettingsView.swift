@@ -57,6 +57,8 @@ struct EngineSettingsView: View {
 
     private var defaults: UserDefaults? { UserDefaults(suiteName: kAppGroupId) }
 
+    @State private var showResetAlert = false
+
     init(engine: TgsbEngine, engineStarted: Binding<Bool>) {
         _engine = ObservedObject(wrappedValue: engine)
         _engineStarted = engineStarted
@@ -95,6 +97,18 @@ struct EngineSettingsView: View {
     }
 
     var body: some View {
+        VStack(spacing: 0) {
+        Button("Reset to Defaults") { showResetAlert = true }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .alert("Reset to Defaults", isPresented: $showResetAlert) {
+                Button("Reset", role: .destructive) { resetToDefaults() }
+                Button("Cancel", role: .cancel) { }
+            } message: {
+                Text("This will reset all engine settings to their default values.")
+            }
+
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
 
@@ -186,6 +200,52 @@ struct EngineSettingsView: View {
             .padding(20)
         }
         .accessibilityLabel("Engine settings")
+        } // VStack
+    }
+
+    // MARK: - Reset
+
+    private func resetToDefaults() {
+        voiceTilt = 50;       speedQuotient = 50
+        aspirationTilt = 50;  cascadeBwScale = 50
+        noiseGlottalMod = 0;  pitchSyncF1 = 50
+        pitchSyncB1 = 50;     voiceTremor = 0
+
+        creakiness = 0;       breathiness = 0
+        jitter = 0;           shimmer = 0
+        glottalSharpness = 50
+
+        pitchMode = "espeak_style"
+        inflectionScale = 58; inflection = 50
+
+        sampleRateIndex = 2   // 22050 Hz
+        systemVolume = 1.0
+
+        // Persist all defaults
+        let d = defaults
+        d?.set(voiceTilt,       forKey: "adv_voiceTilt")
+        d?.set(speedQuotient,   forKey: "adv_speedQuotient")
+        d?.set(aspirationTilt,  forKey: "adv_aspirationTilt")
+        d?.set(cascadeBwScale,  forKey: "adv_cascadeBwScale")
+        d?.set(noiseGlottalMod, forKey: "adv_noiseGlottalMod")
+        d?.set(pitchSyncF1,     forKey: "adv_pitchSyncF1")
+        d?.set(pitchSyncB1,     forKey: "adv_pitchSyncB1")
+        d?.set(voiceTremor,     forKey: "adv_voiceTremor")
+        d?.set(creakiness,      forKey: "adv_creakiness")
+        d?.set(breathiness,     forKey: "adv_breathiness")
+        d?.set(jitter,          forKey: "adv_jitter")
+        d?.set(shimmer,         forKey: "adv_shimmer")
+        d?.set(glottalSharpness, forKey: "adv_glottalSharpness")
+        d?.set(pitchMode,       forKey: "adv_pitchMode")
+        d?.set(inflectionScale, forKey: "adv_inflectionScale")
+        d?.set(inflection,      forKey: "adv_inflection")
+        d?.set(22050,           forKey: "adv_sampleRate")
+        d?.set(systemVolume,    forKey: "systemVolume")
+
+        // Apply to engine
+        engine.setPitchMode(pitchMode)
+        engine.changeSampleRate(22050)
+        applyAllSettings()
     }
 
     private var pitchModeDisplayName: String {
