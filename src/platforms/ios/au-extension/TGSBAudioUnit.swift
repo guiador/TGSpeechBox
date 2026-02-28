@@ -26,9 +26,9 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
     private var volume: Float32 = 1.0
     private var outputMutex = DispatchSemaphore(value: 1)
 
-    // ASBD output rate — match eSpeak-NG-mobile (22050).
-    // At the default DSP rate (22050), no resampling is needed.
-    // Higher DSP rates (44100) are resampled down.
+    // ASBD output rate — always 22050.
+    // Lower rates (11025/16000) alias on the iPhone DAC; 44100 clicks.
+    // 22050 is the sweet spot. DSP rate is resampled to match.
     private let sampleRate: Double = 22050.0
 
     // DSP rate — the rate speechPlayer actually runs at.
@@ -283,7 +283,7 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
         // Resample from DSP rate to ASBD rate (22050) if needed
         let asbdRate = Int(sampleRate)
         if curDspRate != asbdRate && !samples.isEmpty {
-            samples = resampleLinear(samples, from: curDspRate, to: asbdRate)
+            samples = resample(samples, from: curDspRate, to: asbdRate)
         }
 
         // Hand complete buffer to the render block
@@ -423,21 +423,47 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
     // MARK: - Resampling
 
     /// Linear-interpolation resample from one rate to another.
-    private func resampleLinear(_ input: [Float32], from srcRate: Int, to dstRate: Int) -> [Float32] {
+    private func resample(_ input: [Float32], from srcRate: Int, to dstRate: Int) -> [Float32] {
+        guard let srcFmt = AVAudioFormat(commonFormat: .pcmFormatFloat32,
+                                         sampleRate: Double(srcRate),
+                                         channels: 1, interleaved: false),
+              let dstFmt = AVAudioFormat(commonFormat: .pcmFormatFloat32,
+                                         sampleRate: Double(dstRate),
+                                         channels: 1, interleaved: false),
+              let converter = AVAudioConverter(from: srcFmt, to: dstFmt)
+        else { return input }
+
+        let frameCount = AVAudioFrameCount(input.count)
+        guard let srcBuf = AVAudioPCMBuffer(pcmFormat: srcFmt,
+                                             frameCapacity: frameCount)
+        else { return input }
+        srcBuf.frameLength = frameCount
+        memcpy(srcBuf.floatChannelData![0], input,
+               input.count * MemoryLayout<Float32>.size)
+
         let ratio = Double(dstRate) / Double(srcRate)
-        let outCount = Int(Double(input.count) * ratio)
-        guard outCount > 0 else { return [] }
-        var out = [Float32](repeating: 0, count: outCount)
-        let lastIdx = input.count - 1
-        for i in 0..<outCount {
-            let srcPos = Double(i) / ratio
-            let idx = Int(srcPos)
-            let frac = Float32(srcPos - Double(idx))
-            let s0 = input[min(idx, lastIdx)]
-            let s1 = input[min(idx + 1, lastIdx)]
-            out[i] = s0 + frac * (s1 - s0)
+        // Extra capacity for sinc filter tail flushed on endOfStream
+        let outFrames = AVAudioFrameCount(ceil(Double(input.count) * ratio)) + 256
+        guard let dstBuf = AVAudioPCMBuffer(pcmFormat: dstFmt,
+                                             frameCapacity: outFrames)
+        else { return input }
+
+        var error: NSError?
+        var consumed = false
+        converter.convert(to: dstBuf, error: &error) { _, outStatus in
+            if consumed {
+                outStatus.pointee = .endOfStream
+                return nil
+            }
+            consumed = true
+            outStatus.pointee = .haveData
+            return srcBuf
         }
-        return out
+        if error != nil { return input }
+
+        let count = Int(dstBuf.frameLength)
+        return Array(UnsafeBufferPointer(start: dstBuf.floatChannelData![0],
+                                         count: count))
     }
 
     // MARK: - Helpers
