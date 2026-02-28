@@ -360,6 +360,7 @@ void tgsb_queue_text(TgsbEngine *engine,
             }
         }
     }
+
 }
 
 int tgsb_pull_audio(TgsbEngine *engine,
