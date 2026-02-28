@@ -416,6 +416,23 @@ settings:
           pa1: 1.40
           pa2: 1.30
 
+    # ── Velar word-final boost ─────────────────────────────────────
+    # Velar stops have "compact" burst energy in mid-frequencies
+    # (1.5-3 kHz).  The general unreleased_word_final rule cuts
+    # frication to 0.55x, making /k/ in "rock", "back", "blank"
+    # too quiet vs Eloquence-style stop releases.  Boost mid-range
+    # burst (pa2, pa3) and aspiration to restore presence.
+      - name: velar_word_final_boost
+        flags: [stop]
+        notFlags: [voiced]
+        place: velar
+        position: word-final
+        action: scale
+        fieldScales:
+          aspirationAmplitude: 1.40
+          pa2: 1.35
+          pa3: 1.30
+
       # ── Diphthong offglide sharpening ──────────────────────────────
       # When /ɪ/ is the second element of a tied diphthong (FACE /eɪ/,
       # PRICE /aɪ/, CHOICE /ɔɪ/), push formants toward /i/ territory
