@@ -1393,7 +1393,7 @@ phonemes:
     cf6: 4900
     cfN0: 250
     cfNP: 200
-    fricationAmplitude: 0.65
+    fricationAmplitude: 0.62
     pa1: 0.03
     pa2: 0.70
     pa3: 0.75
@@ -1901,7 +1901,7 @@ phonemes:
     cf6: 4900
     cfN0: 250
     cfNP: 200
-    fricationAmplitude: 0.75
+    fricationAmplitude: 0.50
     pa1: 0.30
     pa2: 0.35
     pa3: 0.20
@@ -2138,7 +2138,7 @@ phonemes:
     cf6: 4900
     cfN0: 250
     cfNP: 200
-    fricationAmplitude: 0.92
+    fricationAmplitude: 0.80
     pa1: 0.06
     pa2: 0.30
     pa3: 0.35

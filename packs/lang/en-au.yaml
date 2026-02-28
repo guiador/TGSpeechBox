@@ -288,6 +288,9 @@ settings:
           aspirationAmplitude: 0.60
           pa1: 0.40
           pa2: 0.55
+          pa3: 0.60
+          pa4: 0.50
+          pa5: 0.40
 
   # ── Boundary smoothing ─────────────────────────────────────────
   # Australian sits between RP crispness and GenAm flow.

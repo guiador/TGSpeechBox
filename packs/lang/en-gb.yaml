@@ -250,6 +250,9 @@ settings:
           aspirationAmplitude: 0.60
           pa1: 0.40
           pa2: 0.55
+          pa3: 0.60
+          pa4: 0.50
+          pa5: 0.40
 
     # NOTE: No American flapping rule — RP preserves /t/ and /d/
     # in intervocalic position ("water" = /wɔːtə/, not /wɔːɾɚ/).
