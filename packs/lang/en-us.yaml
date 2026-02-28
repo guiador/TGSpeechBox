@@ -144,7 +144,7 @@ settings:
   microprosodyMaxTotalDeltaHz: 10.0
   nasalizationAnticipatoryEnabled: false
   prominence:
-    enabled: false
+    enabled: true
 
     # English: stress marks are the primary source. Vowel length is
     # phonemic but eSpeak already marks stress, so longVowelWeight

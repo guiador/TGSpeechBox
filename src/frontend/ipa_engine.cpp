@@ -1485,10 +1485,16 @@ static void autoTieDiphthongs(const PackSet& pack, std::vector<Token>& tokens) {
       const bool prevIsRColored = (prev.baseChar == U'\u025A' ||  // ɚ
                                    prev.baseChar == U'\u025D');   // ɝ
 
+      // Syllabic nasals (n̩, m̩) are flagged _isVowel for duration purposes,
+      // but a nasal can never be a diphthong onset nucleus.  Without this
+      // guard, "tightening" /tˈaɪʔn̩ɪŋ/ falsely ties n̩+ɪ and collapse
+      // erases the /ɪ/, swallowing the entire "-ing".
+      const bool prevIsNasal = tokenIsNasal(prev);
+
       // Only consider within-syllable vowel-like sequences.
       // If the current token starts a new syllable (explicit stress, word start,
       // etc.), treat it as hiatus instead.
-      if (prevVowelLike && !prevIsRColored && curVowelLike && !cur.wordStart && !cur.syllableStart) {
+      if (prevVowelLike && !prevIsRColored && !prevIsNasal && curVowelLike && !cur.wordStart && !cur.syllableStart) {
         // Skip if the IPA already encoded tying, or the vowel is explicitly long.
         if (!prev.tiedTo && !prev.tiedFrom && !cur.tiedTo && !cur.tiedFrom && cur.lengthened == 0) {
           // Only auto-tie when the second vowel is a common offglide candidate.

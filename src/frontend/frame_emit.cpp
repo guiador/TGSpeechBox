@@ -34,6 +34,70 @@ static inline double clampSharpness(double v) {
   return v;
 }
 
+// Adaptive onset hold for diphthong glides.
+//
+// The base onsetHoldExponent (e.g. 1.3) works well for narrow sweeps
+// like FACE /eɪ/ (~300 Hz F2 delta), but crushes the offglide on wide
+// sweeps like PRICE /ɑɪ/ (~600+ Hz F2 delta).  This function scales
+// the exponent down for wide sweeps and enforces a minimum offglide
+// duration so the diphthong identity isn't lost perceptually.
+//
+// References: Gay 1968, Lindblom & Studdert-Kennedy 1967 — ~40-50 ms
+// of audible formant motion needed for diphthong offglide perception.
+static double adaptiveOnsetHold(
+    double baseHold,
+    double startCf1, double endCf1,
+    double startCf2, double endCf2,
+    double totalDurMs,
+    const Token* nextToken)  // nullptr if no following token
+{
+  double hold = baseHold;
+  if (hold <= 1.0) return hold;
+
+  // 1. Sweep-width scaling: wider sweeps need earlier motion onset.
+  //    F2 is the primary perceptual cue for diphthong identity.
+  const double sweepF2 = fabs(endCf2 - startCf2);
+  const double sweepF1 = fabs(endCf1 - startCf1);
+  const double sweepMax = std::max(sweepF2, sweepF1);
+
+  // Narrow (<300 Hz): full hold.  Wide (>600 Hz): hold → 1.0 (linear).
+  if (sweepMax > 300.0) {
+    double widthFrac = std::min((sweepMax - 300.0) / 300.0, 1.0);
+    hold = hold + (1.0 - hold) * widthFrac;
+  }
+
+  // 2. Following-context check: stops, glottal stops, and silence give
+  //    zero coarticulatory runway — the offglide must complete in-token.
+  bool nextIsAbrupt = false;
+  if (!nextToken || nextToken->silence || nextToken->preStopGap) {
+    nextIsAbrupt = true;
+  } else if (nextToken->def &&
+             (nextToken->def->flags & kIsStop)) {
+    nextIsAbrupt = true;
+  }
+
+  // 3. Minimum offglide duration: ~40 ms of formant motion needed for
+  //    the ear to register the diphthong.  If the hold eats too much
+  //    time, reduce it so the sweep portion meets the floor.
+  const double minOffglideMs = 40.0;
+  if (totalDurMs > minOffglideMs && hold > 1.0 &&
+      (nextIsAbrupt || sweepMax > 400.0)) {
+    // With pow(frac, hold), meaningful sweep starts around frac=0.15^(1/hold).
+    double sweepStart = pow(0.15, 1.0 / std::max(hold, 1.001));
+    double effectiveSweepMs = totalDurMs * (1.0 - sweepStart);
+    if (effectiveSweepMs < minOffglideMs) {
+      // Back-solve: what exponent gives us minOffglideMs of sweep?
+      double targetStart = 1.0 - (minOffglideMs / totalDurMs);
+      if (targetStart > 0.01 && targetStart < 0.99) {
+        hold = log(0.15) / log(targetStart);
+        if (hold < 1.0) hold = 1.0;
+      }
+    }
+  }
+
+  return hold;
+}
+
 void emitFrames(
   const PackSet& pack,
   const std::vector<Token>& tokens,
@@ -265,8 +329,14 @@ void emitFrames(
       const double endPitch = base[evp];
       const double pitchDelta = endPitch - startPitch;
       const double dipFactor = pack.lang.diphthongAmplitudeDipFactor;
-      const double onsetHold = pack.lang.diphthongOnsetHoldExponent;
       const double baseSegDur = totalDur / N;
+
+      // Adaptive onset hold (same logic as Ex path).
+      const Token* nextTok = (&t < &tokens.back()) ? (&t + 1) : nullptr;
+      const double onsetHold = adaptiveOnsetHold(
+          pack.lang.diphthongOnsetHoldExponent,
+          startCf1, endCf1, startCf2, endCf2,
+          totalDur, nextTok);
 
       // Onset settle: give the first micro-frame extra time so the
       // resonator can settle from the preceding consonant before the
@@ -1132,8 +1202,16 @@ void emitFramesEx(
       const double endPitch = base[evp];
       const double pitchDelta = endPitch - startPitch;
       const double dipFactor = lang.diphthongAmplitudeDipFactor;
-      const double onsetHold = lang.diphthongOnsetHoldExponent;
       const double baseSegDur = totalDur / N;
+
+      // Adaptive onset hold: scale exponent based on sweep width and
+      // following context.  Wide diphthongs (PRICE) get reduced hold;
+      // narrow ones (FACE) keep the full base exponent.
+      const Token* nextTok = (&t < &tokens.back()) ? (&t + 1) : nullptr;
+      const double onsetHold = adaptiveOnsetHold(
+          lang.diphthongOnsetHoldExponent,
+          startCf1, endCascF1, startCf2, endCascF2,
+          totalDur, nextTok);
 
       // Onset settle: give the first micro-frame extra time so the
       // resonator can settle from the preceding consonant before the
