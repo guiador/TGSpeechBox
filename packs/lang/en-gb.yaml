@@ -27,6 +27,19 @@ settings:
 
   stopClosureAfterNasalsEnabled: true
 
+  # ── Diphthong tying ──────────────────────────────────────────────
+  # eSpeak outputs PRICE/MOUTH/FACE/CHOICE as plain vowel pairs
+  # without tie bars.  Enable auto-tying so the diphthong collapse
+  # pass can create smooth formant sweeps instead of two choppy
+  # separate tokens (which sounded Scottish/monophthongal).
+  autoTieDiphthongs: true
+
+  # RP diphthongs linger on the onset and rush the offglide.
+  # Default 1.4 gives roughly 50/50 onset/offglide which makes
+  # MOUTH /aʊ/ in "thousand" sound drawn-out at the end.
+  # 1.8 compresses the offglide into the final ~30% of the sweep.
+  diphthongOnsetHoldExponent: 1.8
+
   # ── Core processing passes ─────────────────────────────────────
   # These are accent-neutral improvements that benefit any English variant.
 
@@ -81,11 +94,11 @@ settings:
   microprosodyIntrinsicF0HighRaiseHz: 3.0
   microprosodyIntrinsicF0LowDropHz: 2.0
 
-  # Pre-voiceless shortening: RP has strong pre-fortis clipping —
-  # slightly more aggressive than US (0.80).
+  # Pre-voiceless shortening: RP has pre-fortis clipping but the vowel
+  # needs enough duration for a clean vowel→stop boundary.
   microprosodyPreVoicelessShortenEnabled: true
-  microprosodyPreVoicelessShortenScale: 0.78
-  microprosodyPreVoicelessMinMs: 35.0
+  microprosodyPreVoicelessShortenScale: 0.85
+  microprosodyPreVoicelessMinMs: 40.0
   microprosodyVoicelessCodaLengthenEnabled: true
   microprosodyVoicelessCodaLengthenScale: 1.20
   microprosodyMaxTotalDeltaHz: 10.0
@@ -270,6 +283,24 @@ settings:
           pa2: 1.35
           pa3: 1.30
 
+    # ── Labial word-final boost ────────────────────────────────────
+    # Labial stops (/p/) have weaker bursts than alveolars or velars
+    # because the lip seal radiates less high-frequency energy.
+    # The general unreleased_word_final rule cuts them too hard,
+    # making /p/ in "sharp", "wrap", "help" nearly inaudible.
+      - name: labial_word_final_boost
+        flags: [stop]
+        notFlags: [voiced]
+        place: labial
+        position: word-final
+        action: scale
+        fieldScales:
+          aspirationAmplitude: 2.50
+          fricationAmplitude: 2.00
+          pa1: 2.80
+          pa2: 2.20
+          pa3: 1.80
+
     # NOTE: No American flapping rule — RP preserves /t/ and /d/
     # in intervocalic position ("water" = /wɔːtə/, not /wɔːɾɚ/).
 
@@ -287,7 +318,7 @@ settings:
     liquidToVowelFadeMs: 18
     vowelToLiquidFadeMs: 16
     stopToVowelFadeMs: 18
-    vowelToStopFadeMs: 20
+    vowelToStopFadeMs: 22
     fricToVowelFadeMs: 16
     vowelToFricFadeMs: 16
     nasalToVowelFadeMs: 14
@@ -302,8 +333,8 @@ settings:
 
     # Per-place transition speeds — same physics, slightly crisper.
     labialF1Scale: 0.30
-    labialF2Scale: 0.50
-    labialF3Scale: 0.50
+    labialF2Scale: 0.55
+    labialF3Scale: 0.55
     alveolarF1Scale: 0.38
     alveolarF2Scale: 0.48
     alveolarF3Scale: 0.60
@@ -480,11 +511,15 @@ settings:
   legacyPitchInflectionScale: 0.56
 
 normalization:
-  preReplacements:
-    # Undo en.yaml's ʊ→ʊ̞ for UK English.
-    - from: "ʊ̞"
-      to:   "ʊ"
+  # en.yaml opens FOOT ʊ→ʊ̞ for US/AU accents.  RP FOOT is closer
+  # to cardinal [ʊ], so skip the inherited rule.  (The old
+  # preReplacements ʊ̞→ʊ was a no-op because preReplacements run
+  # before the replacement that creates ʊ̞.)
+  skipReplacements:
+    - from: "ʊ"
+      to:   "ʊ̞"
 
+  preReplacements:
     # Non-rhotic: drop post-vocalic /ɹ/ FIRST, before vowel sequence
     # collapse rules run (e.g. iə → iᵊ needs ɹ gone to see word-end).
     - from: "ɹ"
