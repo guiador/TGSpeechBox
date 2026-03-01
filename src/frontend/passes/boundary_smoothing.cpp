@@ -267,8 +267,11 @@ bool runBoundarySmoothing(PassContext& ctx, std::vector<Token>& tokens, std::str
     if (targetFade > 0.0 && targetFade > cur.fadeMs &&
         !voicingFlip && !curAspirationDominant) {
       // Cap fade to fraction of duration to preserve steady-state.
+      // Tied offglides (tiedFrom) are part of a diphthong — use the full
+      // baseline ratio so the glide transition isn't starved at high speed.
       if (cur.durationMs > 0.0) {
-        const double maxFade = cur.durationMs * maxFadeRatio;
+        const double ratio = cur.tiedFrom ? 0.75 : maxFadeRatio;
+        const double maxFade = cur.durationMs * ratio;
         targetFade = std::min(targetFade, maxFade);
         if (targetFade < kMinFadeMs) {
           targetFade = std::min(kMinFadeMs, cur.durationMs);

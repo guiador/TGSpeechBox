@@ -16,6 +16,10 @@ static inline bool tokIsVowel(const Token& t) {
   return t.def && ((t.def->flags & kIsVowel) != 0);
 }
 
+static inline bool tokIsVowelOrSemivowel(const Token& t) {
+  return t.def && ((t.def->flags & (kIsVowel | kIsSemivowel)) != 0);
+}
+
 } // namespace
 
 bool runDiphthongCollapse(
@@ -43,13 +47,17 @@ bool runDiphthongCollapse(
   const int vp  = static_cast<int>(FieldId::voicePitch);
   const int evp = static_cast<int>(FieldId::endVoicePitch);
 
-  // Scan for tied vowel pairs: A.tiedTo && B.tiedFrom && both kIsVowel.
+  // Scan for tied vowel pairs: A.tiedTo && B.tiedFrom.
+  // Onset (A) must be a vowel; offglide (B) can be vowel OR semivowel.
+  // Semivowel offglides arise from pack replacements (e.g. Spanish ɪ→ɪ_es
+  // where ɪ_es has _isSemivowel: true) and must still collapse for smooth
+  // micro-frame glide emission instead of relying on crossfade alone.
   // Iterate by index (not iterator) because we erase token B in place.
   for (size_t i = 0; i + 1 < tokens.size(); /* advanced inside */) {
     Token& a = tokens[i];
     Token& b = tokens[i + 1];
 
-    if (!a.tiedTo || !b.tiedFrom || !tokIsVowel(a) || !tokIsVowel(b)) {
+    if (!a.tiedTo || !b.tiedFrom || !tokIsVowel(a) || !tokIsVowelOrSemivowel(b)) {
       ++i;
       continue;
     }
