@@ -132,8 +132,16 @@ normalization:
       to: "wˈ"
       when:
         beforeClass: VOWELS
-    # Separate β, ð+ɾ or other clusters (like "habrá" or "madre") so they don't blend together.
+    # Separate consonant clusters so they don't blend together.
     # Insert a micro-schwa to give each consonant space.
+    # ɾ+approximant clusters (e.g. "verde" = ɾð, "largo" = ɾɣ)
+    - from: "ɾð"
+      to: "ɾᵊð"
+    - from: "ɾɣ"
+      to: "ɾᵊɣ"
+    - from: "ɾβ"
+      to: "ɾᵊβ"
+    # Approximant/stop + ɾ clusters (e.g. "madre" = ðɾ, "abrir" = βɾ)
     - from: "βɾ"
       to: "βᵊɾ"
     - from: "ðɾ"
@@ -161,6 +169,9 @@ normalization:
       to: o_es
     - from: u
       to: u_es
+    # Spanish dental approximant - much less frication than English "the".
+    - from: "ð"
+      to: "ð_es"
     # A slightly softened and less noisy /d/.
     - from: d
       to: d_es
