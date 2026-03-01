@@ -1486,6 +1486,96 @@ msgstr "Fujisaki Amplitude de Acento Secundário"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fujisaki Question Phrase Amp Scale"
+msgstr "Fujisaki Pergunta: Escala de Amplitude de Frase"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fujisaki Question Accent Boost"
+msgstr "Fujisaki Pergunta: Impulso de Acento"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fujisaki Question Declination Scale"
+msgstr "Fujisaki Pergunta: Escala de Declinação"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fujisaki Question Base Pitch Scale"
+msgstr "Fujisaki Pergunta: Escala de Tom Base"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fujisaki Question Final Rise Scale"
+msgstr "Fujisaki Pergunta: Escala de Subida Final"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fujisaki Question Final Drop Scale"
+msgstr "Fujisaki Pergunta: Escala de Queda Final"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fujisaki Exclamation Phrase Amp Scale"
+msgstr "Fujisaki Exclamação: Escala de Amplitude de Frase"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fujisaki Exclamation Accent Boost"
+msgstr "Fujisaki Exclamação: Impulso de Acento"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fujisaki Exclamation Declination Scale"
+msgstr "Fujisaki Exclamação: Escala de Declinação"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fujisaki Exclamation Base Pitch Scale"
+msgstr "Fujisaki Exclamação: Escala de Tom Base"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fujisaki Exclamation Final Rise Scale"
+msgstr "Fujisaki Exclamação: Escala de Subida Final"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fujisaki Exclamation Final Drop Scale"
+msgstr "Fujisaki Exclamação: Escala de Queda Final"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fujisaki Comma Phrase Amp Scale"
+msgstr "Fujisaki Vírgula: Escala de Amplitude de Frase"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fujisaki Comma Accent Boost"
+msgstr "Fujisaki Vírgula: Impulso de Acento"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fujisaki Comma Declination Scale"
+msgstr "Fujisaki Vírgula: Escala de Declinação"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fujisaki Comma Base Pitch Scale"
+msgstr "Fujisaki Vírgula: Escala de Tom Base"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fujisaki Comma Final Rise Scale"
+msgstr "Fujisaki Vírgula: Escala de Subida Final"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fujisaki Comma Final Drop Scale"
+msgstr "Fujisaki Vírgula: Escala de Queda Final"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "High Rate Bandwidth Widening Factor"
 msgstr "Fator de Alargamento de Largura de Banda a Alta Velocidade"
 

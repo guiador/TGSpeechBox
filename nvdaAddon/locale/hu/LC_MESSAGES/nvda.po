@@ -1486,6 +1486,96 @@ msgstr "Fujisaki Másodlagos hangsúly amplitúdó"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fujisaki Question Phrase Amp Scale"
+msgstr "Fujisaki Kérdés: Frázis amplitúdó skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fujisaki Question Accent Boost"
+msgstr "Fujisaki Kérdés: Hangsúly erősítés"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fujisaki Question Declination Scale"
+msgstr "Fujisaki Kérdés: Deklináció skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fujisaki Question Base Pitch Scale"
+msgstr "Fujisaki Kérdés: Alap hangmagasság skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fujisaki Question Final Rise Scale"
+msgstr "Fujisaki Kérdés: Záró emelkedés skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fujisaki Question Final Drop Scale"
+msgstr "Fujisaki Kérdés: Záró esés skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fujisaki Exclamation Phrase Amp Scale"
+msgstr "Fujisaki Felkiáltás: Frázis amplitúdó skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fujisaki Exclamation Accent Boost"
+msgstr "Fujisaki Felkiáltás: Hangsúly erősítés"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fujisaki Exclamation Declination Scale"
+msgstr "Fujisaki Felkiáltás: Deklináció skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fujisaki Exclamation Base Pitch Scale"
+msgstr "Fujisaki Felkiáltás: Alap hangmagasság skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fujisaki Exclamation Final Rise Scale"
+msgstr "Fujisaki Felkiáltás: Záró emelkedés skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fujisaki Exclamation Final Drop Scale"
+msgstr "Fujisaki Felkiáltás: Záró esés skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fujisaki Comma Phrase Amp Scale"
+msgstr "Fujisaki Vessző: Frázis amplitúdó skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fujisaki Comma Accent Boost"
+msgstr "Fujisaki Vessző: Hangsúly erősítés"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fujisaki Comma Declination Scale"
+msgstr "Fujisaki Vessző: Deklináció skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fujisaki Comma Base Pitch Scale"
+msgstr "Fujisaki Vessző: Alap hangmagasság skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fujisaki Comma Final Rise Scale"
+msgstr "Fujisaki Vessző: Záró emelkedés skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Fujisaki Comma Final Drop Scale"
+msgstr "Fujisaki Vessző: Záró esés skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "High Rate Bandwidth Widening Factor"
 msgstr "Magas sebesség sávszélesség tágítási tényező"
 

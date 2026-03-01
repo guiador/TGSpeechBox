@@ -484,6 +484,28 @@ getNum("primaryStressDiv", lp.primaryStressDiv);
   getNum("fujisakiDeclinationMax", lp.fujisakiDeclinationMax);
   getNum("fujisakiDeclinationPostFloor", lp.fujisakiDeclinationPostFloor);
 
+  // Fujisaki clause-type overrides (flat keys)
+  getNum("fujisakiQuestionPhraseAmpScale",   lp.fujisakiQuestion.phraseAmpScale);
+  getNum("fujisakiQuestionAccentBoost",      lp.fujisakiQuestion.accentBoost);
+  getNum("fujisakiQuestionDeclinationScale", lp.fujisakiQuestion.declinationScale);
+  getNum("fujisakiQuestionBasePitchScale",   lp.fujisakiQuestion.basePitchScale);
+  getNum("fujisakiQuestionFinalRiseScale",   lp.fujisakiQuestion.finalRiseScale);
+  getNum("fujisakiQuestionFinalDropScale",   lp.fujisakiQuestion.finalDropScale);
+
+  getNum("fujisakiExclamationPhraseAmpScale",   lp.fujisakiExclamation.phraseAmpScale);
+  getNum("fujisakiExclamationAccentBoost",      lp.fujisakiExclamation.accentBoost);
+  getNum("fujisakiExclamationDeclinationScale", lp.fujisakiExclamation.declinationScale);
+  getNum("fujisakiExclamationBasePitchScale",   lp.fujisakiExclamation.basePitchScale);
+  getNum("fujisakiExclamationFinalRiseScale",   lp.fujisakiExclamation.finalRiseScale);
+  getNum("fujisakiExclamationFinalDropScale",   lp.fujisakiExclamation.finalDropScale);
+
+  getNum("fujisakiCommaPhraseAmpScale",   lp.fujisakiComma.phraseAmpScale);
+  getNum("fujisakiCommaAccentBoost",      lp.fujisakiComma.accentBoost);
+  getNum("fujisakiCommaDeclinationScale", lp.fujisakiComma.declinationScale);
+  getNum("fujisakiCommaBasePitchScale",   lp.fujisakiComma.basePitchScale);
+  getNum("fujisakiCommaFinalRiseScale",   lp.fujisakiComma.finalRiseScale);
+  getNum("fujisakiCommaFinalDropScale",   lp.fujisakiComma.finalDropScale);
+
   // Impulse pitch model parameters (used when legacyPitchMode = "impulse_style")
   getNum("impulseDeclinationRangeHz", lp.impulseDeclinationRangeHz);
   getNum("impulseDeclinationHzPerSec", lp.impulseDeclinationHzPerSec);
@@ -1074,6 +1096,34 @@ if (const yaml_min::Node* dc = settings.get("diphthongCollapse"); dc && dc->isMa
   getNumFrom(*dc, "durationFloorMs", lp.diphthongDurationFloorMs);
   getNumFrom(*dc, "onsetHoldExponent", lp.diphthongOnsetHoldExponent);
   getNumFrom(*dc, "onsetSettleMs", lp.diphthongOnsetSettleMs);
+}
+
+// Fujisaki clause-type overrides (nested: fujisakiClauseType: { question: { ... } })
+if (const yaml_min::Node* fct = settings.get("fujisakiClauseType"); fct && fct->isMap()) {
+  if (const yaml_min::Node* q = fct->get("question"); q && q->isMap()) {
+    getNumFrom(*q, "phraseAmpScale",   lp.fujisakiQuestion.phraseAmpScale);
+    getNumFrom(*q, "accentBoost",      lp.fujisakiQuestion.accentBoost);
+    getNumFrom(*q, "declinationScale", lp.fujisakiQuestion.declinationScale);
+    getNumFrom(*q, "basePitchScale",   lp.fujisakiQuestion.basePitchScale);
+    getNumFrom(*q, "finalRiseScale",   lp.fujisakiQuestion.finalRiseScale);
+    getNumFrom(*q, "finalDropScale",   lp.fujisakiQuestion.finalDropScale);
+  }
+  if (const yaml_min::Node* e = fct->get("exclamation"); e && e->isMap()) {
+    getNumFrom(*e, "phraseAmpScale",   lp.fujisakiExclamation.phraseAmpScale);
+    getNumFrom(*e, "accentBoost",      lp.fujisakiExclamation.accentBoost);
+    getNumFrom(*e, "declinationScale", lp.fujisakiExclamation.declinationScale);
+    getNumFrom(*e, "basePitchScale",   lp.fujisakiExclamation.basePitchScale);
+    getNumFrom(*e, "finalRiseScale",   lp.fujisakiExclamation.finalRiseScale);
+    getNumFrom(*e, "finalDropScale",   lp.fujisakiExclamation.finalDropScale);
+  }
+  if (const yaml_min::Node* c = fct->get("comma"); c && c->isMap()) {
+    getNumFrom(*c, "phraseAmpScale",   lp.fujisakiComma.phraseAmpScale);
+    getNumFrom(*c, "accentBoost",      lp.fujisakiComma.accentBoost);
+    getNumFrom(*c, "declinationScale", lp.fujisakiComma.declinationScale);
+    getNumFrom(*c, "basePitchScale",   lp.fujisakiComma.basePitchScale);
+    getNumFrom(*c, "finalRiseScale",   lp.fujisakiComma.finalRiseScale);
+    getNumFrom(*c, "finalDropScale",   lp.fujisakiComma.finalDropScale);
+  }
 }
 
 // Data-driven allophone rules (replaces old positionalAllophones: block).

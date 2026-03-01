@@ -418,6 +418,21 @@ struct LanguagePack {
   double fujisakiDeclinationMax = 1.25;
   double fujisakiDeclinationPostFloor = 0.15;
 
+  // Clause-type prosody overrides for the Fujisaki model.
+  // Each clause type (? ! ,) scales the base Fujisaki parameters.
+  // Multipliers of 1.0 = no change from base, 0.0 = disabled.
+  struct FujisakiClauseOverrides {
+    double phraseAmpScale   = 1.0;  // Scales effectivePhraseAmp
+    double accentBoost      = 1.0;  // Multiplier on accent amplitudes
+    double declinationScale = 1.0;  // Scales declination rate
+    double basePitchScale   = 1.0;  // Scales base pitch (Hz multiplier)
+    double finalRiseScale   = 0.0;  // Final vowel rise = primaryAccentAmp × this
+    double finalDropScale   = 0.0;  // Final vowel drop in log-F0 units
+  };
+  FujisakiClauseOverrides fujisakiQuestion    {0.3, 1.3, 0.15, 1.18, 2.5, 0.0};
+  FujisakiClauseOverrides fujisakiExclamation {2.5, 1.8, 2.5,  1.15, 0.0, 0.12};
+  FujisakiClauseOverrides fujisakiComma       {0.5, 1.0, 0.4,  1.04, 0.0, 0.0};
+
   // Impulse pitch model parameters (legacyPitchMode = "impulse_style").
   // Multi-layer additive pitch model:
   //   Layer 1: Proportional declination ramp across the clause
