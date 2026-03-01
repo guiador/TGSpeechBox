@@ -595,14 +595,48 @@ When `legacyPitchMode: "fujisaki_style"` is enabled, these settings control the 
 **Deprecated declination settings** (kept for YAML backward compatibility, no longer used):
 - `fujisakiDeclinationScale`, `fujisakiDeclinationMax`, `fujisakiDeclinationPostFloor`, `fujisakiPhraseDecay` — these were used by earlier linear and multi-phrase implementations. Existing YAML files referencing them will parse without warnings but the values have no effect.
 
-**Clause-type prosody:**
-The Fujisaki model automatically adjusts prosody based on punctuation. Each clause type gets distinct behavior through phrase amplitude scaling, declination rate, and direct pitch shaping on the final vowel:
-- `.` (period): Full declarative fall; final vowel ends 15% lower for a definitive finish
-- `?` (question): Higher base pitch (+18%), reduced declination, final vowel rises 25% with a strong accent hump
-- `!` (exclamation): High start (+15%), steep declination (2.5x), punchy accents, final vowel snaps down hard
-- `,` (comma): Slight raise (+4%), gentle declination, no final shaping (level = continuation)
+**Clause-type prosody overrides (6 settings × 3 clause types = 18 settings):**
 
-This clause-final pitch shaping is essential for short utterances (single words, spelled letters) where exponential declination barely has time to create within-word pitch movement.
+The Fujisaki model adjusts prosody based on punctuation. Statements (`.`) use the base Fujisaki parameters unchanged. Questions (`?`), exclamations (`!`), and commas (`,`) each apply a set of 6 multipliers that reshape the pitch contour for that clause type. These were previously hardcoded in C++ — they are now per-language-pack YAML settings, which means dialect-specific intonation patterns (e.g. Caribbean Spanish questions vs Castilian questions) can be tuned without touching engine code.
+
+| Setting | What it does | Question default | Exclamation default | Comma default |
+|---------|-------------|:---:|:---:|:---:|
+| `phraseAmpScale` | Scales the phrase arc amplitude | 0.3 (weak arc) | 2.5 (strong arc) | 0.5 |
+| `accentBoost` | Multiplier on accent amplitudes | 1.3 | 1.8 | 1.0 |
+| `declinationScale` | Scales the declination rate | 0.15 (nearly flat) | 2.5 (steep fall) | 0.4 |
+| `basePitchScale` | Scales the base pitch in Hz | 1.18 (raised) | 1.15 (raised) | 1.04 |
+| `finalRiseScale` | Final vowel rise = primaryAccentAmp × this | 2.5 (strong rise) | 0.0 (off) | 0.0 |
+| `finalDropScale` | Final vowel drop in log-F0 units | 0.0 (off) | 0.12 (snap down) | 0.0 |
+
+These can be set two ways — flat keys for quick one-off overrides, or a nested block when overriding several values at once:
+
+**Flat keys** (prefix = `fujisaki` + clause type + field name):
+```yaml
+settings:
+  fujisakiQuestionBasePitchScale: 1.25
+  fujisakiQuestionFinalRiseScale: 3.0
+  fujisakiExclamationAccentBoost: 2.0
+```
+
+**Nested block** (under `fujisakiClauseType:`):
+```yaml
+settings:
+  fujisakiClauseType:
+    question:
+      basePitchScale: 1.25
+      finalRiseScale: 3.0
+      declinationScale: 0.10
+    exclamation:
+      accentBoost: 2.0
+      finalDropScale: 0.15
+    comma:
+      basePitchScale: 1.08
+      finalRiseScale: 0.5
+```
+
+Statements (`.`) always use the base Fujisaki parameters directly — `fujisakiPhraseAmp`, `fujisakiDeclinationRate`, etc. The clause-type overrides scale on top of those base values. This means a language pack's base Fujisaki tuning determines the overall character, and the clause-type overrides shape how questions, exclamations, and commas deviate from that baseline.
+
+This clause-final pitch shaping is essential for short utterances (single words, spelled letters) where exponential declination barely has time to create within-word pitch movement. It is also essential for dialect-specific prosody — Caribbean Spanish questions have a less dramatic rise than Castilian, Argentine Spanish uses wider pitch range with stronger accent boosts, and Mexican Spanish sits somewhere in between. Without these settings being YAML-exposed, every dialect would share the same hardcoded clause-type behavior regardless of its language pack.
 
 Example configuration for Eloquence-like prosody:
 ```yaml
@@ -615,6 +649,20 @@ settings:
   fujisakiPitchCurveExponent: 1.4
   fujisakiMonoAccentDurScale: 0.7
   fujisakiCompoundDeclinStep: 0.05
+```
+
+Example regional override — Argentine Spanish with wider pitch range and dramatic questions:
+```yaml
+settings:
+  legacyPitchMode: "fujisaki_style"
+  fujisakiPrimaryAccentAmp: 0.28
+  fujisakiClauseType:
+    question:
+      accentBoost: 1.6
+      basePitchScale: 1.22
+      finalRiseScale: 3.0
+    exclamation:
+      accentBoost: 2.2
 ```
 
 *Note: The Fujisaki pitch model implementation was developed with assistance from Rommix, whose extensive testing and feedback on timing parameters helped shape the final behavior.*
