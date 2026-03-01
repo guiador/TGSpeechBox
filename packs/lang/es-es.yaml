@@ -1,0 +1,33 @@
+# Spanish (Spain / Castilian) (es-es)
+# Inherits from: default.yaml -> es.yaml -> es-es.yaml
+#
+# es.yaml provides: all shared Spanish settings, classes (VOWELS, SMOOTB),
+# and normalization rules (phoneme remaps, cluster separations, lenition).
+# This file adds Castilian-specific overrides.
+#
+# Key differences from Latin American:
+#   - Approximants β/ð/ɣ are more exaggerated (more frication, tongue further
+#     back for velars). Per Mateo: "the Castilian variant has the larynx more
+#     raised, and it is more voiced" with more audible turbulence.
+#   - Castilian /x/ (jota) is retained (es.yaml's x→x_es maps to the
+#     stronger Castilian variant; es-mx.yaml skips it for softer Mexican /x/).
+
+normalization:
+  replacements:
+    # ── Castilian approximant variants ─────────────────────────────
+    # Override the soft Latin American defaults from es.yaml with
+    # more exaggerated Castilian variants. These have more frication,
+    # slightly backed formants, and the characteristic tongue-back
+    # movement that Castilian speakers produce.
+
+    # Velar: ɣ_es (soft LatAm) → ɣ_cas (Castilian, more noise/back)
+    - from: "ɣ_es"
+      to:   "ɣ_cas"
+
+    # Bilabial: β (soft LatAm) → β_cas (Castilian, more lip turbulence)
+    - from: "β"
+      to:   "β_cas"
+
+    # Dental: ð_es (soft LatAm) → ð_cas (Castilian, more dental friction)
+    - from: "ð_es"
+      to:   "ð_cas"
