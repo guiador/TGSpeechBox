@@ -412,6 +412,8 @@ void emitFrames(
       trajectoryState->prevFricAmp = base[fa];
       trajectoryState->hasPrevFrame = true;
       trajectoryState->prevWasNasal = false;
+      prevTokenWasTap = false;
+      prevTokenWasStop = false;
       continue;
     }
 
@@ -1368,6 +1370,7 @@ void emitFramesEx(
       trajectoryState->hasPrevFrame = true;
       trajectoryState->prevWasNasal = false;
 
+      prevTokenWasTap = false;
       prevTokenWasStop = false;
       continue;
     }

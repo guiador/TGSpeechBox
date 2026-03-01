@@ -508,6 +508,26 @@ def _getPanelClass():
                 "fujisakiPrimaryAccentAmp",
                 "fujisakiSecondaryAccentAmp",
 
+                # --- Fujisaki clause-type overrides ---
+                "fujisakiQuestionPhraseAmpScale",
+                "fujisakiQuestionAccentBoost",
+                "fujisakiQuestionDeclinationScale",
+                "fujisakiQuestionBasePitchScale",
+                "fujisakiQuestionFinalRiseScale",
+                "fujisakiQuestionFinalDropScale",
+                "fujisakiExclamationPhraseAmpScale",
+                "fujisakiExclamationAccentBoost",
+                "fujisakiExclamationDeclinationScale",
+                "fujisakiExclamationBasePitchScale",
+                "fujisakiExclamationFinalRiseScale",
+                "fujisakiExclamationFinalDropScale",
+                "fujisakiCommaPhraseAmpScale",
+                "fujisakiCommaAccentBoost",
+                "fujisakiCommaDeclinationScale",
+                "fujisakiCommaBasePitchScale",
+                "fujisakiCommaFinalRiseScale",
+                "fujisakiCommaFinalDropScale",
+
                 # --- High-rate intelligibility ---
                 "highRateBandwidthWideningFactor",
                 "highRateCoarticulationFloor",

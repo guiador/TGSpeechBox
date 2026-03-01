@@ -67,31 +67,29 @@ void applyPitchFujisaki(
   const bool accentsEnabled = (accentMode != "off");
   const bool firstOnly = (accentMode == "first_only");
 
-  // Clause-type modifiers (ported exactly from original)
+  // Clause-type modifiers — driven by per-language-pack overrides.
+  // Each clause type has 6 knobs exposed via YAML (flat or nested).
+  // Statement ('.') uses identity defaults (all 1.0 / 0.0).
+  const LanguagePack::FujisakiClauseOverrides* co = nullptr;
+  if (clauseType == '?')      co = &lang.fujisakiQuestion;
+  else if (clauseType == '!') co = &lang.fujisakiExclamation;
+  else if (clauseType == ',') co = &lang.fujisakiComma;
+
   double effectivePhraseAmp = phraseAmp;
   double accentBoost = 1.0;
-  double finalRiseAmp = 0.0;   // For questions: accent on final syllable
-  double finalDropScale = 0.0; // For exclamations: pitch drop on final syllable
-  double declinationMul = 1.0; // Clause-type multiplier for declination rate
+  double finalRiseAmp = 0.0;
+  double finalDropScale = 0.0;
+  double declinationMul = 1.0;
 
-  if (clauseType == '?') {
-    effectivePhraseAmp *= 0.3;   // Much less phrase arc for questions
-    accentBoost = 1.3;           // Stronger accents
-    finalRiseAmp = primaryAccentAmp * 2.5;  // Very strong rise at the end
-    declinationMul = 0.15;       // Almost flat - questions stay high
-    basePitch *= 1.18;           // HIGH pitch for questions (contrast with !)
-  } else if (clauseType == '!') {
-    effectivePhraseAmp *= 2.5;   // Strong phrase arc for exclamations
-    accentBoost = 1.8;           // Strong accents but not overwhelming
-    declinationMul = 2.5;        // STEEP declination - dramatic fall
-    basePitch *= 1.15;           // Start HIGH - burst of emotion, then fall
-    finalDropScale = 0.12;       // SNAP DOWN at end - definitive ending
-  } else if (clauseType == ',') {
-    effectivePhraseAmp *= 0.5;   // Less phrase arc for commas (continuation)
-    declinationMul = 0.4;        // Less declination - incomplete thought stays up
-    basePitch *= 1.04;           // Slight raise - continuation feel
+  if (co) {
+    effectivePhraseAmp *= co->phraseAmpScale;
+    accentBoost = co->accentBoost;
+    declinationMul = co->declinationScale;
+    basePitch *= co->basePitchScale;
+    if (co->finalRiseScale > 0.0)
+      finalRiseAmp = primaryAccentAmp * co->finalRiseScale;
+    finalDropScale = co->finalDropScale;
   }
-  // '.' uses defaults (declinationMul = 1.0) - full declarative fall
 
   // -------------------------------------------------------------------------
   // Exponential declination
