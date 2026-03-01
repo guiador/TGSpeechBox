@@ -765,12 +765,12 @@ phonemes:
     cfN0: 250
     cfNP: 200
     fricationAmplitude: 0.7
-    pa1: 0
-    pa2: 0.3333333333
-    pa3: 0.3333333333
-    pa4: 0
-    pa5: 0
-    pa6: 0.8333333333
+    pa1: 0.15
+    pa2: 0.25
+    pa3: 0.38
+    pa4: 0.50
+    pa5: 0.55
+    pa6: 0.60
     parallelBypass: 0
     pb1: 60
     pb2: 100
@@ -1950,12 +1950,12 @@ phonemes:
     cfN0: 250
     cfNP: 200
     fricationAmplitude: 0.08
-    pa1: 0
-    pa2: 0.3333333333
-    pa3: 0.3333333333
-    pa4: 0
-    pa5: 0
-    pa6: 0.8333333333
+    pa1: 0.10
+    pa2: 0.16
+    pa3: 0.25
+    pa4: 0.33
+    pa5: 0.36
+    pa6: 0.39
     parallelBypass: 0
     pb1: 60
     pb2: 100
@@ -2117,7 +2117,7 @@ phonemes:
     _isStop: true
     burstDurationMs: 7
     burstDecayRate: 0.5
-    burstSpectralTilt: 0.15
+    burstSpectralTilt: 0
     _isVoiced: false
     _isVowel: false
     aspirationAmplitude: 0.40
@@ -2139,12 +2139,12 @@ phonemes:
     cfN0: 250
     cfNP: 200
     fricationAmplitude: 0.80
-    pa1: 0.06
-    pa2: 0.30
-    pa3: 0.35
-    pa4: 0.25
-    pa5: 0.16
-    pa6: 0.15
+    pa1: 0.15
+    pa2: 0.25
+    pa3: 0.38
+    pa4: 0.50
+    pa5: 0.55
+    pa6: 0.60
     parallelBypass: 0
     pb1: 280
     pb2: 110
@@ -6743,12 +6743,12 @@ phonemes:
     cfN0: 250
     cfNP: 200
     fricationAmplitude: 0.35
-    pa1: 0
-    pa2: 0.3333333333
-    pa3: 0.3333333333
-    pa4: 0
-    pa5: 0
-    pa6: 0.8333333333
+    pa1: 0.10
+    pa2: 0.16
+    pa3: 0.25
+    pa4: 0.33
+    pa5: 0.36
+    pa6: 0.39
     parallelBypass: 0
     pb1: 60
     pb2: 100
