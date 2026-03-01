@@ -675,18 +675,10 @@ normalization:
     # previous rules.  Same-length replacements chain intentionally.
     # ══════════════════════════════════════════════════════════════
 
-    # ── KIT centralization: DISABLED ─────────────────────────────
-    # Australian KIT is theoretically centralized [ɘ], but in a
-    # formant synth even a 50 Hz F2 drop from ɪ lands too close to
-    # rounded front vowel territory (ʏ/ü) — "six" sounds like "süx".
-    # The base ɪ (F2=1800) works fine; the other Australian vowel
-    # shifts (DRESS, FACE, GOOSE, STRUT, GOAT) already provide
-    # strong accent character.  If future tuners want centralization,
-    # re-enable with a dedicated phoneme whose F3 is high enough
-    # to maintain an unrounded percept.
-    #
-    # - from: "ɪ"
-    #   to:   "ᵻ"
+    # ── KIT centralization: SUPERSEDED by KIT fronting (ɪ→ɪ_au) ──
+    # The old approach lowered F2 (centralized toward ɘ) which caused
+    # a "ü artifact". The 2016 hand-tuned build went the OPPOSITE
+    # direction — FRONTING KIT to cf2=2070. See ɪ→ɪ_au rule below.
 
     # ── happY vowel: i → ɪ (word-final) ─────────────────────────
     # Australian happY leans toward [ɪ] rather than tense [i].
@@ -703,6 +695,33 @@ normalization:
     # Affects "but", "cup", "love", "come", "done", "strut", etc.
     - from: "ʌ"
       to:   "ɐ"
+
+    # ── KIT fronting: ɪ → ɪ_au ─────────────────────────────────
+    # 2016 Australian build had KIT at cf2=2070 — fronted, NOT
+    # centralized. The earlier "ü artifact" came from LOWERING F2
+    # (centralizing toward ɘ). RAISING F2 (fronting toward i)
+    # gives the characteristic Australian KIT without rounding.
+    # ɪ_au (cf2=2050) vs base ɪ (cf2=1800) — +250 Hz fronting.
+    # Affects: "kit", "bit", "sit", "fish", "six", "thick", etc.
+    - from: "ɪ"
+      to:   "ɪ_au"
+
+    # ── STRUT opening: ɐ → ɐ_au ───────────────────────────────
+    # 2016 build: cf1=770.  Current ɐ: cf1=530.  That's 240 Hz
+    # more open — approaching [a] territory, which is correct for
+    # General Australian STRUT.  This is the single biggest
+    # character difference between AU and RP.
+    # Affects: "but", "cup", "love", "come", "done", "strut", etc.
+    - from: "ɐ"
+      to:   "ɐ_au"
+
+    # ── LOT backing: ɒ → ɒ_au ─────────────────────────────────
+    # 2016 build: cf2=990.  Current ɒ: cf2=1100.  Australian LOT
+    # is backer than RP, creating better separation from the very
+    # open STRUT.  Also cf1=685 (slightly more open).
+    # Affects: "lot", "hot", "not", "dog", "off", "stop", etc.
+    - from: "ɒ"
+      to:   "ɒ_au"
 
     # ── TRAP normalization: a → æ ────────────────────────────────
     # Same as en.yaml base rule, but we restate it here because
