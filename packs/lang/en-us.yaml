@@ -28,6 +28,9 @@ settings:
 
   # US: smoother overall, less breath noise on stop releases.
   postStopAspirationEnabled: true
+  # Lisker & Abramson (1964): English aspirated stops need 40-80ms VOT.
+  # Default 20ms is below the perceptual boundary (~25-35ms).
+  postStopAspirationDurationMs: 35
 
   # Reduce hold time for word-final liquids (R, L) to avoid "pirate R" on
   # words like "star", "car", "far". The retroflex R with its low F3 sounds

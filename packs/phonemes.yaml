@@ -645,7 +645,7 @@ phonemes:
     burstDurationMs: 5
     burstDecayRate: 0.6
     durationScale: 1.1
-    voiceBarAmplitude: 0.3
+    voiceBarAmplitude: 0.50
     voiceBarF1: 150
     _isVowel: false
     aspirationAmplitude: 0
@@ -743,7 +743,7 @@ phonemes:
     _isVoiced: true
     burstDurationMs: 7
     burstDecayRate: 0.5
-    voiceBarAmplitude: 0.3
+    voiceBarAmplitude: 0.50
     voiceBarF1: 150
     _isVowel: false
     aspirationAmplitude: 0
@@ -1171,7 +1171,7 @@ phonemes:
     burstDecayRate: 0.4
     burstSpectralTilt: -0.15
     durationScale: 1.3
-    voiceBarAmplitude: 0.3
+    voiceBarAmplitude: 0.50
     voiceBarF1: 150
     _isVowel: false
     aspirationAmplitude: 0
@@ -4665,7 +4665,7 @@ phonemes:
     burstDurationMs: 11
     burstDecayRate: 0.4
     burstSpectralTilt: -0.15
-    voiceBarAmplitude: 0.3
+    voiceBarAmplitude: 0.50
     voiceBarF1: 150
     _isVoiced: true
     _isVowel: false
