@@ -262,15 +262,29 @@ void tgsb_synth_queue_ipa(TgsbSynth *synth,
         size_t len = end ? (size_t)(end - p) : strlen(p);
 
         if (len > 0) {
-            /* Null-terminate this clause */
+            /* Each clause is prefixed with its type character
+             * (e.g. ".ipa_here" or "?ipa_here") from the phonemizer.
+             * Extract it and advance past the prefix. */
+            char clauseType = '.';
+            const char *ipaStart = p;
+            if (len >= 2) {
+                char first = *p;
+                if (first == '.' || first == ',' || first == '?' || first == '!') {
+                    clauseType = first;
+                    ipaStart = p + 1;
+                    len -= 1;
+                }
+            }
+
             char *clause = (char *)malloc(len + 1);
             if (clause) {
-                memcpy(clause, p, len);
+                memcpy(clause, ipaStart, len);
                 clause[len] = '\0';
 
+                char clauseStr[2] = { clauseType, '\0' };
                 nvspFrontend_queueIPA_Ex(
                     synth->frontend, clause,
-                    speed, pitch, 0.5, ".", 0,
+                    speed, pitch, 0.5, clauseStr, 0,
                     onFrame, &ctx
                 );
 

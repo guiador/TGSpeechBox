@@ -254,6 +254,9 @@ struct AllophoneRule {
     // "any", "stressed", "unstressed", "next-unstressed", "prev-stressed"
     std::string stress = "any";
 
+    // "any", "labial", "alveolar", "palatal", "velar"
+    std::string place = "any";
+
     std::vector<std::u32string> after;      // prev phoneme key filter
     std::vector<std::u32string> before;     // next phoneme key filter
 
@@ -625,6 +628,13 @@ struct LanguagePack {
   double stressedVowelHiatusGapMs = 0.0;
   double stressedVowelHiatusFadeMs = 0.0;
 
+  // Uniform word-boundary amplitude dip: emit a brief reduced-amplitude
+  // micro-frame at every word start. This provides a consistent boundary
+  // cue regardless of phonetic context (V#V, C#V, V#C all treated equally).
+  // Disabled by default.
+  double wordBoundaryDipMs = 0.0;
+  double wordBoundaryDipDepth = 0.70; // amplitude multiplier (0.70 = 30% dip)
+
   // Spelling diphthong handling (optional).
   //
   // Some eSpeak IPA outputs for spelled-out acronyms run letter names together
@@ -658,6 +668,7 @@ double lengthContrastPreGeminateVowelScale = 0.85;
   double diphthongMicroFrameIntervalMs = 8.0;       // max(3, dur/interval) capped at 10; pitch-scaled
   double diphthongDurationFloorMs = 50.0;            // rate_comp minimum for merged diphthongs
   double diphthongOnsetHoldExponent = 1.4;           // pow(frac, exp): >1 = linger at onset
+  double diphthongOnsetSettleMs = 0.0;               // extra ms added to first micro-frame for resonator settling
 
   double lengthenedScaleHu = 1.3;
   bool applyLengthenedScaleToVowelsOnly = true;
@@ -895,6 +906,17 @@ double lengthContrastPreGeminateVowelScale = 0.85;
 
   // Rate-adaptive fade ratio floor (used with shared highRateThreshold)
   double boundarySmoothingHighRateFadeRatioFloor = 0.40;
+
+  // Coda noise taper: maintain frication continuity through fricative→stop closures.
+  // When enabled, the silent closure gap between a fricative and a following coda stop
+  // is replaced with a taper frame that decays the fricative's noise, keeping the DSP's
+  // resonators warm and preventing aggressive burst detection.
+  bool codaNoiseTaperEnabled = true;
+  double codaNoiseTaperPreGain = 0.40;          // preFormantGain during taper (keeps both paths alive)
+  double codaNoiseTaperEarlyFricScale = 0.45;   // Early taper: fric as fraction of preceding level
+  double codaNoiseTaperEarlyAspAmp = 0.04;      // Early taper: cascade barely waking up
+  double codaNoiseTaperLateFricScale = 0.08;    // Late taper: parallel almost gone
+  double codaNoiseTaperLateAspAmp = 0.22;       // Late taper: cascade now dominant
 
   // Trajectory limiting (optional).
   //

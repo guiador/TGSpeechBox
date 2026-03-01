@@ -204,6 +204,7 @@ class TgsbTtsService : TextToSpeechService() {
     private external fun nativeSetInflection(handle: Long, value: Double)
     private external fun nativeSetVolume(handle: Long, value: Double)
     private external fun nativeSetSampleRate(handle: Long, sampleRate: Int)
+    private external fun nativeSetPauseMode(handle: Long, mode: Int)
 
     override fun onCreate() {
         super.onCreate()
@@ -308,6 +309,9 @@ class TgsbTtsService : TextToSpeechService() {
         val sampleRate = prefs.getInt("${p}sampleRate", SAMPLE_RATE)
         nativeSetSampleRate(nativeHandle, sampleRate)
         currentSampleRate = sampleRate
+
+        val pauseMode = prefs.getInt("${p}pauseMode", 1)  // default: short
+        nativeSetPauseMode(nativeHandle, pauseMode)
     }
 
     override fun onDestroy() {
@@ -439,14 +443,15 @@ class TgsbTtsService : TextToSpeechService() {
         if (nativeHandle != 0L) {
             nativeSetVoice(nativeHandle, currentPreset)
         }
-        applyAdvancedSettings()
 
-        // Always set language (don't skip even if ld == currentLang —
-        // the native side may be out of sync from a prior failure)
+        // Set language BEFORE advanced settings — setPitchMode and
+        // setInflectionScale write to h->pack which is only initialized
+        // after setLanguage loads the pack.
         currentLang = ld
         if (setNativeLanguage(ld)) {
             Log.i(TAG, "Voice loaded: $voiceName → lang=${ld.espeakLang}/${ld.tgsbLang} preset=$currentPreset")
         }
+        applyAdvancedSettings()
 
         return TextToSpeech.SUCCESS
     }
@@ -489,14 +494,14 @@ class TgsbTtsService : TextToSpeechService() {
         // Re-read timbre preset + advanced voice quality settings
         loadPresetFromPrefs()
         nativeSetVoice(nativeHandle, currentPreset)
-        applyAdvancedSettings()
 
-        // Ensure the native side has the right language loaded.
-        // If a prior setLanguage failed (confirmedNativeLang == null)
-        // or the requested language changed, re-set it now.
+        // Ensure the native side has the right language loaded BEFORE
+        // applying advanced settings — setPitchMode writes to h->pack
+        // which requires a loaded language pack.
         if (confirmedNativeLang != currentLang) {
             setNativeLanguage(currentLang)
         }
+        applyAdvancedSettings()
 
         // Start audio stream
         val ret = callback.start(

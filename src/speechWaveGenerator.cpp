@@ -206,15 +206,21 @@ public:
         const double shelfMixMs = 4.0;
         shelfMixAlpha = 1.0 - exp(-1.0 / (sampleRate * (shelfMixMs * 0.001)));
 
-        // Peak limiter: catches transient spikes from stop bursts
-        // Attack: ~0.1ms (instant catch), Release: ~50ms (smooth recovery)
-        // Threshold: -3dB below nominal peak (~3.86 in pre-scaled units)
-        const double limiterAttackMs = 0.1;
+        // Peak limiter: catches transient spikes from stop bursts.
+        // Attack: 2ms — tracks multi-cycle envelope, not individual pitch
+        // peaks.  The old 0.1ms attack caused pitch-rate gain pumping on
+        // high-pitched diphthong sweeps (harmonics crossing formant peaks
+        // one at a time → per-period amplitude spikes → limiter shimmer).
+        // Stop burst transients are 3-5ms wide, so 2ms still catches them.
+        // Release: 50ms (smooth recovery).
+        // Threshold: 4.0 — gives more headroom so the limiter stays out
+        // of steady voiced segments.  Hard clip at ±32767 with 6000x
+        // scaling means absolute max is ~5.46, so 4.0 still has margin.
+        const double limiterAttackMs = 2.0;
         const double limiterReleaseMs = 50.0;
         limiterAttackAlpha = 1.0 - exp(-1.0 / (sampleRate * (limiterAttackMs * 0.001)));
         limiterReleaseAlpha = 1.0 - exp(-1.0 / (sampleRate * (limiterReleaseMs * 0.001)));
-        // 32767 / 6000 = ~5.46 full scale; -3dB = 0.707 * 5.46 = ~3.86
-        limiterThreshold = 3.86;
+        limiterThreshold = 4.0;
 
         // Cascade duck smoother: ~3ms time constant.
         // Fast enough to engage during a burst (~6ms hold), slow enough
@@ -355,8 +361,11 @@ public:
                     stopFadeRemaining = 0;
                     // Reset high-shelf filter state to prevent pops from residual energy
                     hsIn1 = 0.0; hsIn2 = 0.0; hsOut1 = 0.0; hsOut2 = 0.0;
-                    // Start a short fade-in to prevent pops on speech start
-                    startFadeTotal = (int)(sampleRate * 0.002); // 2 ms
+                    // Start a fade-in to prevent pops on speech start.
+                    // 5ms gives cascade resonators time to reach steady state
+                    // before excitation is fully ramped — at 730 Hz (typical F1),
+                    // 2ms barely covers one oscillation cycle.
+                    startFadeTotal = (int)(sampleRate * 0.005); // 5 ms
                     if (startFadeTotal < 16) startFadeTotal = 16;
                     startFadeRemaining = startFadeTotal;
                     wasSilence=false;
@@ -378,12 +387,16 @@ public:
                     parallel.decay(0.95);
                 }
 
-                // If preFormantGain was near zero and is now rising, hard-reset
-                // any remaining resonator state so the previous phoneme's formants
-                // don't color the new one.
+                // If preFormantGain was near zero and is now rising, aggressively
+                // damp any remaining resonator state so the previous phoneme's
+                // formants don't color the new one.  A hard reset (zero state)
+                // causes impulse-response overshoot — the cascade resonators
+                // ring up from mathematical zero and overshoot steady-state by
+                // 2-3x before settling.  A fast decay (0.3) cuts residual energy
+                // to ~9% without creating the zero-state transient.
                 if (prevSmooth < 0.005 && targetPreGain > 0.01) {
-                    cascade.reset();
-                    parallel.reset();
+                    cascade.decay(0.3);
+                    parallel.decay(0.3);
                 }
 
                 double voice=voiceGenerator.getNext(frame, frameEx);

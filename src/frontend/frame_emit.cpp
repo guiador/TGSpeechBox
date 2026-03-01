@@ -34,6 +34,70 @@ static inline double clampSharpness(double v) {
   return v;
 }
 
+// Adaptive onset hold for diphthong glides.
+//
+// The base onsetHoldExponent (e.g. 1.3) works well for narrow sweeps
+// like FACE /eɪ/ (~300 Hz F2 delta), but crushes the offglide on wide
+// sweeps like PRICE /ɑɪ/ (~600+ Hz F2 delta).  This function scales
+// the exponent down for wide sweeps and enforces a minimum offglide
+// duration so the diphthong identity isn't lost perceptually.
+//
+// References: Gay 1968, Lindblom & Studdert-Kennedy 1967 — ~40-50 ms
+// of audible formant motion needed for diphthong offglide perception.
+static double adaptiveOnsetHold(
+    double baseHold,
+    double startCf1, double endCf1,
+    double startCf2, double endCf2,
+    double totalDurMs,
+    const Token* nextToken)  // nullptr if no following token
+{
+  double hold = baseHold;
+  if (hold <= 1.0) return hold;
+
+  // 1. Sweep-width scaling: wider sweeps need earlier motion onset.
+  //    F2 is the primary perceptual cue for diphthong identity.
+  const double sweepF2 = fabs(endCf2 - startCf2);
+  const double sweepF1 = fabs(endCf1 - startCf1);
+  const double sweepMax = std::max(sweepF2, sweepF1);
+
+  // Narrow (<300 Hz): full hold.  Wide (>600 Hz): hold → 1.0 (linear).
+  if (sweepMax > 300.0) {
+    double widthFrac = std::min((sweepMax - 300.0) / 300.0, 1.0);
+    hold = hold + (1.0 - hold) * widthFrac;
+  }
+
+  // 2. Following-context check: stops, glottal stops, and silence give
+  //    zero coarticulatory runway — the offglide must complete in-token.
+  bool nextIsAbrupt = false;
+  if (!nextToken || nextToken->silence || nextToken->preStopGap) {
+    nextIsAbrupt = true;
+  } else if (nextToken->def &&
+             (nextToken->def->flags & kIsStop)) {
+    nextIsAbrupt = true;
+  }
+
+  // 3. Minimum offglide duration: ~40 ms of formant motion needed for
+  //    the ear to register the diphthong.  If the hold eats too much
+  //    time, reduce it so the sweep portion meets the floor.
+  const double minOffglideMs = 40.0;
+  if (totalDurMs > minOffglideMs && hold > 1.0 &&
+      (nextIsAbrupt || sweepMax > 400.0)) {
+    // With pow(frac, hold), meaningful sweep starts around frac=0.15^(1/hold).
+    double sweepStart = pow(0.15, 1.0 / std::max(hold, 1.001));
+    double effectiveSweepMs = totalDurMs * (1.0 - sweepStart);
+    if (effectiveSweepMs < minOffglideMs) {
+      // Back-solve: what exponent gives us minOffglideMs of sweep?
+      double targetStart = 1.0 - (minOffglideMs / totalDurMs);
+      if (targetStart > 0.01 && targetStart < 0.99) {
+        hold = log(0.15) / log(targetStart);
+        if (hold < 1.0) hold = 1.0;
+      }
+    }
+  }
+
+  return hold;
+}
+
 void emitFrames(
   const PackSet& pack,
   const std::vector<Token>& tokens,
@@ -127,6 +191,78 @@ void emitFrames(
       continue;
     }
 
+    // ============================================
+    // CODA NOISE TAPER (fricative→stop closure)
+    // ============================================
+    // Two micro-frames that crossfade the noise SOURCE from parallel-dominant
+    // (sibilant) to cascade-dominant (aspirated).  This rotates the spectral
+    // character across the closure so the burst fires into warm cascade
+    // resonators instead of cold ones.  Same micro-frame pattern as burst
+    // and release-spread code.
+    //
+    //   early taper:  parallel medium, cascade barely waking  → sibilant tail
+    //   late taper:   parallel quiet,  cascade rising         → becoming aspirated
+    //   /t/ burst:    cascade already warm with formant structure
+    if (t.preStopGap && t.codaFricStopBlend && !t.voicedClosure && hadPrevFrame) {
+      if (trajectoryState->hasPrevBase) {
+        const double totalDur = t.durationMs;
+        const double earlyDur = totalDur * 0.45;
+        const double lateDur = totalDur - earlyDur;
+        const double prevFric = trajectoryState->prevBase[fa];
+        const int aspIdx = static_cast<int>(FieldId::aspirationAmplitude);
+        const int pgIdx = static_cast<int>(FieldId::preFormantGain);
+
+        // --- Early taper: sibilant tail (parallel still dominant) ---
+        double early[kFrameFieldCount];
+        std::memcpy(early, trajectoryState->prevBase, sizeof(early));
+        early[va] = 0.0;  // voiceless closure
+        early[fa] = prevFric * lang.codaNoiseTaperEarlyFricScale;
+        early[aspIdx] = lang.codaNoiseTaperEarlyAspAmp;
+        early[pgIdx] = lang.codaNoiseTaperPreGain;
+
+        nvspFrontend_Frame earlyFrame;
+        std::memcpy(&earlyFrame, early, sizeof(earlyFrame));
+        cb(userData, &earlyFrame, earlyDur, t.fadeMs, userIndexBase);
+        hadPrevFrame = true;
+
+        // --- Late taper: aspirated transition (cascade now dominant) ---
+        double late[kFrameFieldCount];
+        std::memcpy(late, trajectoryState->prevBase, sizeof(late));
+        late[va] = 0.0;
+        late[fa] = prevFric * lang.codaNoiseTaperLateFricScale;
+        late[aspIdx] = lang.codaNoiseTaperLateAspAmp;
+        late[pgIdx] = lang.codaNoiseTaperPreGain;
+
+        // Blend formants toward the stop's place of articulation.
+        // The gap carries the stop's PhonemeDef (t.def), so we can read
+        // its formant targets and lerp the late taper partway there.
+        // This smooths the spectral handoff — especially for cross-place
+        // clusters like /sk/ or /sp/ where the locus differs significantly.
+        if (t.def) {
+          const int cf2i = static_cast<int>(FieldId::cf2);
+          const int cf3i = static_cast<int>(FieldId::cf3);
+          const int pf2i = static_cast<int>(FieldId::pf2);
+          const int pf3i = static_cast<int>(FieldId::pf3);
+          constexpr double blend = 0.40;
+          if (t.def->setMask & (1ull << cf2i))
+            late[cf2i] += (t.def->field[cf2i] - late[cf2i]) * blend;
+          if (t.def->setMask & (1ull << cf3i))
+            late[cf3i] += (t.def->field[cf3i] - late[cf3i]) * blend;
+          if (t.def->setMask & (1ull << pf2i))
+            late[pf2i] += (t.def->field[pf2i] - late[pf2i]) * blend;
+          if (t.def->setMask & (1ull << pf3i))
+            late[pf3i] += (t.def->field[pf3i] - late[pf3i]) * blend;
+        }
+
+        nvspFrontend_Frame lateFrame;
+        std::memcpy(&lateFrame, late, sizeof(lateFrame));
+        double lateFade = std::max(earlyDur * 0.5, lateDur * 0.4);
+        cb(userData, &lateFrame, lateDur, lateFade, userIndexBase);
+
+        continue;
+      }
+    }
+
     if (t.silence || !t.def) {
       cb(userData, nullptr, t.durationMs, t.fadeMs, userIndexBase);
       continue;
@@ -189,12 +325,43 @@ void emitFrames(
       const double endPf2V = t.hasEndPf2 ? t.endPf2 : endCf2;
       const double endPf3V = t.hasEndPf3 ? t.endPf3 : endCf3;
 
+      // End bandwidths: use offset vowel's values if set, else hold onset.
+      const double startCb1 = base[static_cast<int>(FieldId::cb1)];
+      const double startCb2 = base[static_cast<int>(FieldId::cb2)];
+      const double startCb3 = base[static_cast<int>(FieldId::cb3)];
+      const double startPb1 = base[static_cast<int>(FieldId::pb1)];
+      const double startPb2 = base[static_cast<int>(FieldId::pb2)];
+      const double startPb3 = base[static_cast<int>(FieldId::pb3)];
+      const double endCb1 = t.hasEndCb1 ? t.endCb1 : startCb1;
+      const double endCb2 = t.hasEndCb2 ? t.endCb2 : startCb2;
+      const double endCb3 = t.hasEndCb3 ? t.endCb3 : startCb3;
+      const double endPb1 = t.hasEndPb1 ? t.endPb1 : startPb1;
+      const double endPb2 = t.hasEndPb2 ? t.endPb2 : startPb2;
+      const double endPb3 = t.hasEndPb3 ? t.endPb3 : startPb3;
+
       const double startPitch = base[vp];
       const double endPitch = base[evp];
       const double pitchDelta = endPitch - startPitch;
       const double dipFactor = pack.lang.diphthongAmplitudeDipFactor;
-      const double onsetHold = pack.lang.diphthongOnsetHoldExponent;
-      const double segDur = totalDur / N;
+      const double baseSegDur = totalDur / N;
+
+      // Adaptive onset hold (same logic as Ex path).
+      const Token* nextTok = (&t < &tokens.back()) ? (&t + 1) : nullptr;
+      const double onsetHold = adaptiveOnsetHold(
+          pack.lang.diphthongOnsetHoldExponent,
+          startCf1, endCf1, startCf2, endCf2,
+          totalDur, nextTok);
+
+      // Onset settle: give the first micro-frame extra time so the
+      // resonator can settle from the preceding consonant before the
+      // formant sweep begins.  Borrowed from remaining segments.
+      double seg0Dur = baseSegDur;
+      double otherSegDur = baseSegDur;
+      const double settleMs = pack.lang.diphthongOnsetSettleMs;
+      if (settleMs > 0.0 && N > 1) {
+        seg0Dur = std::min(baseSegDur + settleMs, totalDur * 0.5);
+        otherSegDur = (totalDur - seg0Dur) / (N - 1);
+      }
 
       for (int seg = 0; seg < N; ++seg) {
         double frac = (N > 1) ? (static_cast<double>(seg) / (N - 1)) : 0.0;
@@ -210,6 +377,12 @@ void emitFrames(
         mf[static_cast<int>(FieldId::pf1)] = calculateFreqAtFadePosition(startPf1, endPf1V, s);
         mf[static_cast<int>(FieldId::pf2)] = calculateFreqAtFadePosition(startPf2, endPf2V, s);
         mf[static_cast<int>(FieldId::pf3)] = calculateFreqAtFadePosition(startPf3, endPf3V, s);
+        mf[static_cast<int>(FieldId::cb1)] = calculateFreqAtFadePosition(startCb1, endCb1, s);
+        mf[static_cast<int>(FieldId::cb2)] = calculateFreqAtFadePosition(startCb2, endCb2, s);
+        mf[static_cast<int>(FieldId::cb3)] = calculateFreqAtFadePosition(startCb3, endCb3, s);
+        mf[static_cast<int>(FieldId::pb1)] = calculateFreqAtFadePosition(startPb1, endPb1, s);
+        mf[static_cast<int>(FieldId::pb2)] = calculateFreqAtFadePosition(startPb2, endPb2, s);
+        mf[static_cast<int>(FieldId::pb3)] = calculateFreqAtFadePosition(startPb3, endPb3, s);
 
         double t0 = (N > 1) ? (static_cast<double>(seg) / N) : 0.0;
         double t1 = (N > 1) ? (static_cast<double>(seg + 1) / N) : 1.0;
@@ -224,10 +397,11 @@ void emitFrames(
         nvspFrontend_Frame frame;
         std::memcpy(&frame, mf, sizeof(frame));
 
-        double fadeIn = (seg == 0) ? t.fadeMs : segDur;
-        if (fadeIn > segDur) fadeIn = segDur;
+        const double thisDur = (seg == 0) ? seg0Dur : otherSegDur;
+        double fadeIn = (seg == 0) ? t.fadeMs : thisDur;
+        if (fadeIn > thisDur) fadeIn = thisDur;
 
-        cb(userData, &frame, segDur, fadeIn, userIndexBase);
+        cb(userData, &frame, thisDur, fadeIn, userIndexBase);
       }
 
       trajectoryState->prevCf2 = calculateFreqAtFadePosition(startCf2, endCf2, 1.0);
@@ -377,6 +551,13 @@ void emitFrames(
         if (t.def->hasBurstDecayRate) decayRate = t.def->burstDecayRate;
         if (t.def->hasBurstSpectralTilt) spectralTilt = t.def->burstSpectralTilt;
 
+        // Coda blend: the burst continues the taper, not a fresh onset.
+        // Use longer burst for smoother decay — the taper already did the attack.
+        if (t.codaFricStopBlend && !isAffricate) {
+          burstMs = std::max(burstMs, t.durationMs * 0.6);
+          decayRate = 0.7;  // faster frication decay (taper is doing the work)
+        }
+
         // Clamp burst to 75% of token duration so it always fires,
         // even at high speech rates. Preserves place differentiation.
         double maxBurst = t.durationMs * 0.75;
@@ -466,10 +647,18 @@ void emitFrames(
         double attackMs = t.def->hasFricAttackMs ? t.def->fricAttackMs : 3.0;
         double decayMs = t.def->hasFricDecayMs ? t.def->fricDecayMs : 4.0;
 
-        // Skip attack ramp in post-stop clusters (/ks/, /ts/, /ps/, etc.)
-        // where the stop burst already provides transient energy.
+        // Post-stop fricatives (/kʃ/ in "action", /ks/ in "box"):
+        // Use a shortened attack ramp so the stop burst has headroom to
+        // register as a separate articulation before the fricative takes
+        // over.  Without this, the fricative slams in at full amplitude
+        // and masks the preceding burst (especially problematic for /kʃ/
+        // where the spectral overlap in 1.5-3 kHz is heavy).
+        if (prevTokenWasStop) {
+          attackMs = std::min(attackMs, 2.5);
+        }
+
         // Only emit micro-frames if token is long enough for attack + decay + 2ms sustain
-        if (!prevTokenWasStop && attackMs + decayMs + 2.0 < t.durationMs) {
+        if (attackMs + decayMs + 2.0 < t.durationMs) {
           const int faIdx = static_cast<int>(FieldId::fricationAmplitude);
 
           // Pitch interpolation across 3 micro-frames
@@ -535,7 +724,33 @@ void emitFrames(
     // ============================================
     // Instead of instant aspiration onset, ramp in gradually over releaseSpreadMs.
     // Emit 2 micro-frames: a quiet ramp-in followed by full aspiration.
+    // Coda blend: skip the ramp-in — we're continuing the taper, not starting fresh.
     if (t.postStopAspiration && t.def && t.durationMs > 1.0) {
+      if (t.codaFricStopBlend) {
+        // Single frame with moderate aspiration that decays naturally.
+        // No ramp-in dip — the taper→burst already provided continuity.
+        const int aspIdx = static_cast<int>(FieldId::aspirationAmplitude);
+        double seg[kFrameFieldCount];
+        std::memcpy(seg, base, sizeof(seg));
+        seg[aspIdx] *= 0.60;  // start at 60% — decays into silence
+
+        nvspFrontend_Frame aspFrame;
+        std::memcpy(&aspFrame, seg, sizeof(aspFrame));
+        cb(userData, &aspFrame, t.durationMs, t.durationMs * 0.5, userIndexBase);
+
+        trajectoryState->prevCf2 = aspFrame.cf2;
+        trajectoryState->prevCf3 = aspFrame.cf3;
+        trajectoryState->prevPf2 = aspFrame.pf2;
+        trajectoryState->prevPf3 = aspFrame.pf3;
+        trajectoryState->prevVoiceAmp = base[va];
+        trajectoryState->prevFricAmp = base[fa];
+        trajectoryState->hasPrevFrame = true;
+        trajectoryState->prevWasNasal = false;
+
+        prevTokenWasStop = false;
+        continue;
+      }
+
       // Look up releaseSpreadMs from the aspiration phoneme's def (or default 4ms)
       double spreadMs = t.def->hasReleaseSpreadMs ? t.def->releaseSpreadMs : 4.0;
 
@@ -633,6 +848,36 @@ void emitFrames(
       continue;
     }
 
+    // ============================================
+    // WORD-BOUNDARY AMPLITUDE DIP
+    // ============================================
+    // Emit a brief reduced-amplitude micro-frame at every word start.
+    // Uniform cue: V#V, C#V, V#C all get the same subtle boundary marker.
+    // For C#C the consonant's own closure already provides the cue, but the
+    // extra dip just reinforces it harmlessly.
+    const double wbDipMs = lang.wordBoundaryDipMs;
+    double mainDur = t.durationMs;
+    double mainFade = t.fadeMs;
+
+    if (wbDipMs > 0.0 && t.wordStart && hadPrevFrame && mainDur > wbDipMs + 1.0) {
+      const double dipDepth = lang.wordBoundaryDipDepth;
+      const double dipDur = wbDipMs;
+
+      double dip[kFrameFieldCount];
+      std::memcpy(dip, base, sizeof(dip));
+      dip[va] *= dipDepth;
+      dip[fa] *= dipDepth;
+      dip[static_cast<int>(FieldId::aspirationAmplitude)] *= dipDepth;
+
+      nvspFrontend_Frame dipFrame;
+      std::memcpy(&dipFrame, dip, sizeof(dipFrame));
+      cb(userData, &dipFrame, dipDur, mainFade, userIndexBase);
+      hadPrevFrame = true;
+
+      mainDur -= dipDur;
+      mainFade = dipDur; // crossfade from dip back to full amplitude
+    }
+
     nvspFrontend_Frame frame;
     std::memcpy(&frame, base, sizeof(frame));
 
@@ -642,12 +887,12 @@ void emitFrames(
     trajectoryState->hasPrevFrame = true;
     trajectoryState->prevWasNasal = isNasal;
 
-    double emitFade = t.fadeMs;
-    if (prevTokenWasTap && t.durationMs > 0.0) {
-      emitFade = std::min(emitFade, t.durationMs * 0.35);
+    double emitFade = mainFade;
+    if (prevTokenWasTap && mainDur > 0.0) {
+      emitFade = std::min(emitFade, mainDur * 0.35);
     }
 
-    cb(userData, &frame, t.durationMs, emitFade, userIndexBase);
+    cb(userData, &frame, mainDur, emitFade, userIndexBase);
     hadPrevFrame = true;
 
     prevTokenWasTap = false;
@@ -738,6 +983,71 @@ void emitFramesEx(
         cb(userData, nullptr, nullptr, t.durationMs, vbFadeMs, userIndexBase);
       }
       continue;
+    }
+
+    // ============================================
+    // CODA NOISE TAPER (fricative→stop closure) — Ex path
+    // ============================================
+    if (t.preStopGap && t.codaFricStopBlend && !t.voicedClosure && hadPrevFrame) {
+      if (trajectoryState->hasPrevBase) {
+        const double totalDur = t.durationMs;
+        const double earlyDur = totalDur * 0.45;
+        const double lateDur = totalDur - earlyDur;
+        const double prevFric = trajectoryState->prevBase[fa];
+        const int aspIdx = static_cast<int>(FieldId::aspirationAmplitude);
+        const int pgIdx = static_cast<int>(FieldId::preFormantGain);
+
+        nvspFrontend_FrameEx taperFrameEx = trajectoryState->hasPrevFrameEx
+            ? trajectoryState->prevFrameEx
+            : frameExDefaults;
+        taperFrameEx.fujisakiPhraseAmp = 0.0;
+        taperFrameEx.fujisakiAccentAmp = 0.0;
+
+        // --- Early taper: sibilant tail ---
+        double early[kFrameFieldCount];
+        std::memcpy(early, trajectoryState->prevBase, sizeof(early));
+        early[va] = 0.0;
+        early[fa] = prevFric * lang.codaNoiseTaperEarlyFricScale;
+        early[aspIdx] = lang.codaNoiseTaperEarlyAspAmp;
+        early[pgIdx] = lang.codaNoiseTaperPreGain;
+
+        nvspFrontend_Frame earlyFrame;
+        std::memcpy(&earlyFrame, early, sizeof(earlyFrame));
+        cb(userData, &earlyFrame, &taperFrameEx, earlyDur, t.fadeMs, userIndexBase);
+        hadPrevFrame = true;
+
+        // --- Late taper: aspirated transition ---
+        double late[kFrameFieldCount];
+        std::memcpy(late, trajectoryState->prevBase, sizeof(late));
+        late[va] = 0.0;
+        late[fa] = prevFric * lang.codaNoiseTaperLateFricScale;
+        late[aspIdx] = lang.codaNoiseTaperLateAspAmp;
+        late[pgIdx] = lang.codaNoiseTaperPreGain;
+
+        // Blend formants toward the stop's place (same as emitFrames path)
+        if (t.def) {
+          const int cf2i = static_cast<int>(FieldId::cf2);
+          const int cf3i = static_cast<int>(FieldId::cf3);
+          const int pf2i = static_cast<int>(FieldId::pf2);
+          const int pf3i = static_cast<int>(FieldId::pf3);
+          constexpr double blend = 0.40;
+          if (t.def->setMask & (1ull << cf2i))
+            late[cf2i] += (t.def->field[cf2i] - late[cf2i]) * blend;
+          if (t.def->setMask & (1ull << cf3i))
+            late[cf3i] += (t.def->field[cf3i] - late[cf3i]) * blend;
+          if (t.def->setMask & (1ull << pf2i))
+            late[pf2i] += (t.def->field[pf2i] - late[pf2i]) * blend;
+          if (t.def->setMask & (1ull << pf3i))
+            late[pf3i] += (t.def->field[pf3i] - late[pf3i]) * blend;
+        }
+
+        nvspFrontend_Frame lateFrame;
+        std::memcpy(&lateFrame, late, sizeof(lateFrame));
+        double lateFade = std::max(earlyDur * 0.5, lateDur * 0.4);
+        cb(userData, &lateFrame, &taperFrameEx, lateDur, lateFade, userIndexBase);
+
+        continue;
+      }
     }
 
     if (t.silence || !t.def) {
@@ -897,6 +1207,14 @@ void emitFramesEx(
       const double startPf2 = base[static_cast<int>(FieldId::pf2)];
       const double startPf3 = base[static_cast<int>(FieldId::pf3)];
 
+      // Start bandwidths (from onset vowel's base frame).
+      const double startCb1 = base[static_cast<int>(FieldId::cb1)];
+      const double startCb2 = base[static_cast<int>(FieldId::cb2)];
+      const double startCb3 = base[static_cast<int>(FieldId::cb3)];
+      const double startPb1 = base[static_cast<int>(FieldId::pb1)];
+      const double startPb2 = base[static_cast<int>(FieldId::pb2)];
+      const double startPb3 = base[static_cast<int>(FieldId::pb3)];
+
       const double endCascF1 = nvsp_isnan(frameEx.endCf1) ? startCf1 : frameEx.endCf1;
       const double endCascF2 = nvsp_isnan(frameEx.endCf2) ? startCf2 : frameEx.endCf2;
       const double endCascF3 = nvsp_isnan(frameEx.endCf3) ? startCf3 : frameEx.endCf3;
@@ -908,18 +1226,47 @@ void emitFramesEx(
       const double endParF3 = (t.hasEndPf3 && !nvsp_isnan(frameEx.endPf3))
                               ? frameEx.endPf3 : endCascF3;
 
+      // End bandwidths: use offset vowel's values if set, else hold onset.
+      const double endCascB1 = t.hasEndCb1 ? t.endCb1 : startCb1;
+      const double endCascB2 = t.hasEndCb2 ? t.endCb2 : startCb2;
+      const double endCascB3 = t.hasEndCb3 ? t.endCb3 : startCb3;
+      const double endParB1 = t.hasEndPb1 ? t.endPb1 : startPb1;
+      const double endParB2 = t.hasEndPb2 ? t.endPb2 : startPb2;
+      const double endParB3 = t.hasEndPb3 ? t.endPb3 : startPb3;
+
       const double startPitch = base[vp];
       const double endPitch = base[evp];
       const double pitchDelta = endPitch - startPitch;
       const double dipFactor = lang.diphthongAmplitudeDipFactor;
-      const double onsetHold = lang.diphthongOnsetHoldExponent;
-      const double segDur = totalDur / N;
+      const double baseSegDur = totalDur / N;
+
+      // Adaptive onset hold: scale exponent based on sweep width and
+      // following context.  Wide diphthongs (PRICE) get reduced hold;
+      // narrow ones (FACE) keep the full base exponent.
+      const Token* nextTok = (&t < &tokens.back()) ? (&t + 1) : nullptr;
+      const double onsetHold = adaptiveOnsetHold(
+          lang.diphthongOnsetHoldExponent,
+          startCf1, endCascF1, startCf2, endCascF2,
+          totalDur, nextTok);
+
+      // Onset settle: give the first micro-frame extra time so the
+      // resonator can settle from the preceding consonant before the
+      // formant sweep begins.  Borrowed from remaining segments.
+      double seg0Dur = baseSegDur;
+      double otherSegDur = baseSegDur;
+      const double settleMs = lang.diphthongOnsetSettleMs;
+      if (settleMs > 0.0 && N > 1) {
+        seg0Dur = std::min(baseSegDur + settleMs, totalDur * 0.5);
+        otherSegDur = (totalDur - seg0Dur) / (N - 1);
+      }
 
       // Pre-compute all N waypoints so each frame can reference the next.
       // 6 formants per waypoint: cf1,cf2,cf3,pf1,pf2,pf3
       static constexpr int kMaxFrames = 10;
       double wpCf1[kMaxFrames], wpCf2[kMaxFrames], wpCf3[kMaxFrames];
       double wpPf1[kMaxFrames], wpPf2[kMaxFrames], wpPf3[kMaxFrames];
+      double wpCb1[kMaxFrames], wpCb2[kMaxFrames], wpCb3[kMaxFrames];
+      double wpPb1[kMaxFrames], wpPb2[kMaxFrames], wpPb3[kMaxFrames];
 
       for (int seg = 0; seg < N; ++seg) {
         double frac = (N > 1) ? (static_cast<double>(seg) / (N - 1)) : 0.0;
@@ -932,6 +1279,12 @@ void emitFramesEx(
         wpPf1[seg] = calculateFreqAtFadePosition(startPf1, endParF1, s);
         wpPf2[seg] = calculateFreqAtFadePosition(startPf2, endParF2, s);
         wpPf3[seg] = calculateFreqAtFadePosition(startPf3, endParF3, s);
+        wpCb1[seg] = calculateFreqAtFadePosition(startCb1, endCascB1, s);
+        wpCb2[seg] = calculateFreqAtFadePosition(startCb2, endCascB2, s);
+        wpCb3[seg] = calculateFreqAtFadePosition(startCb3, endCascB3, s);
+        wpPb1[seg] = calculateFreqAtFadePosition(startPb1, endParB1, s);
+        wpPb2[seg] = calculateFreqAtFadePosition(startPb2, endParB2, s);
+        wpPb3[seg] = calculateFreqAtFadePosition(startPb3, endParB3, s);
       }
 
       // Emit micro-frames with endCf pointing to the next waypoint.
@@ -945,6 +1298,12 @@ void emitFramesEx(
         mf[static_cast<int>(FieldId::pf1)] = wpPf1[seg];
         mf[static_cast<int>(FieldId::pf2)] = wpPf2[seg];
         mf[static_cast<int>(FieldId::pf3)] = wpPf3[seg];
+        mf[static_cast<int>(FieldId::cb1)] = wpCb1[seg];
+        mf[static_cast<int>(FieldId::cb2)] = wpCb2[seg];
+        mf[static_cast<int>(FieldId::cb3)] = wpCb3[seg];
+        mf[static_cast<int>(FieldId::pb1)] = wpPb1[seg];
+        mf[static_cast<int>(FieldId::pb2)] = wpPb2[seg];
+        mf[static_cast<int>(FieldId::pb3)] = wpPb3[seg];
 
         // Pitch: linear ramp sliced proportionally.
         double t0 = (N > 1) ? (static_cast<double>(seg) / N) : 0.0;
@@ -982,9 +1341,10 @@ void emitFramesEx(
           mfEx.endPf3 = NAN;
         }
 
-        // Fade: first micro-frame uses token's entry fade, rest use segDur.
-        double fadeIn = (seg == 0) ? t.fadeMs : segDur;
-        if (fadeIn > segDur) fadeIn = segDur;
+        // Fade: first micro-frame uses token's entry fade, rest use thisDur.
+        const double thisDur = (seg == 0) ? seg0Dur : otherSegDur;
+        double fadeIn = (seg == 0) ? t.fadeMs : thisDur;
+        if (fadeIn > thisDur) fadeIn = thisDur;
 
         // Don't re-fire Fujisaki commands on internal micro-frames.
         if (seg > 0) {
@@ -993,7 +1353,7 @@ void emitFramesEx(
           mfEx.fujisakiReset = 0.0;
         }
 
-        cb(userData, &frame, &mfEx, segDur, fadeIn, userIndexBase);
+        cb(userData, &frame, &mfEx, thisDur, fadeIn, userIndexBase);
         hadPrevFrame = true;
       }
 
@@ -1119,6 +1479,12 @@ void emitFramesEx(
         if (t.def->hasBurstDurationMs) burstMs = t.def->burstDurationMs;
         if (t.def->hasBurstDecayRate) decayRate = t.def->burstDecayRate;
         if (t.def->hasBurstSpectralTilt) spectralTilt = t.def->burstSpectralTilt;
+
+        // Coda blend: longer burst, faster decay (same as emitFrames path)
+        if (t.codaFricStopBlend && !isAffricate) {
+          burstMs = std::max(burstMs, t.durationMs * 0.6);
+          decayRate = 0.7;
+        }
 
         // Clamp burst to 75% of token duration so it always fires
         double maxBurst = t.durationMs * 0.75;
@@ -1263,6 +1629,30 @@ void emitFramesEx(
     // RELEASE SPREAD (postStopAspiration tokens) — Ex path
     // ============================================
     if (t.postStopAspiration && t.def && t.durationMs > 1.0) {
+      if (t.codaFricStopBlend) {
+        // Coda blend: single decaying aspiration frame, no ramp-in dip.
+        const int aspIdx = static_cast<int>(FieldId::aspirationAmplitude);
+        double seg[kFrameFieldCount];
+        std::memcpy(seg, base, sizeof(seg));
+        seg[aspIdx] *= 0.60;
+
+        nvspFrontend_Frame aspFrame;
+        std::memcpy(&aspFrame, seg, sizeof(aspFrame));
+        cb(userData, &aspFrame, &frameEx, t.durationMs, t.durationMs * 0.5, userIndexBase);
+
+        trajectoryState->prevCf2 = aspFrame.cf2;
+        trajectoryState->prevCf3 = aspFrame.cf3;
+        trajectoryState->prevPf2 = aspFrame.pf2;
+        trajectoryState->prevPf3 = aspFrame.pf3;
+        trajectoryState->prevVoiceAmp = base[va];
+        trajectoryState->prevFricAmp = base[fa];
+        trajectoryState->hasPrevFrame = true;
+        trajectoryState->prevWasNasal = false;
+
+        prevTokenWasStop = false;
+        continue;
+      }
+
       double spreadMs = t.def->hasReleaseSpreadMs ? t.def->releaseSpreadMs : 4.0;
 
       if (spreadMs > 0.0 && spreadMs < t.durationMs) {

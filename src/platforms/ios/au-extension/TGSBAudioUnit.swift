@@ -24,10 +24,12 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
     private var output: [Float32] = []
     private var outputOffset: Int = 0
     private var volume: Float32 = 1.0
-    private let outputMutex = DispatchSemaphore(value: 1)
+    private var outputMutex = DispatchSemaphore(value: 1)
 
-    // ASBD output rate — fixed at 44100, never changes after init.
-    private let sampleRate: Double = 44100.0
+    // ASBD output rate — always 22050.
+    // Lower rates (11025/16000) alias on the iPhone DAC; 44100 clicks.
+    // 22050 is the sweet spot. DSP rate is resampled to match.
+    private let sampleRate: Double = 22050.0
 
     // DSP rate — the rate speechPlayer actually runs at.
     // Can differ from sampleRate; output is resampled to match ASBD.
@@ -97,7 +99,7 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
         dspRate = Self.loadDspRate()
 
         let asbd = AudioStreamBasicDescription(
-            mSampleRate: 44100,
+            mSampleRate: 22050,
             mFormatID: kAudioFormatLinearPCM,
             mFormatFlags: kAudioFormatFlagsNativeFloatPacked
                         | kAudioFormatFlagIsNonInterleaved,
@@ -191,17 +193,23 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
             return
         }
 
-        // Re-read engine settings only when version changes
+        // Extract voice name and language from identifier
+        let parts = speechRequest.voice.identifier.split(separator: ".")
+        let voiceName = parts.count >= 3 ? String(parts[2]) : "adam"
+        let bcp47 = parts.count >= 4 ? String(parts[3]) : "en-us"
+
+        // Re-read engine settings when version changes or voice changes
         let curVersion = UserDefaults(suiteName: "group.com.tgspeechbox.app")?
             .integer(forKey: "adv_settingsVersion") ?? 0
-        if curVersion != cachedSettingsVersion {
+        let voiceChanged = voiceName != cachedVoice
+        if curVersion != cachedSettingsVersion || voiceChanged {
             if let e = engine {
                 let newRate = Self.loadDspRate()
                 if newRate != dspRate {
                     tgsb_set_sample_rate(e, Int32(newRate))
                     dspRate = newRate
                 }
-                applyEngineSettings(e)
+                applyEngineSettings(e, voice: voiceName)
             }
             cachedSettingsVersion = curVersion
         }
@@ -215,10 +223,6 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
             outputMutex.signal()
             return
         }
-
-        let parts = speechRequest.voice.identifier.split(separator: ".")
-        let voiceName = parts.count >= 3 ? String(parts[2]) : "adam"
-        let bcp47 = parts.count >= 4 ? String(parts[3]) : "en-us"
 
         let langEntry = Self.languageMap.first {
             $0.bcp47.lowercased() == bcp47.lowercased()
@@ -276,10 +280,10 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
             }
         }
 
-        // Resample from DSP rate to ASBD rate (44100) if needed
+        // Resample from DSP rate to ASBD rate (22050) if needed
         let asbdRate = Int(sampleRate)
         if curDspRate != asbdRate && !samples.isEmpty {
-            samples = resampleLinear(samples, from: curDspRate, to: asbdRate)
+            samples = resample(samples, from: curDspRate, to: asbdRate)
         }
 
         // Hand complete buffer to the render block
@@ -294,7 +298,7 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
         if let e = engine { tgsb_stop(e) }
 
         outputMutex.wait()
-        output.removeAll(keepingCapacity: true)
+        output.removeAll()
         outputOffset = 0
         outputMutex.signal()
     }
@@ -302,47 +306,40 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
     // MARK: - Audio Render
 
     public override var internalRenderBlock: AUInternalRenderBlock {
+        // Matches eSpeak-NG-mobile's render pattern:
+        // blocking semaphore, mDataByteSize = actual sample count,
+        // Complete when buffer drained.
         return {
             actionFlags, timestamp, frameCount, outputBusNumber,
             outputAudioBufferList, _, _ in
 
+            let outFrames = UnsafeMutableAudioBufferListPointer(
+                outputAudioBufferList)[0].mData!
+                .assumingMemoryBound(to: Float32.self)
+            let frames = Int(frameCount)
+
+            outFrames.assign(repeating: 0, count: frames)
+
             self.outputMutex.wait()
 
-            let available = self.output.count - self.outputOffset
-            let toCopy = min(Int(frameCount), available)
-
-            let outBuf = UnsafeMutableAudioBufferListPointer(
-                outputAudioBufferList)[0]
-            let outFrames = outBuf.mData!
-                .assumingMemoryBound(to: Float32.self)
-
-            if toCopy > 0 {
-                let start = self.outputOffset
+            let count = min(self.output.count - self.outputOffset, frames)
+            if count > 0 {
                 var vol = self.volume
                 self.output.withUnsafeBufferPointer { buf in
-                    // vDSP: copy + scale in one vectorized call
-                    vDSP_vsmul(buf.baseAddress! + start, 1,
+                    vDSP_vsmul(buf.baseAddress! + self.outputOffset, 1,
                                &vol,
                                outFrames, 1,
-                               vDSP_Length(toCopy))
+                               vDSP_Length(count))
                 }
-                self.outputOffset += toCopy
+                self.outputOffset += count
             }
 
-            // Zero-fill any remaining frames in this render call
-            for i in toCopy..<Int(frameCount) { outFrames[i] = 0 }
-
-            // Tell the system how many bytes we actually wrote
             outputAudioBufferList.pointee.mBuffers.mDataByteSize =
-                UInt32(toCopy * MemoryLayout<Float32>.size)
+                UInt32(count * MemoryLayout<Float32>.size)
 
-            // Signal completion when buffer is fully drained, matching
-            // eSpeak-NG's render pattern.  This tells VoiceOver the
-            // current utterance is done; it will issue a new
-            // synthesizeSpeechRequest for subsequent text (e.g. hints).
             if self.outputOffset >= self.output.count {
                 actionFlags.pointee = .offlineUnitRenderAction_Complete
-                self.output.removeAll(keepingCapacity: true)
+                self.output.removeAll()
                 self.outputOffset = 0
             }
 
@@ -353,13 +350,21 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
 
     // MARK: - Engine Settings from AppGroup
 
-    private func applyEngineSettings(_ eng: OpaquePointer) {
+    private func applyEngineSettings(_ eng: OpaquePointer, voice: String) {
         let d = UserDefaults(suiteName: "group.com.tgspeechbox.app")
 
+        // Per-voice key with fallback to old global key for migration
         func load(_ key: String, _ dflt: Double) -> Double {
-            guard let d = d, d.object(forKey: "adv_\(key)") != nil
-            else { return dflt }
-            return d.double(forKey: "adv_\(key)")
+            guard let d = d else { return dflt }
+            let voiceKey = "adv_\(key).\(voice)"
+            if d.object(forKey: voiceKey) != nil {
+                return d.double(forKey: voiceKey)
+            }
+            let globalKey = "adv_\(key)"
+            if d.object(forKey: globalKey) != nil {
+                return d.double(forKey: globalKey)
+            }
+            return dflt
         }
 
         // VoicingTone: convert 0–100 sliders to engine parameters
@@ -397,8 +402,10 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
 
         tgsb_set_frame_ex_defaults(eng, creak, breath, jit, shim, sharp)
 
-        // Pitch mode
-        let mode = d?.string(forKey: "adv_pitchMode") ?? "espeak_style"
+        // Pitch mode (per-voice with global fallback)
+        let mode = d?.string(forKey: "adv_pitchMode.\(voice)")
+            ?? d?.string(forKey: "adv_pitchMode")
+            ?? "espeak_style"
         tgsb_set_pitch_mode(eng, mode)
 
         let inflScale = load("inflectionScale", 58) / 100.0
@@ -406,26 +413,57 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
 
         let infl = load("inflection", 50) / 100.0
         tgsb_set_inflection(eng, infl)
+
+        // Pause mode stays global (not voice-specific)
+        let pauseMode = d?.object(forKey: "adv_pauseMode") != nil
+            ? d!.integer(forKey: "adv_pauseMode") : 1  // default: short
+        tgsb_set_pause_mode(eng, Int32(pauseMode))
     }
 
     // MARK: - Resampling
 
     /// Linear-interpolation resample from one rate to another.
-    private func resampleLinear(_ input: [Float32], from srcRate: Int, to dstRate: Int) -> [Float32] {
+    private func resample(_ input: [Float32], from srcRate: Int, to dstRate: Int) -> [Float32] {
+        guard let srcFmt = AVAudioFormat(commonFormat: .pcmFormatFloat32,
+                                         sampleRate: Double(srcRate),
+                                         channels: 1, interleaved: false),
+              let dstFmt = AVAudioFormat(commonFormat: .pcmFormatFloat32,
+                                         sampleRate: Double(dstRate),
+                                         channels: 1, interleaved: false),
+              let converter = AVAudioConverter(from: srcFmt, to: dstFmt)
+        else { return input }
+
+        let frameCount = AVAudioFrameCount(input.count)
+        guard let srcBuf = AVAudioPCMBuffer(pcmFormat: srcFmt,
+                                             frameCapacity: frameCount)
+        else { return input }
+        srcBuf.frameLength = frameCount
+        memcpy(srcBuf.floatChannelData![0], input,
+               input.count * MemoryLayout<Float32>.size)
+
         let ratio = Double(dstRate) / Double(srcRate)
-        let outCount = Int(Double(input.count) * ratio)
-        guard outCount > 0 else { return [] }
-        var out = [Float32](repeating: 0, count: outCount)
-        let lastIdx = input.count - 1
-        for i in 0..<outCount {
-            let srcPos = Double(i) / ratio
-            let idx = Int(srcPos)
-            let frac = Float32(srcPos - Double(idx))
-            let s0 = input[min(idx, lastIdx)]
-            let s1 = input[min(idx + 1, lastIdx)]
-            out[i] = s0 + frac * (s1 - s0)
+        // Extra capacity for sinc filter tail flushed on endOfStream
+        let outFrames = AVAudioFrameCount(ceil(Double(input.count) * ratio)) + 256
+        guard let dstBuf = AVAudioPCMBuffer(pcmFormat: dstFmt,
+                                             frameCapacity: outFrames)
+        else { return input }
+
+        var error: NSError?
+        var consumed = false
+        converter.convert(to: dstBuf, error: &error) { _, outStatus in
+            if consumed {
+                outStatus.pointee = .endOfStream
+                return nil
+            }
+            consumed = true
+            outStatus.pointee = .haveData
+            return srcBuf
         }
-        return out
+        if error != nil { return input }
+
+        let count = Int(dstBuf.frameLength)
+        return Array(UnsafeBufferPointer(start: dstBuf.floatChannelData![0],
+                                         count: count))
     }
 
     // MARK: - Helpers

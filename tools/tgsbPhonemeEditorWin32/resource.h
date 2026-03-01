@@ -254,6 +254,8 @@ Licensed under the MIT License. See LICENSE for details.
 #define IDC_AR_AFTER         3417
 #define IDC_AR_BEFORE        3418
 #define IDC_AR_ACTION        3419
+// Place of articulation
+#define IDC_AR_PLACE         3474
 // Neighbor flag filter controls
 #define IDC_AR_AFTERFLAGS        3470
 #define IDC_AR_NOTAFTERFLAGS     3471

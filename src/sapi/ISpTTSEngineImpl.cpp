@@ -62,14 +62,19 @@ bool write_bytes(ISpTTSEngineSite* site, const BYTE* data, ULONG bytes, ULONGLON
     return true;
 }
 
-char detect_clause_type(const std::wstring& text)
+char detect_clause_type(const wchar_t* start, size_t len)
 {
-    // Find last non-space character.
-    for (auto it = text.rbegin(); it != text.rend(); ++it) {
-        const wchar_t c = *it;
-        if (c == L' ' || c == L'\t' || c == L'\r' || c == L'\n') {
+    // Scan backward, skipping whitespace and closing quotes/brackets,
+    // then return the clause-ending punctuation if found.
+    for (size_t i = len; i > 0; --i) {
+        const wchar_t c = start[i - 1];
+        // Skip whitespace.
+        if (c == L' ' || c == L'\t' || c == L'\r' || c == L'\n')
             continue;
-        }
+        // Skip closing quotes and brackets.
+        if (c == L')' || c == L']' || c == L'"' || c == L'\'' ||
+            c == L'\u2019' || c == L'\u201D')
+            continue;
         if (c == L'.') return '.';
         if (c == L',') return ',';
         if (c == L'?') return '?';
@@ -77,6 +82,84 @@ char detect_clause_type(const std::wstring& text)
         break;
     }
     return '.';
+}
+
+// Check if a character is clause-ending punctuation.
+bool is_clause_punct(wchar_t c) {
+    return c == L'.' || c == L'?' || c == L'!' || c == L',';
+}
+
+// Check if a character is a semicolon or colon (clause boundary only
+// when followed by whitespace, to avoid splitting "5:44").
+bool is_soft_clause_punct(wchar_t c) {
+    return c == L';' || c == L':';
+}
+
+// Split a SAPI text fragment into clauses. Each clause gets its own
+// clauseType so the frontend can apply correct intonation contours.
+// Same pattern as the Linux renderer and NVDA driver fixes.
+struct sapi_clause {
+    size_t start;
+    size_t len;
+    char   clause_type;
+};
+
+std::vector<sapi_clause> split_clauses(const std::wstring& text)
+{
+    std::vector<sapi_clause> clauses;
+    const wchar_t* s = text.c_str();
+    const size_t total = text.size();
+    size_t pos = 0;
+
+    while (pos < total) {
+        // Skip leading whitespace.
+        while (pos < total && (s[pos] == L' ' || s[pos] == L'\t' ||
+                               s[pos] == L'\r' || s[pos] == L'\n'))
+            ++pos;
+        if (pos >= total) break;
+
+        size_t clauseStart = pos;
+        char clauseType = '.';
+
+        // Scan for clause boundary.
+        while (pos < total) {
+            wchar_t c = s[pos];
+            if (is_clause_punct(c)) {
+                clauseType = static_cast<char>(c);
+                ++pos;
+                // Consume trailing closing quotes/brackets that belong
+                // to this clause (e.g. the " after great.")
+                while (pos < total) {
+                    wchar_t q = s[pos];
+                    if (q == L')' || q == L']' || q == L'"' || q == L'\'' ||
+                        q == L'\u2019' || q == L'\u201D')
+                        ++pos;
+                    else
+                        break;
+                }
+                break;
+            }
+            if (is_soft_clause_punct(c)) {
+                // Colon/semicolon: only split when followed by whitespace.
+                if (pos + 1 < total) {
+                    wchar_t next = s[pos + 1];
+                    if (next == L' ' || next == L'\t' || next == L'\r' || next == L'\n') {
+                        clauseType = ',';
+                        ++pos;
+                        break;
+                    }
+                }
+            }
+            ++pos;
+        }
+
+        size_t clauseLen = pos - clauseStart;
+        if (clauseLen > 0) {
+            clauses.push_back({ clauseStart, clauseLen, clauseType });
+        }
+    }
+
+    return clauses;
 }
 
 void add_bookmark_event(ISpTTSEngineSite* site, ULONGLONG audio_offset_bytes, const wchar_t* bookmark)
@@ -373,40 +456,49 @@ STDMETHODIMP ISpTTSEngineImpl::Speak(DWORD /*dwSpeakFlags*/,
             params.inflection = k_default_inflection * std::pow(2.0, static_cast<double>(frag->State.PitchAdj.RangeAdj) / 10.0);
             params.inflection = std::clamp(params.inflection, 0.0, 1.0);
 
-            params.clause_type = detect_clause_type(text);
+            // Split text at clause boundaries so each clause gets its
+            // own clauseType for correct intonation contours.
+            auto clauses = split_clauses(text);
 
-            hr = rt_->queue_text(text, params);
-            if (FAILED(hr)) {
-                DEBUG_LOG("TGSpeechSapi: queue_text failed 0x%08X", hr);
-                // Continue with next fragment rather than hard failing; SAPI may prefer partial output.
-            }
+            for (const auto& clause : clauses) {
+                if (ctx.aborted) break;
 
-            // Drain queued audio.
-            for (;;) {
-                actions = pOutputSite->GetActions();
-                if (actions & SPVES_ABORT) {
-                    rt_->purge();
-                    ctx.aborted = true;
-                    break;
-                }
-                if (actions & SPVES_SKIP) {
-                    pOutputSite->CompleteSkip(0);
-                    rt_->purge();
-                    ctx.aborted = true;
-                    break;
+                std::wstring clauseText = text.substr(clause.start, clause.len);
+                params.clause_type = clause.clause_type;
+
+                hr = rt_->queue_text(clauseText, params);
+                if (FAILED(hr)) {
+                    DEBUG_LOG("TGSpeechSapi: queue_text failed 0x%08X", hr);
+                    continue;
                 }
 
-                const int got = rt_->synthesize(static_cast<int>(sampleBuf.size()), sampleBuf.data());
-                if (got <= 0) {
-                    break;
-                }
+                // Drain queued audio for this clause.
+                for (;;) {
+                    actions = pOutputSite->GetActions();
+                    if (actions & SPVES_ABORT) {
+                        rt_->purge();
+                        ctx.aborted = true;
+                        break;
+                    }
+                    if (actions & SPVES_SKIP) {
+                        pOutputSite->CompleteSkip(0);
+                        rt_->purge();
+                        ctx.aborted = true;
+                        break;
+                    }
 
-                const ULONG bytes = static_cast<ULONG>(got * sizeof(tgsb::sample_t));
-                const BYTE* data = reinterpret_cast<const BYTE*>(sampleBuf.data());
+                    const int got = rt_->synthesize(static_cast<int>(sampleBuf.size()), sampleBuf.data());
+                    if (got <= 0) {
+                        break;
+                    }
 
-                if (!write_bytes(pOutputSite, data, bytes, ctx.bytes_written)) {
-                    ctx.aborted = true;
-                    break;
+                    const ULONG bytes = static_cast<ULONG>(got * sizeof(tgsb::sample_t));
+                    const BYTE* data = reinterpret_cast<const BYTE*>(sampleBuf.data());
+
+                    if (!write_bytes(pOutputSite, data, bytes, ctx.bytes_written)) {
+                        ctx.aborted = true;
+                        break;
+                    }
                 }
             }
         }
@@ -416,6 +508,19 @@ STDMETHODIMP ISpTTSEngineImpl::Speak(DWORD /*dwSpeakFlags*/,
         }
 
         frag = frag->pNext;
+    }
+
+    // Pad trailing silence so SAPI hosts that cut playback on Speak()
+    // return don't clip the final syllable.  Some hosts (e.g. Balabolka)
+    // stop audio immediately when Speak() returns, before the sound card
+    // finishes draining its buffer.  50ms of silence gives enough runway.
+    if (!ctx.aborted) {
+        const int padSamples = k_audio_sample_rate / 20;  // 50ms
+        std::vector<tgsb::sample_t> silence(static_cast<size_t>(padSamples));
+        std::memset(silence.data(), 0, silence.size() * sizeof(tgsb::sample_t));
+        const ULONG padBytes = static_cast<ULONG>(padSamples * sizeof(tgsb::sample_t));
+        write_bytes(pOutputSite, reinterpret_cast<const BYTE*>(silence.data()),
+                    padBytes, ctx.bytes_written);
     }
 
     return S_OK;

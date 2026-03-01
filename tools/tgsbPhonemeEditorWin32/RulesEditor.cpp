@@ -197,9 +197,54 @@ struct AREditState {
 };
 
 static const char* kTokenTypes[] = {"phoneme", "aspiration", "closure"};
-static const char* kPositions[] = {"any", "word-initial", "word-final", "intervocalic", "pre-vocalic", "post-vocalic", "syllabic"};
+static const char* kPositions[] = {"any", "word-initial", "word-final", "intervocalic", "pre-vocalic", "post-vocalic", "syllabic", "tied-from", "tied-to"};
+static const char* kPlaces[] = {"any", "labial", "alveolar", "palatal", "velar"};
 static const char* kStresses[] = {"any", "stressed", "unstressed", "next-unstressed", "prev-stressed"};
 static const char* kActions[] = {"replace", "scale", "shift", "insert-before", "insert-after"};
+
+// Place-of-articulation classification (mirrors pass_common.h getPlace()).
+// Returns "labial", "alveolar", "palatal", "velar", or "" for unknown.
+static std::string classifyPlace(const std::string& ipaUtf8) {
+  // Convert UTF-8 to UTF-32 for comparison.
+  std::u32string key;
+  const uint8_t* p = reinterpret_cast<const uint8_t*>(ipaUtf8.c_str());
+  const uint8_t* end = p + ipaUtf8.size();
+  while (p < end) {
+    char32_t cp;
+    if ((*p & 0x80) == 0) { cp = *p++; }
+    else if ((*p & 0xE0) == 0xC0) { cp = (*p & 0x1F) << 6; ++p; cp |= (*p & 0x3F); ++p; }
+    else if ((*p & 0xF0) == 0xE0) { cp = (*p & 0x0F) << 12; ++p; cp |= (*p & 0x3F) << 6; ++p; cp |= (*p & 0x3F); ++p; }
+    else if ((*p & 0xF8) == 0xF0) { cp = (*p & 0x07) << 18; ++p; cp |= (*p & 0x3F) << 12; ++p; cp |= (*p & 0x3F) << 6; ++p; cp |= (*p & 0x3F); ++p; }
+    else { ++p; continue; }
+    key += cp;
+  }
+  // Labials
+  if (key == U"p" || key == U"b" || key == U"m" ||
+      key == U"f" || key == U"v" || key == U"w" ||
+      key == U"\u028D" /* ʍ */ || key == U"\u0278" /* ɸ */ || key == U"\u03B2" /* β */)
+    return "labial";
+  // Alveolars
+  if (key == U"t" || key == U"d" || key == U"n" ||
+      key == U"s" || key == U"z" || key == U"l" ||
+      key == U"r" || key == U"\u0279" /* ɹ */ || key == U"\u027E" /* ɾ */ ||
+      key == U"\u03B8" /* θ */ || key == U"\u00F0" /* ð */ || key == U"\u026C" /* ɬ */ ||
+      key == U"\u026E" /* ɮ */ || key == U"\u027B" /* ɻ */ || key == U"\u0256" /* ɖ */ ||
+      key == U"\u0288" /* ʈ */ || key == U"\u0273" /* ɳ */ || key == U"\u027D" /* ɽ */)
+    return "alveolar";
+  // Palatals / Postalveolars
+  if (key == U"\u0283" /* ʃ */ || key == U"\u0292" /* ʒ */ ||
+      key == U"t\u0283" /* tʃ */ || key == U"d\u0292" /* dʒ */ ||
+      key == U"t\u0361\u0283" /* t͡ʃ */ || key == U"d\u0361\u0292" /* d͡ʒ */ ||
+      key == U"j" || key == U"\u0272" /* ɲ */ ||
+      key == U"\u00E7" /* ç */ || key == U"\u029D" /* ʝ */ || key == U"c" ||
+      key == U"\u025F" /* ɟ */ || key == U"\u028E" /* ʎ */)
+    return "palatal";
+  // Velars
+  if (key == U"k" || key == U"g" || key == U"\u014B" /* ŋ */ ||
+      key == U"x" || key == U"\u0263" /* ɣ */ || key == U"\u0270" /* ɰ */)
+    return "velar";
+  return {};
+}
 
 static void showActionSection(HWND hDlg, const std::string& action) {
   // Show the groupbox and its labeled children for the active action, hide others.
@@ -256,8 +301,11 @@ static INT_PTR CALLBACK AllophoneRuleEditDlgProc(HWND hDlg, UINT msg, WPARAM wPa
     addComboStrings(hDlg, IDC_AR_TOKENTYPE, kTokenTypes, 3);
     selectComboByText(hDlg, IDC_AR_TOKENTYPE, r.tokenType);
 
-    addComboStrings(hDlg, IDC_AR_POSITION, kPositions, 7);
+    addComboStrings(hDlg, IDC_AR_POSITION, kPositions, 9);
     selectComboByText(hDlg, IDC_AR_POSITION, r.position);
+
+    addComboStrings(hDlg, IDC_AR_PLACE, kPlaces, 5);
+    selectComboByText(hDlg, IDC_AR_PLACE, r.place);
 
     addComboStrings(hDlg, IDC_AR_STRESS, kStresses, 5);
     selectComboByText(hDlg, IDC_AR_STRESS, r.stress);
@@ -317,6 +365,7 @@ static INT_PTR CALLBACK AllophoneRuleEditDlgProc(HWND hDlg, UINT msg, WPARAM wPa
       r.notFlags = splitCommaSeparated(getDlgItemUtf8(hDlg, IDC_AR_NOTFLAGS));
       r.tokenType = getComboSelText(hDlg, IDC_AR_TOKENTYPE);
       r.position = getComboSelText(hDlg, IDC_AR_POSITION);
+      r.place = getComboSelText(hDlg, IDC_AR_PLACE);
       r.stress = getComboSelText(hDlg, IDC_AR_STRESS);
       r.after = splitCommaSeparated(getDlgItemUtf8(hDlg, IDC_AR_AFTER));
       r.before = splitCommaSeparated(getDlgItemUtf8(hDlg, IDC_AR_BEFORE));
@@ -354,6 +403,37 @@ static INT_PTR CALLBACK AllophoneRuleEditDlgProc(HWND hDlg, UINT msg, WPARAM wPa
       { std::string s = getDlgItemUtf8(hDlg, IDC_AR_INSERT_FADEMS);
         r.insertFadeMs = s.empty() ? 3.0 : std::atof(s.c_str()); }
       r.insertContexts = splitCommaSeparated(getDlgItemUtf8(hDlg, IDC_AR_INSERT_CONTEXTS));
+
+      // Validate place vs phonemes: warn if any listed phoneme doesn't match.
+      if (r.place != "any" && !r.phonemes.empty()) {
+        std::vector<std::string> mismatched;
+        for (const auto& ph : r.phonemes) {
+          std::string actual = classifyPlace(ph);
+          if (actual.empty()) continue;  // unknown phoneme — skip
+          if (actual != r.place) mismatched.push_back(ph);
+        }
+        if (!mismatched.empty()) {
+          // Build warning message with offer to correct.
+          std::string expected = classifyPlace(mismatched[0]);
+          std::string msg = "Place mismatch: the following phonemes are classified as \"" +
+              expected + "\", not \"" + r.place + "\":\n\n";
+          for (const auto& ph : mismatched) {
+            msg += "  " + ph + "  (actual: " + classifyPlace(ph) + ")\n";
+          }
+          msg += "\nWould you like to change the place to \"" + expected + "\"?\n\n"
+                 "Click Yes to update, No to keep \"" + r.place + "\" anyway, "
+                 "or Cancel to go back and edit.";
+          int result = MessageBoxW(hDlg, utf8ToWide(msg).c_str(),
+              L"Place of Articulation Mismatch", MB_YESNOCANCEL | MB_ICONWARNING);
+          if (result == IDYES) {
+            r.place = expected;
+            selectComboByText(hDlg, IDC_AR_PLACE, r.place);
+          } else if (result == IDCANCEL) {
+            return TRUE;  // go back to editing
+          }
+          // IDNO = keep the user's choice
+        }
+      }
 
       st->ok = true;
       EndDialog(hDlg, IDOK);

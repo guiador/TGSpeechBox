@@ -294,8 +294,10 @@ class VoicingToneMixin:
             sharpnessVal = getattr(self, "_curFrameExSharpness", 50)
 
             # Convert slider values (0-100) to FrameEx ranges
-            # Sharpness: 0-100 maps to 0.5-2.0 (50 = 1.0x neutral)
-            sharpnessMul = 0.5 + (sharpnessVal / 100.0) * 1.5
+            # Sharpness: exponential mapping centered at 50 = 1.0x.
+            # Two octaves each way: 0 → 0.25x, 50 → 1.0x, 100 → 4.0x.
+            # Formula: 4^((slider - 50) / 50) = 2^((slider - 50) / 25)
+            sharpnessMul = 2.0 ** ((sharpnessVal - 50.0) / 25.0)
 
             self._frontend.setFrameExDefaults(
                 creakiness=creakVal / 100.0,

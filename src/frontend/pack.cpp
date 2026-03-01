@@ -579,6 +579,8 @@ getNum("primaryStressDiv", lp.primaryStressDiv);
   // Optional: intra-word vowel hiatus break on stressed vowel starts.
   getNum("stressedVowelHiatusGapMs", lp.stressedVowelHiatusGapMs);
   getNum("stressedVowelHiatusFadeMs", lp.stressedVowelHiatusFadeMs);
+  getNum("wordBoundaryDipMs", lp.wordBoundaryDipMs);
+  getNum("wordBoundaryDipDepth", lp.wordBoundaryDipDepth);
 
   getNum("lengthenedScale", lp.lengthenedScale);
   getNum("lengthenedScaleHu", lp.lengthenedScaleHu);
@@ -692,6 +694,14 @@ getNum("primaryStressDiv", lp.primaryStressDiv);
   getNum("boundarySmoothingWithinSyllableScale", lp.boundarySmoothingWithinSyllableScale);
   getNum("boundarySmoothingWithinSyllableFadeScale", lp.boundarySmoothingWithinSyllableFadeScale);
   getNum("boundarySmoothingHighRateFadeRatioFloor", lp.boundarySmoothingHighRateFadeRatioFloor);
+
+  // Coda noise taper (fricative→stop continuity)
+  getBool("codaNoiseTaperEnabled", lp.codaNoiseTaperEnabled);
+  getNum("codaNoiseTaperPreGain", lp.codaNoiseTaperPreGain);
+  getNum("codaNoiseTaperEarlyFricScale", lp.codaNoiseTaperEarlyFricScale);
+  getNum("codaNoiseTaperEarlyAspAmp", lp.codaNoiseTaperEarlyAspAmp);
+  getNum("codaNoiseTaperLateFricScale", lp.codaNoiseTaperLateFricScale);
+  getNum("codaNoiseTaperLateAspAmp", lp.codaNoiseTaperLateAspAmp);
 
   // Trajectory limiting (optional)
   getBool("trajectoryLimitEnabled", lp.trajectoryLimitEnabled);
@@ -928,6 +938,7 @@ getNum("diphthongAmplitudeDipFactor", lp.diphthongAmplitudeDipFactor);
 getNum("diphthongMicroFrameIntervalMs", lp.diphthongMicroFrameIntervalMs);
 getNum("diphthongDurationFloorMs", lp.diphthongDurationFloorMs);
 getNum("diphthongOnsetHoldExponent", lp.diphthongOnsetHoldExponent);
+getNum("diphthongOnsetSettleMs", lp.diphthongOnsetSettleMs);
 
 // Nested settings blocks inside `settings:` (optional; override flat keys)
 if (const yaml_min::Node* bs = settings.get("boundarySmoothing"); bs && bs->isMap()) {
@@ -1062,6 +1073,7 @@ if (const yaml_min::Node* dc = settings.get("diphthongCollapse"); dc && dc->isMa
   getNumFrom(*dc, "microFrameIntervalMs", lp.diphthongMicroFrameIntervalMs);
   getNumFrom(*dc, "durationFloorMs", lp.diphthongDurationFloorMs);
   getNumFrom(*dc, "onsetHoldExponent", lp.diphthongOnsetHoldExponent);
+  getNumFrom(*dc, "onsetSettleMs", lp.diphthongOnsetSettleMs);
 }
 
 // Data-driven allophone rules (replaces old positionalAllophones: block).
@@ -1078,6 +1090,7 @@ if (const yaml_min::Node* ar = settings.get("allophoneRules"); ar && ar->isMap()
       getStrFrom(item, "tokenType", rule.tokenType);
       getStrFrom(item, "position", rule.position);
       getStrFrom(item, "stress", rule.stress);
+      getStrFrom(item, "place", rule.place);
 
       // Parse phonemes (UTF-8 → u32)
       if (const yaml_min::Node* ph = item.get("phonemes"); ph && ph->isSeq()) {

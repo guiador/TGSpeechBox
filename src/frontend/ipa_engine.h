@@ -74,6 +74,7 @@ struct Token {
   bool postStopAspiration = false;
   bool vowelHiatusGap = false;
   bool voicedClosure = false;  // Voice bar: maintain low-amplitude voicing during closure
+  bool codaFricStopBlend = false;  // Coda fricative→stop: maintain noise continuity
 
   bool wordStart = false;
   bool syllableStart = false;
@@ -115,6 +116,16 @@ struct Token {
   // diverges from cascade.  Falls back to endCf values when unset.
   bool hasEndPf1 = false, hasEndPf2 = false, hasEndPf3 = false;
   double endPf1 = 0.0, endPf2 = 0.0, endPf3 = 0.0;
+
+  // End targets for cascade bandwidths (set by diphthong_collapse pass).
+  // Without these, diphthong micro-frames hold onset bandwidths constant
+  // while frequencies sweep — producing unnaturally broad resonances at the
+  // offset (e.g. /aɪ/: onset B1=116 is fine for F1=677, but way too wide
+  // for offset F1=413 where natural B1≈55-70 Hz).
+  bool hasEndCb1 = false, hasEndCb2 = false, hasEndCb3 = false;
+  double endCb1 = 0.0, endCb2 = 0.0, endCb3 = 0.0;
+  bool hasEndPb1 = false, hasEndPb2 = false, hasEndPb3 = false;
+  double endPb1 = 0.0, endPb2 = 0.0, endPb3 = 0.0;
 
   // Per-parameter transition speed scales (carried to FrameEx).
   // 0.0 = no override.  See speechPlayer_frameEx_t for semantics.

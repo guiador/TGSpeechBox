@@ -53,6 +53,7 @@ struct AllophoneRuleEntry {
   std::vector<std::string> notFlags;
   std::string tokenType = "phoneme";   // "phoneme"/"aspiration"/"closure"
   std::string position = "any";        // "any"/"word-initial"/"word-final"/"intervocalic"/etc.
+  std::string place = "any";            // "any"/"labial"/"alveolar"/"palatal"/"velar"
   std::string stress = "any";          // "any"/"stressed"/"unstressed"/"next-unstressed"/"prev-stressed"
   std::vector<std::string> after;      // neighbor IPA filter
   std::vector<std::string> before;

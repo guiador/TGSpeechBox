@@ -27,6 +27,19 @@ settings:
 
   stopClosureAfterNasalsEnabled: true
 
+  # ── Diphthong tying ──────────────────────────────────────────────
+  # eSpeak outputs PRICE/MOUTH/FACE/CHOICE as plain vowel pairs
+  # without tie bars.  Enable auto-tying so the diphthong collapse
+  # pass can create smooth formant sweeps instead of two choppy
+  # separate tokens (which sounded Scottish/monophthongal).
+  autoTieDiphthongs: true
+
+  # RP diphthongs linger on the onset and rush the offglide.
+  # Default 1.4 gives roughly 50/50 onset/offglide which makes
+  # MOUTH /aʊ/ in "thousand" sound drawn-out at the end.
+  # 1.8 compresses the offglide into the final ~30% of the sweep.
+  diphthongOnsetHoldExponent: 1.8
+
   # ── Core processing passes ─────────────────────────────────────
   # These are accent-neutral improvements that benefit any English variant.
 
@@ -81,11 +94,11 @@ settings:
   microprosodyIntrinsicF0HighRaiseHz: 3.0
   microprosodyIntrinsicF0LowDropHz: 2.0
 
-  # Pre-voiceless shortening: RP has strong pre-fortis clipping —
-  # slightly more aggressive than US (0.80).
+  # Pre-voiceless shortening: RP has pre-fortis clipping but the vowel
+  # needs enough duration for a clean vowel→stop boundary.
   microprosodyPreVoicelessShortenEnabled: true
-  microprosodyPreVoicelessShortenScale: 0.78
-  microprosodyPreVoicelessMinMs: 35.0
+  microprosodyPreVoicelessShortenScale: 0.85
+  microprosodyPreVoicelessMinMs: 40.0
   microprosodyVoicelessCodaLengthenEnabled: true
   microprosodyVoicelessCodaLengthenScale: 1.20
   microprosodyMaxTotalDeltaHz: 10.0
@@ -211,9 +224,34 @@ settings:
           aspirationAmplitude: 0.05
           fricationAmplitude: 0.05
 
+    # ── Voiceless stop burst rebalance ─────────────────────────────
+    # Base phonemes have very high frication relative to burst energy:
+    #   /t/ fricationAmplitude=0.92 vs /t͡ʃ/ fricationAmplitude=0.88
+    #   /p/ fricationAmplitude=0.75 vs /f/  fricationAmplitude=1.00
+    # This makes stops sound fricative-like (/t/→"ch", /p/→"f").
+    # Fix: cut frication, boost burst transient + aspiration to widen
+    # the perceptual gap between stops and their fricative confusors.
+    # Applies to all voiceless stops in all positions.
+      - name: voiceless_stop_burst_boost
+        flags: [stop]
+        notFlags: [voiced]
+        action: scale
+        fieldScales:
+          fricationAmplitude: 0.82
+          aspirationAmplitude: 1.35
+          pa1: 1.25
+          pa2: 1.20
+
     # ── Unreleased word-final stops ──────────────────────────────
     # RP often has unreleased or glottalized final stops.  Slightly
     # more aggressive than US — RP speakers release finals less.
+    #
+    # FIXED: Old rule kept frication at ×0.80 (barely touched) while
+    # crushing the burst AND tilting it upward (pa4×1.3, pa5×1.4)
+    # into the sibilant frequency range — literally reshaping /t/
+    # toward /t͡ʃ/.  New rule cuts frication harder, preserves more
+    # burst in the stop-appropriate spectral region, and removes
+    # the upward tilt that was bleeding into affricate territory.
       - name: unreleased_word_final
         flags: [stop]
         notFlags: [voiced]
@@ -221,12 +259,47 @@ settings:
         action: scale
         durationScale: 0.80
         fieldScales:
-          fricationAmplitude: 0.80
-          aspirationAmplitude: 0.45
-          pa1: 0.25
-          pa2: 0.45
-          pa4: 1.3
-          pa5: 1.4
+          fricationAmplitude: 0.55
+          aspirationAmplitude: 0.60
+          pa1: 0.40
+          pa2: 0.55
+          pa3: 0.60
+          pa4: 0.50
+          pa5: 0.40
+
+    # ── Velar word-final boost ─────────────────────────────────────
+    # Velar stops have "compact" burst energy in mid-frequencies.
+    # The general unreleased_word_final rule makes /k/ too quiet
+    # in words like "rock", "back".  Boost mid-range burst and
+    # aspiration to restore presence.
+      - name: velar_word_final_boost
+        flags: [stop]
+        notFlags: [voiced]
+        place: velar
+        position: word-final
+        action: scale
+        fieldScales:
+          aspirationAmplitude: 1.40
+          pa2: 1.35
+          pa3: 1.30
+
+    # ── Labial word-final boost ────────────────────────────────────
+    # Labial stops (/p/) have weaker bursts than alveolars or velars
+    # because the lip seal radiates less high-frequency energy.
+    # The general unreleased_word_final rule cuts them too hard,
+    # making /p/ in "sharp", "wrap", "help" nearly inaudible.
+      - name: labial_word_final_boost
+        flags: [stop]
+        notFlags: [voiced]
+        place: labial
+        position: word-final
+        action: scale
+        fieldScales:
+          aspirationAmplitude: 2.50
+          fricationAmplitude: 2.00
+          pa1: 2.80
+          pa2: 2.20
+          pa3: 1.80
 
     # NOTE: No American flapping rule — RP preserves /t/ and /d/
     # in intervocalic position ("water" = /wɔːtə/, not /wɔːɾɚ/).
@@ -245,7 +318,7 @@ settings:
     liquidToVowelFadeMs: 18
     vowelToLiquidFadeMs: 16
     stopToVowelFadeMs: 18
-    vowelToStopFadeMs: 20
+    vowelToStopFadeMs: 22
     fricToVowelFadeMs: 16
     vowelToFricFadeMs: 16
     nasalToVowelFadeMs: 14
@@ -260,8 +333,8 @@ settings:
 
     # Per-place transition speeds — same physics, slightly crisper.
     labialF1Scale: 0.30
-    labialF2Scale: 0.50
-    labialF3Scale: 0.50
+    labialF2Scale: 0.55
+    labialF3Scale: 0.55
     alveolarF1Scale: 0.38
     alveolarF2Scale: 0.48
     alveolarF3Scale: 0.60
@@ -438,11 +511,15 @@ settings:
   legacyPitchInflectionScale: 0.56
 
 normalization:
-  preReplacements:
-    # Undo en.yaml's ʊ→ʊ̞ for UK English.
-    - from: "ʊ̞"
-      to:   "ʊ"
+  # en.yaml opens FOOT ʊ→ʊ̞ for US/AU accents.  RP FOOT is closer
+  # to cardinal [ʊ], so skip the inherited rule.  (The old
+  # preReplacements ʊ̞→ʊ was a no-op because preReplacements run
+  # before the replacement that creates ʊ̞.)
+  skipReplacements:
+    - from: "ʊ"
+      to:   "ʊ̞"
 
+  preReplacements:
     # Non-rhotic: drop post-vocalic /ɹ/ FIRST, before vowel sequence
     # collapse rules run (e.g. iə → iᵊ needs ɹ gone to see word-end).
     - from: "ɹ"
@@ -626,6 +703,13 @@ normalization:
       to: "ɜː"
     - from: "ɝ"
       to: "ɜ"
+
+    # GOAT (əʊ): monophthongize to əː. The diphthong collapse glide from
+    # ə→ʊ created a perceptible "ow" sweep that made words like "combobox"
+    # sound drawn-out. RP GOAT onset is ə (not o like GenAm), so we keep
+    # the schwa quality as a long monophthong.
+    - from: "əʊ"
+      to:   "əː"
 
     # NEAR vowel: collapse word-final iə to short schwa tail.
     - from: "iə"

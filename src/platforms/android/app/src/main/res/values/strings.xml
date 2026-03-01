@@ -60,6 +60,17 @@
     <string name="output_section_title">Output</string>
     <string name="system_volume_label">Volume</string>
     <string name="sample_rate_label">Sample Rate</string>
+    <string name="pause_mode_label">Pause Mode</string>
+    <string name="pause_mode_off">Off</string>
+    <string name="pause_mode_short">Short</string>
+    <string name="pause_mode_long">Long</string>
+
+    <!-- Reset to defaults -->
+    <string name="reset_defaults_button">Reset to Defaults</string>
+    <string name="reset_defaults_title">Reset to Defaults</string>
+    <string name="reset_defaults_message">This will reset all engine settings to their default values, including the language filter.</string>
+    <string name="reset_button">Reset</string>
+    <string name="cancel_button">Cancel</string>
 
     <!-- Advanced tab: Language filter -->
     <string name="choose_languages_button">Choose Available Engine Languages\u2026</string>

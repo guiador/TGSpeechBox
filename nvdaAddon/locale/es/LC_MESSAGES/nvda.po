@@ -1197,6 +1197,36 @@ msgstr "Temporización de Grupo: Escala de Consonante Medial de Palabra"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coda Noise Taper Early Asp Amp"
+msgstr ""
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coda Noise Taper Early Fric Scale"
+msgstr ""
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coda Noise Taper Enabled"
+msgstr ""
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coda Noise Taper Late Asp Amp"
+msgstr ""
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coda Noise Taper Late Fric Scale"
+msgstr ""
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coda Noise Taper Pre Gain"
+msgstr ""
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Coarticulation Adjacency Max Consonants"
 msgstr "Coarticulación Máximo de Consonantes Adyacentes"
 
@@ -1379,6 +1409,11 @@ msgstr "Amplitud de Turbulencia Vocal Predeterminada"
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Default Vowel Duration (ms)"
 msgstr "Duración de Vocal Predeterminada (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Diphthong Collapse: Onset Settle Ms"
+msgstr "Colapso de Diptongo: Asentamiento Inicial (ms)"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
@@ -2694,6 +2729,16 @@ msgstr "Duración de Vocal antes de Líquida (ms)"
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Vowel Before Nasal Duration (ms)"
 msgstr "Duración de Vocal antes de Nasal (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Word Boundary Dip Depth"
+msgstr "Profundidad de Caída en Límite de Palabra"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Word Boundary Dip Ms"
+msgstr "Caída en Límite de Palabra (ms)"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py

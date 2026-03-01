@@ -339,6 +339,7 @@ def _getPanelClass():
                 "diphthongCollapse.enabled",
                 "diphthongCollapse.microFrameIntervalMs",
                 "diphthongCollapse.onsetHoldExponent",
+                "diphthongCollapse.onsetSettleMs",
 
                 # --- Length contrast ---
                 "lengthContrast.enabled",
@@ -462,6 +463,14 @@ def _getPanelClass():
                 "coarticulationVelarPinchThreshold",
                 "coarticulationVelarScale",
                 "coarticulationWordInitialFadeScale",
+
+                # --- Coda noise taper (fricative→stop continuity) ---
+                "codaNoiseTaperEnabled",
+                "codaNoiseTaperPreGain",
+                "codaNoiseTaperEarlyFricScale",
+                "codaNoiseTaperEarlyAspAmp",
+                "codaNoiseTaperLateFricScale",
+                "codaNoiseTaperLateAspAmp",
 
                 # --- Defaults ---
                 "defaultFadeMs",
@@ -651,6 +660,10 @@ def _getPanelClass():
                 # --- Trill ---
                 "trillModulationFadeMs",
                 "trillModulationMs",
+
+                # --- Word boundary ---
+                "wordBoundaryDipDepth",
+                "wordBoundaryDipMs",
 
                 # --- Voice profile ---
                 "voiceProfileName",
@@ -1235,7 +1248,7 @@ def _getPanelClass():
             breathiness = breathSlider / 100.0
             jitter = jitterSlider / 100.0
             shimmer = shimmerSlider / 100.0
-            sharpness = 0.5 + (sharpnessSlider / 100.0) * 1.5  # 0-100 -> 0.5-2.0
+            sharpness = 2.0 ** ((sharpnessSlider - 50.0) / 25.0)  # 0→0.25x, 50→1.0x, 100→4.0x
 
             # Build confirmation message
             msg = _(

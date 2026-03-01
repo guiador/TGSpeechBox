@@ -51,6 +51,15 @@ struct Handle {
   
   // Buffer for getVoiceProfileNames return value
   std::string profileNamesBuffer;
+
+  // Deferred settings: if setPitchMode / setInflectionScale are called
+  // before setLanguage, we stash the values here and apply them once
+  // the pack is loaded.  Prevents crashes from writing to uninitialized
+  // h->pack memory (Android crash when Speak tab selects klatt_style
+  // before language init).
+  std::string pendingPitchMode;
+  double pendingInflectionScale = 0.0;
+  bool hasPendingInflectionScale = false;
 };
 
 static Handle* asHandle(nvspFrontend_handle_t h) {
@@ -122,6 +131,17 @@ NVSP_FRONTEND_API int nvspFrontend_setLanguage(nvspFrontend_handle_t handle, con
 
   h->pack = std::move(pack);
   h->packLoaded = true;
+
+  // Apply any settings that were set before the language was loaded.
+  if (!h->pendingPitchMode.empty()) {
+    h->pack.lang.legacyPitchMode = h->pendingPitchMode;
+    h->pendingPitchMode.clear();
+  }
+  if (h->hasPendingInflectionScale) {
+    h->pack.lang.legacyPitchInflectionScale = h->pendingInflectionScale;
+    h->hasPendingInflectionScale = false;
+  }
+
   // Treat language change as the start of a new stream, so we don't
   // insert a segment boundary gap before the first chunk in the new language.
   h->streamHasSpeech = false;
@@ -889,6 +909,13 @@ NVSP_FRONTEND_API int nvspFrontend_setPitchMode(
   }
 
   std::lock_guard<std::mutex> lock(h->mu);
+  if (!h->packLoaded) {
+    // Store for deferred apply — setLanguage will load the pack later.
+    // Without this guard, accessing h->pack before a language is loaded
+    // writes to uninitialized memory and crashes (Android #19 report).
+    h->pendingPitchMode = mode;
+    return 1;
+  }
   h->pack.lang.legacyPitchMode = mode;
   return 1;
 }
@@ -902,6 +929,11 @@ NVSP_FRONTEND_API void nvspFrontend_setLegacyPitchInflectionScale(
   if (!h) return;
 
   std::lock_guard<std::mutex> lock(h->mu);
+  if (!h->packLoaded) {
+    h->pendingInflectionScale = scale;
+    h->hasPendingInflectionScale = true;
+    return;
+  }
   h->pack.lang.legacyPitchInflectionScale = scale;
 }
 

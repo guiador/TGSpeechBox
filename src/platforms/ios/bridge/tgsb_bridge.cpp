@@ -136,6 +136,9 @@ struct TgsbEngine {
 
     /* Pitch inflection (0..1), default 0.5 */
     double inflection;
+
+    /* Pause mode: 0=off, 1=short, 2=long */
+    int pauseMode;
 };
 
 /* Frame callback context */
@@ -335,7 +338,29 @@ void tgsb_queue_text(TgsbEngine *engine,
             speed, pitch, engine->inflection, clauseStr, 0,
             onFrame, &ctx
         );
+
+        /* Punctuation pause — matches NVDA driver durations.
+         * Short: 35 ms sentence-final, 25 ms comma
+         * Long:  60 ms sentence-final, 50 ms comma */
+        if (engine->pauseMode > 0 && ctx.frameCount > 0) {
+            double pauseMs = 0.0;
+            if (clauseType == '.' || clauseType == '!' ||
+                clauseType == '?' || clauseType == ':' || clauseType == ';') {
+                pauseMs = engine->pauseMode == 2 ? 60.0 : 35.0;
+            } else if (clauseType == ',') {
+                pauseMs = engine->pauseMode == 2 ? 50.0 : 25.0;
+            }
+            if (pauseMs > 0.0) {
+                unsigned int samples = (unsigned int)(
+                    pauseMs * engine->sampleRate / 1000.0 + 0.5);
+                unsigned int fadeSamp = (unsigned int)(
+                    3.0 * engine->sampleRate / 1000.0 + 0.5);
+                speechPlayer_queueFrame(engine->player, NULL,
+                    samples, fadeSamp, -1, 0);
+            }
+        }
     }
+
 }
 
 int tgsb_pull_audio(TgsbEngine *engine,
@@ -447,6 +472,14 @@ void tgsb_set_inflection(TgsbEngine *engine, double inflection)
     if (inflection < 0.0) inflection = 0.0;
     if (inflection > 1.0) inflection = 1.0;
     engine->inflection = inflection;
+}
+
+void tgsb_set_pause_mode(TgsbEngine *engine, int mode)
+{
+    if (!engine) return;
+    if (mode < 0) mode = 0;
+    if (mode > 2) mode = 2;
+    engine->pauseMode = mode;
 }
 
 void tgsb_set_sample_rate(TgsbEngine *engine, int sampleRate)

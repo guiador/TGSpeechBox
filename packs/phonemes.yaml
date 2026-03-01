@@ -1393,7 +1393,7 @@ phonemes:
     cf6: 4900
     cfN0: 250
     cfNP: 200
-    fricationAmplitude: 0.65
+    fricationAmplitude: 0.62
     pa1: 0.03
     pa2: 0.70
     pa3: 0.75
@@ -1901,7 +1901,7 @@ phonemes:
     cf6: 4900
     cfN0: 250
     cfNP: 200
-    fricationAmplitude: 0.75
+    fricationAmplitude: 0.50
     pa1: 0.30
     pa2: 0.35
     pa3: 0.20
@@ -2138,7 +2138,7 @@ phonemes:
     cf6: 4900
     cfN0: 250
     cfNP: 200
-    fricationAmplitude: 0.92
+    fricationAmplitude: 0.80
     pa1: 0.06
     pa2: 0.30
     pa3: 0.35
@@ -3677,6 +3677,138 @@ phonemes:
     pf5: 3750
     pf6: 4900
     voiceAmplitude: 0.9
+  "ɐ_au":
+    # Australian STRUT — much more open than base ɐ (cf1=740 vs 530).
+    # 2016 hand-tuned reference: cf1=770, cf2=1280. Approaching [a] territory.
+    _isVowel: true
+    _isVoiced: true
+    aspirationAmplitude: 0
+    caNP: 0
+    cb1: 100
+    cb2: 45
+    cb3: 105
+    cb4: 250
+    cb5: 200
+    cb6: 1000
+    cbN0: 100
+    cbNP: 100
+    cf1: 740
+    cf2: 1290
+    cf3: 2550
+    cf4: 3300
+    cf5: 3750
+    cf6: 4900
+    cfN0: 250
+    cfNP: 200
+    fricationAmplitude: 0
+    pa1: 0
+    pa2: 0
+    pa3: 0
+    pa4: 0
+    pa5: 0
+    pa6: 0
+    parallelBypass: 0
+    pb1: 90
+    pb2: 60
+    pb3: 140
+    pb4: 250
+    pb5: 200
+    pb6: 1000
+    pf1: 780
+    pf2: 1230
+    pf3: 2550
+    pf4: 3300
+    pf5: 3750
+    pf6: 4900
+    voiceAmplitude: 0.9
+  "ɪ_au":
+    # Australian KIT — fronted (cf2=2050 vs base 1800), NOT centralized.
+    # 2016 hand-tuned reference: cf2=2070. Fronting toward [i] territory.
+    _isVowel: true
+    _isVoiced: true
+    aspirationAmplitude: 0
+    caNP: 0
+    cb1: 55
+    cb2: 75
+    cb3: 105
+    cb4: 250
+    cb5: 200
+    cb6: 1000
+    cbN0: 100
+    cbNP: 100
+    cf1: 345
+    cf2: 2050
+    cf3: 2700
+    cf4: 3300
+    cf5: 3750
+    cf6: 4900
+    cfN0: 250
+    cfNP: 200
+    fricationAmplitude: 0
+    pa1: 0
+    pa2: 0
+    pa3: 0
+    pa4: 0
+    pa5: 0
+    pa6: 0
+    parallelBypass: 0
+    pb1: 50
+    pb2: 100
+    pb3: 140
+    pb4: 250
+    pb5: 200
+    pb6: 1000
+    pf1: 380
+    pf2: 2050
+    pf3: 2700
+    pf4: 3300
+    pf5: 3750
+    pf6: 4900
+    voiceAmplitude: 0.9
+  "ɒ_au":
+    # Australian LOT — slightly backer (cf2=1000 vs base 1100).
+    # 2016 hand-tuned reference: cf2=990. Better STRUT/LOT separation.
+    _isVowel: true
+    _isVoiced: true
+    aspirationAmplitude: 0
+    caNP: 0
+    cb1: 116
+    cb2: 90
+    cb3: 200
+    cb4: 250
+    cb5: 200
+    cb6: 1000
+    cbN0: 100
+    cbNP: 100
+    cf1: 685
+    cf2: 1000
+    cf3: 2450
+    cf4: 3300
+    cf5: 3750
+    cf6: 4900
+    cfN0: 250
+    cfNP: 200
+    fricationAmplitude: 0
+    pa1: 0
+    pa2: 0
+    pa3: 0
+    pa4: 0
+    pa5: 0
+    pa6: 0
+    parallelBypass: 0
+    pb1: 130
+    pb2: 110
+    pb3: 250
+    pb4: 250
+    pb5: 200
+    pb6: 1000
+    pf1: 740
+    pf2: 1050
+    pf3: 2450
+    pf4: 3300
+    pf5: 3750
+    pf6: 4900
+    voiceAmplitude: 0.9
   "ɑ":
     _isLiquid: false
     _isNasal: false
@@ -4623,8 +4755,9 @@ phonemes:
     pf6: 4900
     voiceAmplitude: 0.85
   "ɣ_es":
-    # The /ɣ/, AKA the approximant g. In Spanish, the larynx rises slightly during the transition, physically speaking. In addition, it is less voiced.
-    # In the Castilian variant, this sound has the larynx more raised, and it is more voiced. But let's try to keep this neutral for now.
+    # Spanish velar approximant [ɣ̞]. Voiced continuant, not a full fricative.
+    # Raised voicing to 0.80, cf3 raised to 2500 (was 1500 — unnaturally low).
+    # Light frication for velar coloring.
     _isAfricate: false
     _isLiquid: false
     _isNasal: false
@@ -4634,42 +4767,90 @@ phonemes:
     aspirationAmplitude: 0
     caNP: 0
     cb1: 100
-    cb2: 130
+    cb2: 110
     cb3: 180
     cb4: 500
     cb5: 1000
     cb6: 1800
     cbN0: 100
     cbNP: 100
-    cf1: 550
+    cf1: 450
     cf2: 1200
-    cf3: 1500
+    cf3: 2500
     cf4: 3300
     cf5: 3750
     cf6: 4900
     cfN0: 250
     cfNP: 200
-    fricationAmplitude: 0.20
-    pa1: 0.1
-    pa2: 0.05
-    pa3: 0.1
-    pa4: 0.1
+    fricationAmplitude: 0.12
+    pa1: 0.05
+    pa2: 0.03
+    pa3: 0.05
+    pa4: 0.05
     pa5: 0
     pa6: 0
     parallelBypass: 0
     pb1: 90
-    pb2: 140
+    pb2: 120
     pb3: 190
     pb4: 500
     pb5: 1000
     pb6: 1800
-    pf1: 550
+    pf1: 450
     pf2: 1200
-    pf3: 1500
+    pf3: 2500
     pf4: 3300
     pf5: 3750
     pf6: 4900
-    voiceAmplitude: 0.4
+    voiceAmplitude: 0.80
+  "ð_es":
+    # Spanish dental approximant [ð̞]. Voiced continuant, NOT the English fricative.
+    # Very low frication (0.10 vs English 1.0), high voicing (0.88).
+    # Formants match English ð but frication is dramatically reduced.
+    _isLiquid: false
+    _isNasal: false
+    _isStop: false
+    _isVoiced: true
+    _isVowel: false
+    aspirationAmplitude: 0
+    caNP: 0
+    cb1: 66
+    cb2: 60
+    cb3: 128
+    cb4: 600
+    cb5: 1200
+    cb6: 2000
+    cbN0: 100
+    cbNP: 100
+    cf1: 270
+    cf2: 1350
+    cf3: 2540
+    cf4: 3300
+    cf5: 3750
+    cf6: 4900
+    cfN0: 250
+    cfNP: 200
+    fricationAmplitude: 0.10
+    pa1: 0
+    pa2: 0
+    pa3: 0
+    pa4: 0
+    pa5: 0
+    pa6: 0
+    parallelBypass: 0
+    pb1: 60
+    pb2: 80
+    pb3: 170
+    pb4: 600
+    pb5: 1200
+    pb6: 2200
+    pf1: 270
+    pf2: 1350
+    pf3: 2540
+    pf4: 3300
+    pf5: 3750
+    pf6: 4900
+    voiceAmplitude: 0.88
   "ɤ":
     _isLiquid: false
     _isNasal: false
@@ -5210,6 +5391,9 @@ phonemes:
     cbNP: 100
     # Palatal nasal - raised F2 to ~2500 Hz for clear palatal quality
     # Research shows ɲ should have F2 "always above 2000 Hz", typically 2200-2500
+    # durationScale 1.3 gives more time for palatal quality perception before
+    # the 950 Hz F2 drop to following /n/ or vowel.
+    durationScale: 1.3
     cf1: 280
     cf2: 2500
     cf3: 3100
@@ -6531,31 +6715,37 @@ phonemes:
     pf6: 4900
     voiceAmplitude: 0.95
   "ʁ":
+    # Voiced uvular fricative — used by German, French, Dutch, etc.
+    # FIXED: F3 was 1600 Hz, identical to English ɹ/ɻ (1550-1600).
+    # That low F3 is THE signature of English R — uvular rhotics do
+    # NOT lower F3 that far (Jannedy & Weirich 2016: F3 ≈ 2000-2500).
+    # Also raised frication: ʁ is a fricative with audible turbulence,
+    # not a smooth approximant like English ɹ.
     _isAfricate: false
     _isLiquid: true
     _isNasal: false
     _isStop: false
     _isVoiced: true
     _isVowel: false
-    aspirationAmplitude: 0.1
+    aspirationAmplitude: 0.08
     caNP: 0
     cb1: 120
-    cb2: 150
-    cb3: 200
+    cb2: 130
+    cb3: 170
     cb4: 500
     cb5: 1000
     cb6: 1800
     cbN0: 100
     cbNP: 100
-    cf1: 400
-    cf2: 1100
-    cf3: 1600
+    cf1: 380
+    cf2: 1000
+    cf3: 2300
     cf4: 3300
     cf5: 3750
     cf6: 4900
     cfN0: 250
     cfNP: 200
-    fricationAmplitude: 0.2
+    fricationAmplitude: 0.35
     pa1: 0
     pa2: 0
     pa3: 0
@@ -6564,18 +6754,18 @@ phonemes:
     pa6: 0
     parallelBypass: 0
     pb1: 120
-    pb2: 150
-    pb3: 200
+    pb2: 130
+    pb3: 170
     pb4: 500
     pb5: 1000
     pb6: 1800
-    pf1: 400
-    pf2: 1100
-    pf3: 1600
+    pf1: 380
+    pf2: 1000
+    pf3: 2300
     pf4: 3300
     pf5: 3750
     pf6: 4900
-    voiceAmplitude: 0.55
+    voiceAmplitude: 0.50
   "ʂ":
     _isLiquid: false
     _isNasal: false
@@ -7258,17 +7448,19 @@ phonemes:
     cf6: 4900
     cfN0: 250
     cfNP: 200
-    fricationAmplitude: 0.15
+    # Spanish palatal fricative — raised fAmp from 0.15 to 0.55 so LL/Y is audible.
+    # pa2/pa3 added for spectral energy in the palatal region.
+    fricationAmplitude: 0.55
     pa1: 0
-    pa2: 0
-    pa3: 0
-    pa4: 0
+    pa2: 0.15
+    pa3: 0.25
+    pa4: 0.10
     pa5: 0
     pa6: 0
     parallelBypass: 0
     pb1: 70
     pb2: 60
-    pb3: 300
+    pb3: 200
     pb4: 380
     pb5: 600
     pb6: 1650
@@ -7278,18 +7470,20 @@ phonemes:
     pf4: 3300
     pf5: 3750
     pf6: 4900
-    voiceAmplitude: 0.9
+    voiceAmplitude: 0.85
   "β":
+    # Spanish bilabial approximant [β̞]. NOT a liquid — it's a voiced continuant.
+    # High voicing (0.88), cf2~1150 (bilabial locus, not /u/-back), light frication.
     _isAfricate: false
-    _isLiquid: true
+    _isLiquid: false
     _isNasal: false
     _isStop: false
     _isVoiced: true
     _isVowel: false
-    aspirationAmplitude: 0.05
+    aspirationAmplitude: 0
     caNP: 0
-    cb1: 120
-    cb2: 100
+    cb1: 90
+    cb2: 80
     cb3: 150
     cb4: 300
     cb5: 350
@@ -7297,14 +7491,14 @@ phonemes:
     cbN0: 100
     cbNP: 100
     cf1: 300
-    cf2: 1000
-    cf3: 2300
+    cf2: 1150
+    cf3: 2400
     cf4: 3300
     cf5: 3750
     cf6: 4900
     cfN0: 250
     cfNP: 200
-    fricationAmplitude: 0
+    fricationAmplitude: 0.08
     pa1: 0
     pa2: 0
     pa3: 0
@@ -7312,19 +7506,19 @@ phonemes:
     pa5: 0
     pa6: 0
     parallelBypass: 0
-    pb1: 100
-    pb2: 100
-    pb3: 200
+    pb1: 80
+    pb2: 80
+    pb3: 170
     pb4: 300
     pb5: 350
     pb6: 1300
     pf1: 300
-    pf2: 1000
-    pf3: 2300
+    pf2: 1150
+    pf3: 2400
     pf4: 3300
     pf5: 3750
     pf6: 4900
-    voiceAmplitude: 0.6
+    voiceAmplitude: 0.88
   "θ":
     _isLiquid: false
     _isNasal: false
@@ -8303,11 +8497,11 @@ voiceProfiles:
       ɝ: {cf1: 524, cf2: 1518, cf3: 1897, pf1: 524, pf2: 1518, pf3: 1897}
       ɤ: {cf1: 698, cf2: 1429, cf3: 2802, pf1: 698, pf2: 1429, pf3: 2802}
       ɨ: {cf1: 368, cf2: 1518, cf3: 2539, pf1: 368, pf2: 1406, pf3: 2539}
-      ɪ: {cf1: 413, cf2: 2066, cf3: 2823, pf1: 458, pf2: 2066, pf3: 2823}
+      ɪ: {cf1: 413, cf2: 2066, cf3: 2823, pf1: 458, pf2: 2066, pf3: 2823, cb1: 55, cb2: 50, cb3: 120}
       ɯ: {cf1: 379, cf2: 1350, cf3: 2645, pf1: 379, pf2: 1350, pf3: 2645}
       ɵ: {cf1: 513, cf2: 1630, cf3: 2750, pf1: 513, pf2: 1630, pf3: 2750}
       ʉ: {cf1: 368, cf2: 1740, cf3: 2539, pf1: 402, pf2: 1740, pf3: 2539}
-      ʊ: {cf1: 463, cf2: 1066, cf3: 2666, pf1: 513, pf2: 1294, pf3: 2592}
+      ʊ: {cf1: 463, cf2: 1066, cf3: 2666, pf1: 513, pf2: 1294, pf3: 2592, cb1: 65, cb2: 80, cb3: 130}
       ʌ: {cf1: 698, cf2: 1429, cf3: 2600, pf1: 698, pf2: 1429, pf3: 2600}
       ʏ: {cf1: 402, cf2: 1904, cf3: 2539, pf1: 402, pf2: 1904, pf3: 2539}
       ᴀ: {cf1: 890, cf2: 1462, cf3: 2855, pf1: 402, pf2: 1574, pf3: 2855}
@@ -8449,11 +8643,11 @@ voiceProfiles:
       ɝ: {cf1: 598, cf2: 1732, cf3: 2115, pf1: 598, pf2: 1732, pf3: 2115}
       ɤ: {cf1: 795, cf2: 1631, cf3: 3107, pf1: 795, pf2: 1631, pf3: 3107}
       ɨ: {cf1: 420, cf2: 1732, cf3: 2820, pf1: 420, pf2: 1606, pf3: 2820}
-      ɪ: {cf1: 471, cf2: 2344, cf3: 3130, pf1: 522, pf2: 2344, pf3: 3130}
+      ɪ: {cf1: 471, cf2: 2344, cf3: 3130, pf1: 522, pf2: 2344, pf3: 3130, cb1: 55, cb2: 50, cb3: 120}
       ɯ: {cf1: 433, cf2: 1542, cf3: 2935, pf1: 433, pf2: 1542, pf3: 2935}
       ɵ: {cf1: 585, cf2: 1856, cf3: 3050, pf1: 585, pf2: 1856, pf3: 3050}
       ʉ: {cf1: 420, cf2: 1980, cf3: 2820, pf1: 458, pf2: 1980, pf3: 2820}
-      ʊ: {cf1: 528, cf2: 1220, cf3: 2958, pf1: 585, pf2: 1478, pf3: 2878}
+      ʊ: {cf1: 528, cf2: 1220, cf3: 2958, pf1: 585, pf2: 1478, pf3: 2878, cb1: 65, cb2: 80, cb3: 130}
       ʌ: {cf1: 795, cf2: 1631, cf3: 2880, pf1: 795, pf2: 1631, pf3: 2880}
       ʏ: {cf1: 458, cf2: 2163, cf3: 2820, pf1: 458, pf2: 2163, pf3: 2820}
       ᴀ: {cf1: 1012, cf2: 1669, cf3: 3164, pf1: 458, pf2: 1794, pf3: 3164}

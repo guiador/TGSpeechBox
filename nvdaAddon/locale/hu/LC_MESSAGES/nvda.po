@@ -1176,6 +1176,36 @@ msgstr "Csoport időzítés: Szóbelseji mássalhangzó skála"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coda Noise Taper Early Asp Amp"
+msgstr ""
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coda Noise Taper Early Fric Scale"
+msgstr ""
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coda Noise Taper Enabled"
+msgstr ""
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coda Noise Taper Late Asp Amp"
+msgstr ""
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coda Noise Taper Late Fric Scale"
+msgstr ""
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Coda Noise Taper Pre Gain"
+msgstr ""
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Coarticulation Adjacency Max Consonants"
 msgstr "Koartikuláció Szomszédság max. mássalhangzók"
 
@@ -1653,6 +1683,11 @@ msgstr "Kettőshangzó összevonás: Mikrokeret időköz (ms)"
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Diphthong Collapse: Onset Hold Exponent"
 msgstr "Kettőshangzó összevonás: Indulás tartási kitevő"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Diphthong Collapse: Onset Settle Ms"
+msgstr "Kettőshangzó összevonás: Indulási megállapodás (ms)"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
@@ -2673,6 +2708,16 @@ msgstr "Magánhangzó likvida előtt időtartam (ms)"
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Vowel Before Nasal Duration (ms)"
 msgstr "Magánhangzó nazális előtt időtartam (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Word Boundary Dip Depth"
+msgstr "Szóhatár amplitúdó-csökkenés mélysége"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Word Boundary Dip Ms"
+msgstr "Szóhatár amplitúdó-csökkenés (ms)"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py

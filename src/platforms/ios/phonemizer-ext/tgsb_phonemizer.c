@@ -64,13 +64,41 @@ char *tgsb_phonemizer_phonemize(const char *text)
 
     const void *textPtr = text;
     while (textPtr && *(const char *)textPtr) {
+        const char *clauseStart = (const char *)textPtr;
         const char *ipa = espeak_TextToPhonemes(
             &textPtr, espeakCHARS_UTF8, 0x02 /* IPA */);
         if (!ipa || !*ipa) continue;
 
+        /* Detect clause type by scanning backward through the text
+         * that eSpeak consumed, same pattern as tgsb_bridge.cpp.
+         * Skip closing quotes/brackets before checking punctuation. */
+        const char *clauseEnd = textPtr
+            ? (const char *)textPtr : clauseStart + strlen(clauseStart);
+        char clauseType = '.';
+        for (const char *cp = clauseEnd - 1; cp >= clauseStart; --cp) {
+            char c = *cp;
+            /* Skip closing quotes and brackets */
+            if (c == ')' || c == ']' || c == '"' || c == '\'') continue;
+            /* UTF-8 multi-byte: skip right single/double quotes
+             * U+2019 = E2 80 99, U+201D = E2 80 9D */
+            if (c == (char)0x99 || c == (char)0x9D) {
+                if (cp - 2 >= clauseStart &&
+                    *(cp-2) == (char)0xE2 && *(cp-1) == (char)0x80) {
+                    cp -= 2;
+                    continue;
+                }
+            }
+            if (c == '.' || c == ',' || c == '?' || c == '!') {
+                clauseType = c;
+                break;
+            }
+            /* Non-quote, non-punct character — stop scanning */
+            break;
+        }
+
         size_t ipaLen = strlen(ipa);
-        /* +2 for newline separator + null */
-        while (len + ipaLen + 2 > cap) {
+        /* +3 for newline separator + clauseType prefix + null */
+        while (len + ipaLen + 3 > cap) {
             cap *= 2;
             char *tmp = (char *)realloc(buf, cap);
             if (!tmp) { free(buf); return NULL; }
@@ -80,6 +108,8 @@ char *tgsb_phonemizer_phonemize(const char *text)
         if (len > 0) {
             buf[len++] = '\n';
         }
+        /* Prefix each clause with its type character */
+        buf[len++] = clauseType;
         memcpy(buf + len, ipa, ipaLen);
         len += ipaLen;
         buf[len] = '\0';

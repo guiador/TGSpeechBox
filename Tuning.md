@@ -210,6 +210,23 @@ These settings control the short "silence gap" inserted before stops/affricates 
 - `stopClosureWordBoundaryClusterFadeMs` (number, default `0.0`)
   - If set (>0), overrides the cluster gap timing only when the stop/affricate is at a word boundary (word start).
 
+### Coda noise taper (fricative→stop continuity)
+When a fricative precedes a coda stop (e.g. /st/ in "list", /sk/ in "risk"), the closure gap normally emits true silence, which drains the DSP's resonators and triggers aggressive burst detection on the following stop. The coda noise taper replaces that silence with a two-phase source path crossfade:
+
+- **Early taper**: frication fading (parallel-dominant, sibilant tail)
+- **Late taper**: aspiration rising (cascade-dominant, formants blending toward the stop's place)
+
+This rotates the noise character from sibilant to aspirated across the closure so the burst fires into warm cascade resonators. The DSP's adaptive burst detection sees small dFric and stays on the sustain LP path, preserving spectral continuity. Only activates for coda clusters (`!wordStart` guard) — onset clusters like /st/ in "style" are unaffected.
+
+- `codaNoiseTaperEnabled` (bool, default `true`): Master enable for the taper.
+- `codaNoiseTaperPreGain` (number, default `0.40`): preFormantGain during taper (keeps both signal paths alive).
+- `codaNoiseTaperEarlyFricScale` (number, default `0.45`): Early taper frication as fraction of preceding fricative level.
+- `codaNoiseTaperEarlyAspAmp` (number, default `0.04`): Early taper aspiration amplitude (cascade barely waking).
+- `codaNoiseTaperLateFricScale` (number, default `0.08`): Late taper frication as fraction of preceding level (parallel almost gone).
+- `codaNoiseTaperLateAspAmp` (number, default `0.22`): Late taper aspiration amplitude (cascade now dominant).
+
+The late taper also blends F2/F3 40% toward the stop's formant targets, smoothing the spectral handoff for cross-place clusters like /sk/ and /sp/.
+
 ### Segment boundary timing (between chunks)
 These settings help when callers stitch speech from multiple chunks (common in NVDA UI speech: label / role / value).
 - `segmentBoundaryGapMs` (number, default `0.0`)
@@ -283,6 +300,13 @@ Implementation note: the frontend splits the token into a short "onglide" segmen
 These settings can insert a tiny silence between two adjacent vowels when the *second* vowel is explicitly stressed. This mostly exists to help spelled-out acronyms (initialisms) where two letter names meet with no consonant in between.
 - `stressedVowelHiatusGapMs` (number, default `0.0`): Gap duration in milliseconds at speed=1.0. The engine divides it by current speed.
 - `stressedVowelHiatusFadeMs` (number, default `0.0`): Fade duration (crossfade) for that gap frame.
+
+### Uniform word-boundary amplitude dip
+Emits a brief reduced-amplitude micro-frame at every `wordStart` token in `frame_emit.cpp`. This provides a consistent boundary cue regardless of phonetic context — V#V, C#V, V#C all get the same subtle energy dip. Consonant boundaries already have natural acoustic discontinuities, so the dip simply reinforces them; V#V (e.g. "the installer") benefits most because it's the only context lacking a natural break.
+- `wordBoundaryDipMs` (number, default `0.0`): Duration of the dip micro-frame in ms. Only fires when > 0 and the token has enough remaining duration. en-us uses `3.0`.
+- `wordBoundaryDipDepth` (number, default `0.70`): Amplitude multiplier during the dip (0.70 = 30% reduction). Applies to `voiceAmplitude`, `fricationAmplitude`, and `aspirationAmplitude`. en-us uses `0.50`.
+
+Nested key path: flat keys only (no nested block).
 
 ### Spelling diphthong handling
 This is a more speech-like alternative to inserting a pause. It changes how some letter-name diphthongs are rendered when the word looks like a spelled-out acronym.
@@ -358,8 +382,9 @@ settings:
 | `flags` | list | Required phoneme flags (ALL must match): `stop`, `vowel`, `voiced`, `nasal`, `liquid`, `semivowel`, `affricate`, `tap`, `trill` |
 | `notFlags` | list | Excluded phoneme flags (rule won't match if ANY of these are set) |
 | `tokenType` | string | Token type filter: `"phoneme"` (default), `"aspiration"`, `"closure"` |
-| `position` | string | Positional filter: `"word-initial"`, `"word-final"`, `"intervocalic"`, `"post-vocalic"`, `"pre-vocalic"`, `"syllabic"` |
+| `position` | string | Positional filter: `"word-initial"`, `"word-final"`, `"intervocalic"`, `"post-vocalic"`, `"pre-vocalic"`, `"syllabic"`, `"tied-from"` (diphthong offglide), `"tied-to"` (diphthong onset) |
 | `stress` | string | Stress filter: `"stressed"`, `"unstressed"`, `"next-unstressed"`, `"prev-stressed"` |
+| `place` | string | Place of articulation filter: `"labial"`, `"alveolar"`, `"palatal"`, `"velar"`. Default `"any"`. Place is derived from the phoneme's IPA key via `getPlace()` (e.g. /p,b,m,f,v,w/ → labial, /t,d,n,s,z,l,ɹ,ɾ/ → alveolar, /ʃ,ʒ,t͡ʃ,d͡ʒ,j,ɲ/ → palatal, /k,ɡ,ŋ/ → velar). Tie-bar affricates (U+0361) are recognized. |
 | `after` | list | Previous phoneme must be one of these IPA keys |
 | `before` | list | Next phoneme must be one of these IPA keys |
 | `afterFlags` | list | Previous phoneme must have ALL listed flags |
@@ -415,6 +440,27 @@ The `afterFlags`/`beforeFlags`/`notAfterFlags`/`notBeforeFlags` fields let you m
 ```
 
 The flag names used in these fields are the same as `flags`/`notFlags`: `stop`, `vowel`, `voiced`, `nasal`, `liquid`, `semivowel`, `affricate`, `tap`, `trill`.
+
+#### Place of articulation matching
+
+The `place` field filters by articulatory position, derived from the phoneme's IPA key via `getPlace()`. This is useful for place-specific tuning without listing every phoneme at that place.
+
+```yaml
+# Example: boost labial stops at word-final position (lip seal radiates
+# less high-frequency energy, so they need extra burst/aspiration)
+- name: labial_word_final_boost
+  flags: [stop]
+  notFlags: [voiced]
+  place: labial
+  position: word-final
+  action: scale
+  fieldScales:
+    aspirationAmplitude: 1.50
+    pa1: 1.40
+    pa2: 1.30
+```
+
+Place mappings: **labial** (/p,b,m,f,v,w,ʍ,ɸ,β/), **alveolar** (/t,d,n,s,z,l,r,ɹ,ɾ,θ,ð,ɬ,ɮ,ɻ,ɖ,ʈ,ɳ,ɽ/), **palatal** (/ʃ,ʒ,t͡ʃ,d͡ʒ,j,ɲ,ç,ʝ,c,ɟ,ʎ/ — tie-bar affricates recognized), **velar** (/k,g,ŋ,x,ɣ,ɰ/). Phonemes not in any group return `Unknown` and won't match any place filter.
 
 #### Important notes
 
@@ -1807,6 +1853,7 @@ settings:
     microFrameIntervalMs: 8     # base interval; pitch-scaled down at higher F0
     onsetHoldExponent: 1.4      # >1.0 lingers at onset before sweeping (pow(frac, exp))
     amplitudeDipFactor: 0.03    # midpoint amplitude dip (sin curve, 0 = none)
+    onsetSettleMs: 12           # extra ms for first micro-frame to let resonator settle
 ```
 
 **Settings reference:**
@@ -1818,6 +1865,9 @@ settings:
 | `microFrameIntervalMs` | `8.0` | Base interval between micro-frame waypoints. **Pitch-adaptive**: at higher F0 the interval is automatically scaled down (`interval * 100/pitch`, floored at 3ms) because fewer harmonics per formant bandwidth makes crossfade phasing more audible. At 100Hz the value is used as-is; at 200Hz it halves. The frame count is clamped to 3–10. |
 | `onsetHoldExponent` | `1.4` | Exponent applied to the interpolation fraction before cosine smoothing: `pow(frac, exp)`. Values > 1.0 make the glide linger at the onset target before sweeping toward the offset. Audible range is roughly 0.1–2.0. |
 | `amplitudeDipFactor` | `0.03` | Controls a small amplitude dip at the midpoint of the glide (via `sin(pi * frac)`). Mimics the natural slight weakening at the transition between vowel qualities. Set to 0 to disable. |
+| `onsetSettleMs` | `0.0` | Extra milliseconds added to the first micro-frame's duration, borrowed proportionally from the remaining segments (total diphthong duration unchanged). Gives the IIR cascade resonators time to settle from the preceding consonant's formant state before the glide sweep begins. Without this, consonant-to-diphthong transitions (e.g. /dʒeɪ/ in "jay", /keɪ/ in "kay") produce a shimmery/gritty artifact because the resonator is still ringing at the consonant's frequencies when the first micro-frame starts moving. Capped at 50% of total duration. en-us uses 12ms. |
+
+**Historical note — bandwidth widening (removed):** An earlier approach (`bandwidthWideningFactor`, removed in v3.0) tried to fix the consonant-to-glide grittiness by widening cascade bandwidths (cb1/cb2/cb3) during the sweep. The theory was that formants in motion naturally have wider bandwidths in real speech. In practice it was a bandaid for the wrong diagnosis — any value high enough to help (0.35) made diphthongs sound squishy, and the value where it sounded good (0.05–0.12) was barely doing anything. The real cause was temporal, not spectral: the resonator needed settling time, not wider bandwidths. `onsetSettleMs` addresses the actual root cause.
 
 **Pipeline interactions:**
 
