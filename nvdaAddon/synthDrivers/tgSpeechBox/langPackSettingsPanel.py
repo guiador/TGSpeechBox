@@ -1248,7 +1248,7 @@ def _getPanelClass():
             breathiness = breathSlider / 100.0
             jitter = jitterSlider / 100.0
             shimmer = shimmerSlider / 100.0
-            sharpness = 0.5 + (sharpnessSlider / 100.0) * 1.5  # 0-100 -> 0.5-2.0
+            sharpness = 2.0 ** ((sharpnessSlider - 50.0) / 25.0)  # 0→0.25x, 50→1.0x, 100→4.0x
 
             # Build confirmation message
             msg = _(
