@@ -667,13 +667,13 @@ phonemes:
     cfN0: 250
     cfNP: 200
     fricationAmplitude: 1
-    pa1: 0
-    pa2: 0
-    pa3: 0
-    pa4: 0
-    pa5: 0
-    pa6: 0
-    parallelBypass: 0.9
+    pa1: 0.22
+    pa2: 0.25
+    pa3: 0.14
+    pa4: 0.06
+    pa5: 0.03
+    pa6: 0.01
+    parallelBypass: 0.30
     pb1: 60
     pb2: 100
     pb3: 130
@@ -1193,12 +1193,12 @@ phonemes:
     cfN0: 250
     cfNP: 200
     fricationAmplitude: 0.50
-    pa1: 0
+    pa1: 0.05
     pa2: 0.55
-    pa3: 0.58
-    pa4: 0.28
-    pa5: 0.20
-    pa6: 0.15
+    pa3: 0.65
+    pa4: 0.20
+    pa5: 0.08
+    pa6: 0.04
     parallelBypass: 0
     pb1: 60
     pb2: 150
@@ -4688,12 +4688,12 @@ phonemes:
     cfN0: 250
     cfNP: 200
     fricationAmplitude: 0.50
-    pa1: 0
+    pa1: 0.05
     pa2: 0.55
-    pa3: 0.58
-    pa4: 0.28
-    pa5: 0.20
-    pa6: 0.15
+    pa3: 0.65
+    pa4: 0.20
+    pa5: 0.08
+    pa6: 0.04
     parallelBypass: 0.08
     pb1: 65
     pb2: 130
