@@ -376,7 +376,7 @@ static std::u32string chooseReplacementTarget(const PackSet& pack, const std::ve
   return candidates.empty() ? std::u32string{} : candidates.front();
 }
 
-static void applyRules(std::u32string& text, const PackSet& pack, const std::vector<ReplacementRule>& rules) {
+static void applyRules(std::u32string& text, const PackSet& pack, const std::vector<ReplacementRule>& rules, std::vector<bool>* protResult = nullptr) {
   const bool textHasTie = (text.find(U'͡') != std::u32string::npos) || (text.find(U'͜') != std::u32string::npos);
 
   // Track positions produced by earlier replacements so subsequent rules
@@ -523,6 +523,23 @@ static void applyRules(std::u32string& text, const PackSet& pack, const std::vec
     text.swap(out);
     prot.swap(outProt);
   }
+  if (protResult) *protResult = std::move(prot);
+}
+
+// Escape characters that were protected by a prior applyRules() call into
+// Unicode Supplementary Private Use Area-A (U+F0000–U+FFFFD).  This makes
+// them invisible to subsequent cleanup passes and replacement rules.
+// unescapeProtected() reverses the transformation.
+static void escapeProtected(std::u32string& text, const std::vector<bool>& prot) {
+  for (size_t i = 0; i < text.size() && i < prot.size(); ++i) {
+    if (prot[i]) text[i] += 0xF0000;
+  }
+}
+
+static void unescapeProtected(std::u32string& text) {
+  for (auto& c : text) {
+    if (c >= 0xF0000 && c <= 0xFFFFF) c -= 0xF0000;
+  }
 }
 
 static void applyAliases(std::u32string& text, const PackSet& pack) {
@@ -554,7 +571,11 @@ static std::u32string normalizeIpaText(const PackSet& pack, const std::string& i
   replaceAll(t, U"_", U" ");
 
   // 1) Pack pre-replacements (lets you preserve info before we strip chars like '-').
-  applyRules(t, pack, pack.lang.preReplacements);
+  // Carry protection forward: escape protected characters into Supplementary
+  // PUA-A so that cleanup passes and the replacements phase cannot mangle them.
+  std::vector<bool> preProt;
+  applyRules(t, pack, pack.lang.preReplacements, &preProt);
+  escapeProtected(t, preProt);
 
   // 2) Basic cleanup, mirroring ipa_convert.py defaults.
   // Remove ZWJ/ZWNJ.
@@ -618,6 +639,9 @@ static std::u32string normalizeIpaText(const PackSet& pack, const std::string& i
   // 3) Aliases and replacements.
   applyAliases(t, pack);
   applyRules(t, pack, pack.lang.replacements);
+
+  // Restore characters that were protected from the preReplacements phase.
+  unescapeProtected(t);
 
   collapseWhitespace(t);
   return t;
