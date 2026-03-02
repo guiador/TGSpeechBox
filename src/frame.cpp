@@ -448,15 +448,14 @@ class FrameManagerImpl: public FrameManager {
 		if(purgeQueue) {
 			for(;!frameRequestQueue.empty();frameRequestQueue.pop()) delete frameRequestQueue.front();
 			sampleCounter=oldFrameRequest->minNumSamples;
-			// Always snapshot curFrame to preserve current audio state for smooth transitions.
-			// This ensures we fade FROM the current state, not from stale/garbage parameters.
-			// Must happen regardless of whether newFrameRequest exists.
-			if(!curFrameIsNULL) {
-				oldFrameRequest->NULLFrame=false;
-				memcpy(&(oldFrameRequest->frame),&curFrame,sizeof(speechPlayer_frame_t));
-				oldFrameRequest->hasFrameEx=curHasFrameEx;
-				memcpy(&(oldFrameRequest->frameEx),&curFrameEx,sizeof(speechPlayer_frameEx_t));
-			}
+			// Mark as coming from silence so the next frame triggers the from-silence
+			// transition path (line 253): new frame's formants/pitch used on BOTH sides
+			// of the crossfade, with gain ramping from zero.  Without this, the old
+			// curFrame snapshot (which may carry low pitch from an utterance-final
+			// declination) bleeds into the crossfade, exciting freshly-reset resonators
+			// at a sweeping pitch and producing audible shimmer on the new utterance.
+			oldFrameRequest->NULLFrame=true;
+			curFrameIsNULL=true;
 			if(newFrameRequest) {
 				delete newFrameRequest;
 				newFrameRequest=NULL;
