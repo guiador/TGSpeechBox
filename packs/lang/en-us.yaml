@@ -768,6 +768,16 @@ normalization:
     - from: "a͡ʊ"
       to:   "ä͡ʊ"
 
+    # American English is rhotic — NEAR is /ɪr/, not the RP centering
+    # diphthong /ɪə/.  eSpeak's TextToPhonemes API produces i͡ə / ɪ͡ə
+    # with a tie bar for words like "medium", "podium", etc.  Strip the
+    # tie so diphthong_collapse leaves these as separate vowels with a
+    # natural crossfade instead of collapsing into a glide.
+    - from: "i͡ə"
+      to:   "iə"
+    - from: "ɪ͡ə"
+      to:   "ɪə"
+
     # eSpeak produces British GOAT /əʊ/ — normalize to American /oʊ/ so
     # the o→ᵒ fronting rule and diphthong collapse pipeline apply correctly.
     - from: "əʊ"
