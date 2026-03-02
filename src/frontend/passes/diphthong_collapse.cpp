@@ -67,27 +67,29 @@ bool runDiphthongCollapse(
     // Duration: combined, scaled, with floor to ensure enough micro-frames for the glide.
     a.durationMs += b.durationMs;
 
-    // Only apply duration scaling when the diphthong has at least one
-    // consonant neighbor in the same word.  Bare diphthongs like "I" /aɪ/
-    // or "eye" need their full duration for a clean formant sweep —
-    // shortening them smears vowel identity.
+    // Only apply duration scaling when the diphthong has consonant context
+    // on BOTH sides within the same word.  One-sided context (e.g. "out"
+    // /aʊt/) still leaves the exposed onset or offset vulnerable to smearing.
+    // Bare diphthongs like "I" /aɪ/ have no context at all.
+    // Words like "page" /peɪdʒ/, "doubt" /daʊt/ have both — scale those.
     if (lp.diphthongDurationScale > 0.0 && lp.diphthongDurationScale != 1.0) {
-      bool hasConsonantContext = false;
+      bool hasPrecedingConsonant = false;
+      bool hasFollowingConsonant = false;
       // Preceding token: consonant in same word?
       if (i > 0 && !a.wordStart) {
         const Token& prev = tokens[i - 1];
         if (prev.def && !prev.silence &&
             !(prev.def->flags & (kIsVowel | kIsSemivowel)))
-          hasConsonantContext = true;
+          hasPrecedingConsonant = true;
       }
       // Following token (after b): consonant in same word?
-      if (!hasConsonantContext && i + 2 < tokens.size()) {
+      if (i + 2 < tokens.size()) {
         const Token& next = tokens[i + 2];
         if (next.def && !next.silence && !next.wordStart &&
             !(next.def->flags & (kIsVowel | kIsSemivowel)))
-          hasConsonantContext = true;
+          hasFollowingConsonant = true;
       }
-      if (hasConsonantContext)
+      if (hasPrecedingConsonant && hasFollowingConsonant)
         a.durationMs *= lp.diphthongDurationScale;
     }
 
