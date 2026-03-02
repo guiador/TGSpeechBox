@@ -335,6 +335,7 @@ def _getPanelClass():
 
                 # --- Diphthong collapse ---
                 "diphthongCollapse.amplitudeDipFactor",
+                "diphthongCollapse.durationScale",
                 "diphthongCollapse.durationFloorMs",
                 "diphthongCollapse.enabled",
                 "diphthongCollapse.microFrameIntervalMs",

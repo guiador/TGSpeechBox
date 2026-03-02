@@ -64,8 +64,10 @@ bool runDiphthongCollapse(
 
     // === Merge B into A ===
 
-    // Duration: combined, with floor to ensure enough micro-frames for the glide.
+    // Duration: combined, scaled, with floor to ensure enough micro-frames for the glide.
     a.durationMs += b.durationMs;
+    if (lp.diphthongDurationScale > 0.0 && lp.diphthongDurationScale != 1.0)
+      a.durationMs *= lp.diphthongDurationScale;
     if (a.durationMs < lp.diphthongDurationFloorMs)
       a.durationMs = lp.diphthongDurationFloorMs;
 

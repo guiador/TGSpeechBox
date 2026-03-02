@@ -886,6 +886,7 @@ static std::vector<std::string> knownLanguageSettingKeys() {
     "legacyPitchMode",
     "diphthongAmplitudeDipFactor",
     "diphthongCollapseEnabled",
+    "diphthongDurationScale",
     "diphthongDurationFloorMs",
     "diphthongMicroFrameIntervalMs",
     "diphthongOnsetHoldExponent",

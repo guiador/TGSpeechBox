@@ -958,6 +958,7 @@ getNum("lengthContrastPreGeminateVowelScale", lp.lengthContrastPreGeminateVowelS
 getBool("diphthongCollapseEnabled", lp.diphthongCollapseEnabled);
 getNum("diphthongAmplitudeDipFactor", lp.diphthongAmplitudeDipFactor);
 getNum("diphthongMicroFrameIntervalMs", lp.diphthongMicroFrameIntervalMs);
+getNum("diphthongDurationScale", lp.diphthongDurationScale);
 getNum("diphthongDurationFloorMs", lp.diphthongDurationFloorMs);
 getNum("diphthongOnsetHoldExponent", lp.diphthongOnsetHoldExponent);
 getNum("diphthongOnsetSettleMs", lp.diphthongOnsetSettleMs);
@@ -1093,6 +1094,7 @@ if (const yaml_min::Node* dc = settings.get("diphthongCollapse"); dc && dc->isMa
   getBoolFrom(*dc, "enabled", lp.diphthongCollapseEnabled);
   getNumFrom(*dc, "amplitudeDipFactor", lp.diphthongAmplitudeDipFactor);
   getNumFrom(*dc, "microFrameIntervalMs", lp.diphthongMicroFrameIntervalMs);
+  getNumFrom(*dc, "durationScale", lp.diphthongDurationScale);
   getNumFrom(*dc, "durationFloorMs", lp.diphthongDurationFloorMs);
   getNumFrom(*dc, "onsetHoldExponent", lp.diphthongOnsetHoldExponent);
   getNumFrom(*dc, "onsetSettleMs", lp.diphthongOnsetSettleMs);

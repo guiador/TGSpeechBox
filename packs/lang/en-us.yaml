@@ -229,7 +229,8 @@ settings:
       dipDurationPct: 0.25
   diphthongCollapse:
     enabled: true
-    durationFloorMs: 60
+    durationScale: 0.85
+    durationFloorMs: 50
     onsetHoldExponent: 1.3
     microFrameIntervalMs: 8
     onsetSettleMs: 12
