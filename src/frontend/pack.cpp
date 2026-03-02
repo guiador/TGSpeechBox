@@ -960,6 +960,7 @@ getNum("diphthongAmplitudeDipFactor", lp.diphthongAmplitudeDipFactor);
 getNum("diphthongMicroFrameIntervalMs", lp.diphthongMicroFrameIntervalMs);
 getNum("diphthongDurationScale", lp.diphthongDurationScale);
 getNum("diphthongDurationFloorMs", lp.diphthongDurationFloorMs);
+getNum("diphthongRateCompensation", lp.diphthongRateCompensation);
 getNum("diphthongOnsetHoldExponent", lp.diphthongOnsetHoldExponent);
 getNum("diphthongOnsetSettleMs", lp.diphthongOnsetSettleMs);
 
@@ -1096,6 +1097,7 @@ if (const yaml_min::Node* dc = settings.get("diphthongCollapse"); dc && dc->isMa
   getNumFrom(*dc, "microFrameIntervalMs", lp.diphthongMicroFrameIntervalMs);
   getNumFrom(*dc, "durationScale", lp.diphthongDurationScale);
   getNumFrom(*dc, "durationFloorMs", lp.diphthongDurationFloorMs);
+  getNumFrom(*dc, "rateCompensation", lp.diphthongRateCompensation);
   getNumFrom(*dc, "onsetHoldExponent", lp.diphthongOnsetHoldExponent);
   getNumFrom(*dc, "onsetSettleMs", lp.diphthongOnsetSettleMs);
 }

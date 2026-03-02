@@ -1751,6 +1751,11 @@ msgstr "Colapso de Ditongo Expoente de Retenção de Início"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Diphthong Collapse Rate Compensation"
+msgstr "Colapso de Ditongo Compensação de Velocidade"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Diphthong Collapse: Enabled"
 msgstr "Colapso de Ditongo: Habilitado"
 
@@ -1778,6 +1783,11 @@ msgstr "Colapso de Ditongo: Expoente de Retenção de Início"
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Diphthong Collapse: Onset Settle Ms"
 msgstr "Colapso de Ditongo: Assentamento Inicial (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Diphthong Collapse: Rate Compensation"
+msgstr "Colapso de Ditongo: Compensação de Velocidade"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py

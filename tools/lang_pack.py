@@ -303,6 +303,7 @@ class LanguagePack:
     diphthong_micro_frame_interval_ms: float = 6.0
     diphthong_duration_scale: float = 1.0
     diphthong_duration_floor_ms: float = 50.0
+    diphthong_rate_compensation: float = 0.0
     diphthong_onset_hold_exponent: float = 1.4
     diphthong_onset_settle_ms: float = 0.0
     word_boundary_dip_ms: float = 0.0
@@ -1036,6 +1037,7 @@ def _merge_settings(lp: LanguagePack, s: dict):
     lp.diphthong_micro_frame_interval_ms = gn("diphthongMicroFrameIntervalMs", lp.diphthong_micro_frame_interval_ms)
     lp.diphthong_duration_scale = gn("diphthongDurationScale", lp.diphthong_duration_scale)
     lp.diphthong_duration_floor_ms = gn("diphthongDurationFloorMs", lp.diphthong_duration_floor_ms)
+    lp.diphthong_rate_compensation = gn("diphthongRateCompensation", lp.diphthong_rate_compensation)
     lp.diphthong_onset_hold_exponent = gn("diphthongOnsetHoldExponent", lp.diphthong_onset_hold_exponent)
     lp.diphthong_onset_settle_ms = gn("diphthongOnsetSettleMs", lp.diphthong_onset_settle_ms)
     lp.word_boundary_dip_ms = gn("wordBoundaryDipMs", lp.word_boundary_dip_ms)
@@ -1255,6 +1257,7 @@ def _merge_settings(lp: LanguagePack, s: dict):
         lp.diphthong_micro_frame_interval_ms = _gn_from(_dc, "microFrameIntervalMs", lp.diphthong_micro_frame_interval_ms)
         lp.diphthong_duration_scale = _gn_from(_dc, "durationScale", lp.diphthong_duration_scale)
         lp.diphthong_duration_floor_ms = _gn_from(_dc, "durationFloorMs", lp.diphthong_duration_floor_ms)
+        lp.diphthong_rate_compensation = _gn_from(_dc, "rateCompensation", lp.diphthong_rate_compensation)
         lp.diphthong_onset_hold_exponent = _gn_from(_dc, "onsetHoldExponent", lp.diphthong_onset_hold_exponent)
         lp.diphthong_onset_settle_ms = _gn_from(_dc, "onsetSettleMs", lp.diphthong_onset_settle_ms)
 

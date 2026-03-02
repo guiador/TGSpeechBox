@@ -7,6 +7,7 @@ Licensed under the MIT License. See LICENSE for details.
 #include "diphthong_collapse.h"
 
 #include <algorithm>
+#include <cmath>
 
 namespace nvsp_frontend::passes {
 
@@ -91,6 +92,15 @@ bool runDiphthongCollapse(
       }
       if (hasPrecedingConsonant && hasFollowingConsonant)
         a.durationMs *= lp.diphthongDurationScale;
+    }
+
+    // Rate compensation: at high speeds, undo some of the rate compression
+    // so the formant glide has enough time to sweep naturally.
+    // Exponent 0 = no compensation (current behaviour), 1.0 = fully
+    // rate-invariant (Eloquence-style: glide duration independent of rate).
+    if (lp.diphthongRateCompensation > 0.0 && ctx.speed > 1.0) {
+      double comp = std::pow(ctx.speed, lp.diphthongRateCompensation);
+      a.durationMs *= comp;
     }
 
     if (a.durationMs < lp.diphthongDurationFloorMs)

@@ -231,6 +231,7 @@ settings:
     enabled: true
     durationScale: 0.90
     durationFloorMs: 50
+    rateCompensation: 0.15
     onsetHoldExponent: 1.3
     microFrameIntervalMs: 8
     onsetSettleMs: 12

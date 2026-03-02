@@ -888,6 +888,7 @@ static std::vector<std::string> knownLanguageSettingKeys() {
     "diphthongCollapseEnabled",
     "diphthongDurationScale",
     "diphthongDurationFloorMs",
+    "diphthongRateCompensation",
     "diphthongMicroFrameIntervalMs",
     "diphthongOnsetHoldExponent",
     "diphthongOnsetSettleMs",

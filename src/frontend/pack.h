@@ -683,6 +683,7 @@ double lengthContrastPreGeminateVowelScale = 0.85;
   double diphthongMicroFrameIntervalMs = 8.0;       // max(3, dur/interval) capped at 10; pitch-scaled
   double diphthongDurationScale = 1.0;                // scale factor applied to merged onset+offglide duration
   double diphthongDurationFloorMs = 50.0;            // rate_comp minimum for merged diphthongs
+  double diphthongRateCompensation = 0.0;            // 0=none, 1=fully rate-invariant (Eloquence-style)
   double diphthongOnsetHoldExponent = 1.4;           // pow(frac, exp): >1 = linger at onset
   double diphthongOnsetSettleMs = 0.0;               // extra ms added to first micro-frame for resonator settling
 
