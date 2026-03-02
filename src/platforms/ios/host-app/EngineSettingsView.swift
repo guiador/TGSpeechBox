@@ -76,6 +76,7 @@ struct EngineSettingsView: View {
     private var defaults: UserDefaults? { UserDefaults(suiteName: kAppGroupId) }
 
     @State private var showResetAlert = false
+    @State private var resetAll = false
 
     init(engine: TgsbEngine, engineStarted: Binding<Bool>) {
         _engine = ObservedObject(wrappedValue: engine)
@@ -130,11 +131,37 @@ struct EngineSettingsView: View {
             .padding(.horizontal, 20)
             .padding(.vertical, 10)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .alert("Reset to Defaults", isPresented: $showResetAlert) {
-                Button("Reset", role: .destructive) { resetToDefaults() }
-                Button("Cancel", role: .cancel) { }
-            } message: {
-                Text("This will reset engine settings for \(selectedVoice.capitalized) to their default values.")
+            .sheet(isPresented: $showResetAlert, onDismiss: { resetAll = false }) {
+                VStack(spacing: 16) {
+                    Text("Reset to Defaults")
+                        .font(.headline)
+                        .padding(.top, 8)
+
+                    Toggle("Reset all voices and global settings", isOn: $resetAll)
+
+                    Text(resetAll
+                        ? "This will reset engine settings for all voices to their default values."
+                        : "This will reset engine settings for \(selectedVoice.capitalized) to their default values.")
+                        .font(.callout)
+                        .foregroundColor(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                    HStack(spacing: 16) {
+                        Button("Cancel") {
+                            showResetAlert = false
+                        }
+                        .frame(maxWidth: .infinity)
+
+                        Button("Reset", role: .destructive) {
+                            resetToDefaults()
+                            showResetAlert = false
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                    .padding(.top, 8)
+                }
+                .padding(20)
+                .presentationDetents([.height(230)])
             }
 
         ScrollView {
@@ -310,23 +337,28 @@ struct EngineSettingsView: View {
 
         // Persist per-voice defaults
         let d = defaults
-        let v = selectedVoice
-        d?.set(voiceTilt,       forKey: "adv_voiceTilt.\(v)")
-        d?.set(speedQuotient,   forKey: "adv_speedQuotient.\(v)")
-        d?.set(aspirationTilt,  forKey: "adv_aspirationTilt.\(v)")
-        d?.set(cascadeBwScale,  forKey: "adv_cascadeBwScale.\(v)")
-        d?.set(noiseGlottalMod, forKey: "adv_noiseGlottalMod.\(v)")
-        d?.set(pitchSyncF1,     forKey: "adv_pitchSyncF1.\(v)")
-        d?.set(pitchSyncB1,     forKey: "adv_pitchSyncB1.\(v)")
-        d?.set(voiceTremor,     forKey: "adv_voiceTremor.\(v)")
-        d?.set(creakiness,      forKey: "adv_creakiness.\(v)")
-        d?.set(breathiness,     forKey: "adv_breathiness.\(v)")
-        d?.set(jitter,          forKey: "adv_jitter.\(v)")
-        d?.set(shimmer,         forKey: "adv_shimmer.\(v)")
-        d?.set(glottalSharpness, forKey: "adv_glottalSharpness.\(v)")
-        d?.set(pitchMode,       forKey: "adv_pitchMode.\(v)")
-        d?.set(inflectionScale, forKey: "adv_inflectionScale.\(v)")
-        d?.set(inflection,      forKey: "adv_inflection.\(v)")
+        let voices = resetAll
+            ? kVoiceNames.map { $0.lowercased() }
+            : [selectedVoice]
+
+        for v in voices {
+            d?.set(50.0, forKey: "adv_voiceTilt.\(v)")
+            d?.set(50.0, forKey: "adv_speedQuotient.\(v)")
+            d?.set(50.0, forKey: "adv_aspirationTilt.\(v)")
+            d?.set(50.0, forKey: "adv_cascadeBwScale.\(v)")
+            d?.set(0.0,  forKey: "adv_noiseGlottalMod.\(v)")
+            d?.set(50.0, forKey: "adv_pitchSyncF1.\(v)")
+            d?.set(50.0, forKey: "adv_pitchSyncB1.\(v)")
+            d?.set(0.0,  forKey: "adv_voiceTremor.\(v)")
+            d?.set(0.0,  forKey: "adv_creakiness.\(v)")
+            d?.set(0.0,  forKey: "adv_breathiness.\(v)")
+            d?.set(0.0,  forKey: "adv_jitter.\(v)")
+            d?.set(0.0,  forKey: "adv_shimmer.\(v)")
+            d?.set(50.0, forKey: "adv_glottalSharpness.\(v)")
+            d?.set("espeak_style", forKey: "adv_pitchMode.\(v)")
+            d?.set(58.0, forKey: "adv_inflectionScale.\(v)")
+            d?.set(50.0, forKey: "adv_inflection.\(v)")
+        }
 
         // Global output settings
         d?.set(pauseMode,       forKey: "adv_pauseMode")
