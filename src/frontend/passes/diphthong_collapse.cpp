@@ -66,8 +66,31 @@ bool runDiphthongCollapse(
 
     // Duration: combined, scaled, with floor to ensure enough micro-frames for the glide.
     a.durationMs += b.durationMs;
-    if (lp.diphthongDurationScale > 0.0 && lp.diphthongDurationScale != 1.0)
-      a.durationMs *= lp.diphthongDurationScale;
+
+    // Only apply duration scaling when the diphthong has at least one
+    // consonant neighbor in the same word.  Bare diphthongs like "I" /aɪ/
+    // or "eye" need their full duration for a clean formant sweep —
+    // shortening them smears vowel identity.
+    if (lp.diphthongDurationScale > 0.0 && lp.diphthongDurationScale != 1.0) {
+      bool hasConsonantContext = false;
+      // Preceding token: consonant in same word?
+      if (i > 0 && !a.wordStart) {
+        const Token& prev = tokens[i - 1];
+        if (prev.def && !prev.silence &&
+            !(prev.def->flags & (kIsVowel | kIsSemivowel)))
+          hasConsonantContext = true;
+      }
+      // Following token (after b): consonant in same word?
+      if (!hasConsonantContext && i + 2 < tokens.size()) {
+        const Token& next = tokens[i + 2];
+        if (next.def && !next.silence && !next.wordStart &&
+            !(next.def->flags & (kIsVowel | kIsSemivowel)))
+          hasConsonantContext = true;
+      }
+      if (hasConsonantContext)
+        a.durationMs *= lp.diphthongDurationScale;
+    }
+
     if (a.durationMs < lp.diphthongDurationFloorMs)
       a.durationMs = lp.diphthongDurationFloorMs;
 
