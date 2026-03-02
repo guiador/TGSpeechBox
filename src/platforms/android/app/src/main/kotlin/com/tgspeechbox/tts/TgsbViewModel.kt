@@ -261,28 +261,58 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
 
     // ── Reset to defaults ──────────────────────────────────────────
 
-    fun resetToDefaults() {
-        // Per-voice: VoicingTone sliders (saved under current voice)
-        onVoiceTiltChanged(50f)
-        onSpeedQuotientChanged(50f)
-        onAspirationTiltChanged(50f)
-        onCascadeBwScaleChanged(50f)
-        onNoiseGlottalModChanged(0f)
-        onPitchSyncF1Changed(50f)
-        onPitchSyncB1Changed(50f)
-        onVoiceTremorChanged(0f)
+    fun resetToDefaults(allVoices: Boolean = false) {
+        if (allVoices) {
+            // Reset per-voice prefs for ALL voices directly in SharedPreferences
+            val ed = prefs.edit()
+            for (voice in voices) {
+                val v = voice.id
+                ed.putFloat("${PREF_PREFIX}voiceTilt.$v", 50f)
+                ed.putFloat("${PREF_PREFIX}speedQuotient.$v", 50f)
+                ed.putFloat("${PREF_PREFIX}aspirationTilt.$v", 50f)
+                ed.putFloat("${PREF_PREFIX}cascadeBwScale.$v", 50f)
+                ed.putFloat("${PREF_PREFIX}noiseGlottalMod.$v", 0f)
+                ed.putFloat("${PREF_PREFIX}pitchSyncF1.$v", 50f)
+                ed.putFloat("${PREF_PREFIX}pitchSyncB1.$v", 50f)
+                ed.putFloat("${PREF_PREFIX}voiceTremor.$v", 0f)
+                ed.putFloat("${PREF_PREFIX}creakiness.$v", 0f)
+                ed.putFloat("${PREF_PREFIX}breathiness.$v", 0f)
+                ed.putFloat("${PREF_PREFIX}jitter.$v", 0f)
+                ed.putFloat("${PREF_PREFIX}shimmer.$v", 0f)
+                ed.putFloat("${PREF_PREFIX}glottalSharpness.$v", 50f)
+                ed.putString("${PREF_PREFIX}pitchMode.$v", "espeak_style")
+                ed.putFloat("${PREF_PREFIX}inflectionScale.$v", 58f)
+                ed.putFloat("${PREF_PREFIX}inflection.$v", 50f)
+            }
+            ed.apply()
+            // Reload current voice's UI state from the just-written defaults
+            loadSettingsForVoice()
+            applyVoicingTone()
+            applyFrameExDefaults()
+            applyPitchSettings()
+        } else {
+            // Per-voice: VoicingTone sliders (saved under current voice)
+            onVoiceTiltChanged(50f)
+            onSpeedQuotientChanged(50f)
+            onAspirationTiltChanged(50f)
+            onCascadeBwScaleChanged(50f)
+            onNoiseGlottalModChanged(0f)
+            onPitchSyncF1Changed(50f)
+            onPitchSyncB1Changed(50f)
+            onVoiceTremorChanged(0f)
 
-        // Per-voice: FrameEx sliders
-        onCreakinessChanged(0f)
-        onBreathinessChanged(0f)
-        onJitterChanged(0f)
-        onShimmerChanged(0f)
-        onGlottalSharpnessChanged(50f)
+            // Per-voice: FrameEx sliders
+            onCreakinessChanged(0f)
+            onBreathinessChanged(0f)
+            onJitterChanged(0f)
+            onShimmerChanged(0f)
+            onGlottalSharpnessChanged(50f)
 
-        // Per-voice: Pitch
-        onPitchModeChanged("espeak_style")
-        onInflectionScaleChanged(58f)
-        onInflectionChanged(50f)
+            // Per-voice: Pitch
+            onPitchModeChanged("espeak_style")
+            onInflectionScaleChanged(58f)
+            onInflectionChanged(50f)
+        }
 
         // Global: System rate
         onOverrideSystemRateChanged(false)

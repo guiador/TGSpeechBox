@@ -63,6 +63,7 @@ fun AdvancedScreen(
 ) {
     var showLanguageDialog by remember { mutableStateOf(false) }
     var showResetDialog by remember { mutableStateOf(false) }
+    var resetAll by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -368,20 +369,59 @@ fun AdvancedScreen(
 
     // ── Reset to Defaults confirmation dialog ──────────────────────
     if (showResetDialog) {
+        val voiceName = viewModel.voices.getOrNull(
+            viewModel.selectedVoiceIndex.collectAsState().value
+        )?.label ?: "Adam"
+        val message = if (resetAll)
+            stringResource(R.string.reset_defaults_message_all)
+        else
+            stringResource(R.string.reset_defaults_message_single, voiceName)
+
         AlertDialog(
-            onDismissRequest = { showResetDialog = false },
+            onDismissRequest = { showResetDialog = false; resetAll = false },
             title = { Text(stringResource(R.string.reset_defaults_title)) },
-            text = { Text(stringResource(R.string.reset_defaults_message)) },
+            text = {
+                Column {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .toggleable(
+                                value = resetAll,
+                                onValueChange = { resetAll = it },
+                                role = androidx.compose.ui.semantics.Role.Switch
+                            )
+                            .padding(vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(
+                            checked = resetAll,
+                            onCheckedChange = null
+                        )
+                        Text(
+                            text = stringResource(R.string.reset_all_toggle),
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier.padding(start = 12.dp)
+                        )
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = message,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
             confirmButton = {
                 TextButton(onClick = {
-                    viewModel.resetToDefaults()
+                    viewModel.resetToDefaults(allVoices = resetAll)
                     showResetDialog = false
+                    resetAll = false
                 }) {
                     Text(stringResource(R.string.reset_button))
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showResetDialog = false }) {
+                TextButton(onClick = { showResetDialog = false; resetAll = false }) {
                     Text(stringResource(R.string.cancel_button))
                 }
             }

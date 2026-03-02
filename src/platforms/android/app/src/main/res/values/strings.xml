@@ -71,7 +71,9 @@
     <!-- Reset to defaults -->
     <string name="reset_defaults_button">Reset to Defaults</string>
     <string name="reset_defaults_title">Reset to Defaults</string>
-    <string name="reset_defaults_message">This will reset all voice quality and pitch settings for the current voice, plus output settings (volume, sample rate, pause mode) and the language filter.</string>
+    <string name="reset_all_toggle">Reset all voices and global settings</string>
+    <string name="reset_defaults_message_single">This will reset engine settings for %1$s to their default values.</string>
+    <string name="reset_defaults_message_all">This will reset engine settings for all voices to their default values.</string>
     <string name="reset_button">Reset</string>
     <string name="cancel_button">Cancel</string>
 
