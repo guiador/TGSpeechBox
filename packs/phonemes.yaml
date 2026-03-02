@@ -764,13 +764,13 @@ phonemes:
     cf6: 4900
     cfN0: 250
     cfNP: 200
-    fricationAmplitude: 0.7
+    fricationAmplitude: 0.50
     pa1: 0.15
     pa2: 0.25
     pa3: 0.38
-    pa4: 0.50
-    pa5: 0.55
-    pa6: 0.60
+    pa4: 0.48
+    pa5: 0.35
+    pa6: 0.30
     parallelBypass: 0
     pb1: 60
     pb2: 100
