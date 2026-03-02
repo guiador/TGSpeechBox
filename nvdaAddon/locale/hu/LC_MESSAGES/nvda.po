@@ -1741,6 +1741,11 @@ msgstr "Kettőshangzó összevonás Időtartam alsó határ (ms)"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Diphthong Collapse Duration Scale"
+msgstr "Kettőshangzó összevonás Időtartam skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Diphthong Collapse Micro Frame Interval (ms)"
 msgstr "Kettőshangzó összevonás Mikrokeret időköz (ms)"
 
@@ -1768,6 +1773,11 @@ msgstr "Kettőshangzó összevonás: Amplitúdó merülési tényező"
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Diphthong Collapse: Duration Floor (ms)"
 msgstr "Kettőshangzó összevonás: Időtartam alsó határ (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Diphthong Collapse: Duration Scale"
+msgstr "Kettőshangzó összevonás: Időtartam skála"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py

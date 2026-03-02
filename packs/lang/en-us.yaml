@@ -229,7 +229,7 @@ settings:
       dipDurationPct: 0.25
   diphthongCollapse:
     enabled: true
-    durationScale: 0.90
+    durationScale: 0.95
     durationFloorMs: 50
     rateCompensation: 0.15
     onsetHoldExponent: 1.3

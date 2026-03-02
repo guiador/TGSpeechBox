@@ -1767,6 +1767,11 @@ msgstr "Colapso de Diptongo Piso de Duración (ms)"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Diphthong Collapse Duration Scale"
+msgstr "Colapso de Diptongo Escala de Duración"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Diphthong Collapse Micro Frame Interval (ms)"
 msgstr "Colapso de Diptongo Intervalo de Micro Cuadro (ms)"
 
@@ -1794,6 +1799,11 @@ msgstr "Colapso de Diptongo: Factor de Caída de Amplitud"
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Diphthong Collapse: Duration Floor (ms)"
 msgstr "Colapso de Diptongo: Piso de Duración (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Diphthong Collapse: Duration Scale"
+msgstr "Colapso de Diptongo: Escala de Duración"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
