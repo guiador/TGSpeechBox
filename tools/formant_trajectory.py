@@ -186,6 +186,159 @@ _FORMANT_ALPHA = 0.004
 
 
 # =============================================================================
+# Place of Articulation (port of pass_common.h getPlace)
+# =============================================================================
+
+class Place:
+    UNKNOWN = 0
+    LABIAL = 1
+    ALVEOLAR = 2
+    PALATAL = 3
+    VELAR = 4
+
+_LABIALS = frozenset(["p", "b", "m", "f", "v", "w", "\u028d", "\u0278", "\u03b2"])
+_ALVEOLARS = frozenset([
+    "t", "d", "n", "s", "z", "l", "r", "\u0279", "\u027e",
+    "\u03b8", "\u00f0", "\u026c", "\u026e", "\u027b",
+    "\u0256", "\u0288", "\u0273", "\u027d",
+])
+_PALATALS = frozenset([
+    "\u0283", "\u0292",                           # ʃ ʒ
+    "t\u0283", "d\u0292",                         # tʃ dʒ
+    "t\u0361\u0283", "d\u0361\u0292",             # t͡ʃ d͡ʒ
+    "j", "\u0272", "\u00e7", "\u029d",            # j ɲ ç ʝ
+    "c", "\u025f", "\u028e",                      # c ɟ ʎ
+])
+_VELARS = frozenset(["k", "g", "\u014b", "x", "\u0263", "\u0270"])
+
+
+def get_place(key: str) -> int:
+    """Determine place of articulation from phoneme key (IPA string)."""
+    if key in _LABIALS:
+        return Place.LABIAL
+    if key in _ALVEOLARS:
+        return Place.ALVEOLAR
+    if key in _PALATALS:
+        return Place.PALATAL
+    if key in _VELARS:
+        return Place.VELAR
+    return Place.UNKNOWN
+
+
+# =============================================================================
+# Emission Token (lightweight carrier for micro-frame dispatch)
+# =============================================================================
+
+@dataclass
+class EmissionToken:
+    """Lightweight token for micro-frame emission dispatch.
+
+    Mirrors the subset of C++ Token fields needed by frame_emit.cpp.
+    Built by build_tokens() from IPA tokenization + pack lookup.
+    """
+    pdef: Optional[PhonemeDef] = None
+    frame: Optional[Frame] = None
+
+    # Timing
+    duration_ms: float = 0.0
+    fade_ms: float = 10.0
+
+    # Label for visualization
+    label: str = ""
+
+    # Stress level (0=none, 1=primary, 2=secondary)
+    stress: int = 0
+
+    # Flags
+    silence: bool = False
+    pre_stop_gap: bool = False
+    voiced_closure: bool = False
+    post_stop_aspiration: bool = False
+    coda_fric_stop_blend: bool = False
+    word_start: bool = False
+    is_diphthong_glide: bool = False
+
+    # Diphthong end targets (set by collapse_diphthongs)
+    has_end_cf1: bool = False
+    has_end_cf2: bool = False
+    has_end_cf3: bool = False
+    end_cf1: float = 0.0
+    end_cf2: float = 0.0
+    end_cf3: float = 0.0
+    has_end_pf1: bool = False
+    has_end_pf2: bool = False
+    has_end_pf3: bool = False
+    end_pf1: float = 0.0
+    end_pf2: float = 0.0
+    end_pf3: float = 0.0
+    has_end_cb1: bool = False
+    has_end_cb2: bool = False
+    has_end_cb3: bool = False
+    end_cb1: float = 0.0
+    end_cb2: float = 0.0
+    end_cb3: float = 0.0
+    has_end_pb1: bool = False
+    has_end_pb2: bool = False
+    has_end_pb3: bool = False
+    end_pb1: float = 0.0
+    end_pb2: float = 0.0
+    end_pb3: float = 0.0
+
+
+# =============================================================================
+# Adaptive Onset Hold (port of frame_emit.cpp adaptiveOnsetHold)
+# =============================================================================
+
+def adaptive_onset_hold(
+    base_hold: float,
+    start_cf1: float, end_cf1: float,
+    start_cf2: float, end_cf2: float,
+    total_dur_ms: float,
+    next_token: Optional[EmissionToken],
+) -> float:
+    """Scale diphthong onset hold exponent based on sweep width and context.
+
+    Wide formant sweeps need earlier motion onset. Following stops/silence
+    need the offglide to complete in-token. Minimum ~40ms offglide enforced.
+    Port of frame_emit.cpp lines 47-98.
+    """
+    hold = base_hold
+    if hold <= 1.0:
+        return hold
+
+    # 1. Sweep-width scaling
+    sweep_f2 = abs(end_cf2 - start_cf2)
+    sweep_f1 = abs(end_cf1 - start_cf1)
+    sweep_max = max(sweep_f2, sweep_f1)
+
+    if sweep_max > 300.0:
+        width_frac = min((sweep_max - 300.0) / 300.0, 1.0)
+        hold = hold + (1.0 - hold) * width_frac
+
+    # 2. Following-context check
+    next_is_abrupt = False
+    if next_token is None or next_token.silence or next_token.pre_stop_gap:
+        next_is_abrupt = True
+    elif next_token.pdef and next_token.pdef.is_stop:
+        next_is_abrupt = True
+
+    # 3. Minimum offglide duration (~40ms)
+    min_offglide_ms = 40.0
+    if (total_dur_ms > min_offglide_ms and hold > 1.0
+            and (next_is_abrupt or sweep_max > 400.0)):
+        sweep_start = pow(0.15, 1.0 / max(hold, 1.001))
+        effective_sweep_ms = total_dur_ms * (1.0 - sweep_start)
+        if effective_sweep_ms < min_offglide_ms:
+            target_start = 1.0 - (min_offglide_ms / total_dur_ms)
+            if 0.01 < target_start < 0.99:
+                hold = math.log(0.15) / math.log(target_start)
+                if hold < 1.0:
+                    hold = 1.0
+
+    return hold
+
+
+# =============================================================================
 # Frame Manager (accurate port of frame.cpp)
 # =============================================================================
 
@@ -869,11 +1022,11 @@ def get_fade_ms(
         cur_fric = pdef.get_field("fricationAmplitude") > 0.3
 
         if prev_vowel_like and cur_stop:
-            base_fade = lp.boundary_smoothing_vowel_to_stop_fade_ms
+            base_fade = lp.boundary_smoothing_vowel_to_stop_ms
         elif (prev_pdef.is_stop or prev_pdef.is_affricate) and (pdef.is_vowel or pdef.is_semivowel):
-            base_fade = lp.boundary_smoothing_stop_to_vowel_fade_ms
+            base_fade = lp.boundary_smoothing_stop_to_vowel_ms
         elif prev_vowel_like and cur_fric:
-            base_fade = lp.boundary_smoothing_vowel_to_fric_fade_ms
+            base_fade = lp.boundary_smoothing_vowel_to_fric_ms
 
     return base_fade / speed
 
@@ -1131,31 +1284,31 @@ def plot_vowel_space(points: list[TrajectoryPoint], title: str = "Vowel Space (F
 # Main pipeline
 # =============================================================================
 
-def process_ipa(
-    ipa: str,
+def build_tokens(
+    ipa_tokens: list[str],
     pack: PackSet,
-    f0: float = 140.0,
-    speed: float = 1.0,
-    sample_rate: int = 16000,
-) -> tuple[list[TrajectoryPoint], list[str]]:
-    """
-    Convert IPA string to trajectory points using pack parameters.
-    Returns (points, tokens).
-    """
-    tokens = tokenize_ipa(ipa, set(pack.phonemes.keys()))
+    f0: float,
+    speed: float,
+) -> list[EmissionToken]:
+    """Build EmissionToken list from IPA tokens with timing, frames, and flags.
 
-    recorder = TrajectoryRecorder(sample_rate=sample_rate, resolution_ms=0.5)
-
-    stress = 0  # 0=none, 1=primary, 2=secondary
+    Handles stress/length markers, stop closure gaps (with voiced_closure
+    and pre_stop_gap flags), post-stop aspiration tokens, and word boundaries.
+    """
+    result: list[EmissionToken] = []
+    stress = 0
     tie_next = False
     lengthened = False
     prev_pdef: Optional[PhonemeDef] = None
+    at_word_start = True
 
-    for tok in tokens:
+    for tok in ipa_tokens:
         if tok == " ":
-            # Word gap - small silence
-            recorder.queue_frame(None, duration_ms=35.0 / speed, fade_ms=5.0, label=" ")
+            et = EmissionToken(
+                silence=True, duration_ms=35.0 / speed, fade_ms=5.0, label=" ")
+            result.append(et)
             prev_pdef = None
+            at_word_start = True
             continue
         if tok == "ˈ":
             stress = 1
@@ -1176,40 +1329,813 @@ def process_ipa(
         if pdef is None:
             continue
 
-        # Check for stop closure gap
+        # Stop closure gap
         gap_ms, gap_fade = get_stop_closure_gap(pdef, pack, speed, prev_pdef)
         if gap_ms > 0:
-            recorder.queue_frame(None, duration_ms=gap_ms, fade_ms=gap_fade, label="")
+            is_voiced = pdef.is_voiced
+            gap_tok = EmissionToken(
+                pdef=pdef,
+                silence=not is_voiced,
+                pre_stop_gap=not is_voiced,
+                voiced_closure=is_voiced,
+                duration_ms=gap_ms,
+                fade_ms=gap_fade,
+                label="",
+            )
+            # Coda fric-stop blend: if prev token was a fricative
+            if (prev_pdef is not None
+                    and prev_pdef.get_field("fricationAmplitude") > 0.1
+                    and not prev_pdef.is_stop and not prev_pdef.is_affricate):
+                gap_tok.coda_fric_stop_blend = True
+            result.append(gap_tok)
 
-        # Get duration using pack parameters
+        # Duration
         dur = get_phoneme_duration_ms(pdef, pack, speed, stress, lengthened)
-
-        # Tie (offglide) shortening
         if tie_next:
             dur *= 0.4
             tie_next = False
 
-        # Pitch adjustment for stress
+        # Pitch
         pitch = f0
         if stress == 1:
             pitch *= 1.05
         elif stress == 2:
             pitch *= 1.02
-        stress = 0
-        lengthened = False
 
-        # Get fade using pack parameters
+        # Fade
         fade = get_fade_ms(pdef, pack, speed, prev_pdef)
 
-        # Build frame using pack defaults
+        # Frame
         frame = build_frame_from_phoneme(pdef, pack, f0=pitch)
         frame.endVoicePitch = pitch
 
-        recorder.queue_frame(frame, duration_ms=dur, fade_ms=fade, label=tok)
+        et = EmissionToken(
+            pdef=pdef,
+            frame=frame,
+            duration_ms=dur,
+            fade_ms=fade,
+            label=tok,
+            stress=stress,
+            word_start=at_word_start,
+        )
+
+        # Post-stop aspiration: insert after voiceless stops
+        if (pack.lang.post_stop_aspiration_enabled
+                and (pdef.is_stop or pdef.is_affricate)
+                and not pdef.is_voiced):
+            asp_dur = pack.lang.post_stop_aspiration_duration_ms / speed
+            asp_pdef = pack.get_phoneme(pack.lang.post_stop_aspiration_phoneme)
+            if asp_pdef and asp_dur > 0:
+                # Main stop token gets its duration
+                result.append(et)
+                # Aspiration token
+                asp_frame = build_frame_from_phoneme(asp_pdef, pack, f0=pitch)
+                asp_frame.endVoicePitch = pitch
+                asp_tok = EmissionToken(
+                    pdef=asp_pdef,
+                    frame=asp_frame,
+                    duration_ms=asp_dur,
+                    fade_ms=min(fade, asp_dur),
+                    label=tok,
+                    post_stop_aspiration=True,
+                    coda_fric_stop_blend=et.coda_fric_stop_blend,
+                )
+                result.append(asp_tok)
+                prev_pdef = asp_pdef
+                stress = 0
+                lengthened = False
+                at_word_start = False
+                continue
+
+        result.append(et)
         prev_pdef = pdef
+        stress = 0
+        lengthened = False
+        at_word_start = False
+
+    return result
+
+
+def collapse_diphthongs(
+    tokens: list[EmissionToken],
+    pack: PackSet,
+) -> list[EmissionToken]:
+    """Detect and collapse tied vowel pairs into diphthong glide tokens.
+
+    Handles explicit tie bars (U+0361) already present between tokens,
+    and auto-ties adjacent vowels if pack.lang.auto_tie_diphthongs is True.
+    Mirrors diphthong_collapse.cpp.
+    """
+    if not pack.lang.diphthong_collapse_enabled:
+        return tokens
+
+    # Pass 1: Mark tied pairs.
+    # Tie bars in IPA become separate tokens during tokenization, but
+    # build_tokens() doesn't emit them as EmissionTokens. Instead, we look
+    # for adjacent vowel tokens and auto-tie if enabled.
+    auto_tie = pack.lang.auto_tie_diphthongs
+    tied: list[bool] = [False] * len(tokens)  # True = onset of a tied pair
+
+    for i in range(len(tokens) - 1):
+        a = tokens[i]
+        b = tokens[i + 1]
+        if a.pdef is None or b.pdef is None:
+            continue
+        if not a.pdef.is_vowel:
+            continue
+        if not (b.pdef.is_vowel or b.pdef.is_semivowel):
+            continue
+        if a.silence or b.silence or a.pre_stop_gap or b.pre_stop_gap:
+            continue
+        # Guard: syllabic nasals flagged _isVowel can false-trigger
+        if a.pdef.is_nasal or b.pdef.is_nasal:
+            continue
+        if auto_tie:
+            tied[i] = True
+
+    # Pass 2: Collapse tied pairs into single diphthong glide tokens.
+    result: list[EmissionToken] = []
+    i = 0
+    while i < len(tokens):
+        if tied[i] and i + 1 < len(tokens):
+            a = tokens[i]
+            b = tokens[i + 1]
+
+            # Merge duration (with floor)
+            merged_dur = a.duration_ms + b.duration_ms
+            floor = pack.lang.diphthong_duration_floor_ms
+            if merged_dur < floor:
+                merged_dur = floor
+
+            a.duration_ms = merged_dur
+            a.is_diphthong_glide = True
+
+            # Capture end targets from offset vowel (b)
+            if b.pdef:
+                for param, (has_attr, val_attr) in [
+                    ("cf1", ("has_end_cf1", "end_cf1")),
+                    ("cf2", ("has_end_cf2", "end_cf2")),
+                    ("cf3", ("has_end_cf3", "end_cf3")),
+                    ("pf1", ("has_end_pf1", "end_pf1")),
+                    ("pf2", ("has_end_pf2", "end_pf2")),
+                    ("pf3", ("has_end_pf3", "end_pf3")),
+                    ("cb1", ("has_end_cb1", "end_cb1")),
+                    ("cb2", ("has_end_cb2", "end_cb2")),
+                    ("cb3", ("has_end_cb3", "end_cb3")),
+                    ("pb1", ("has_end_pb1", "end_pb1")),
+                    ("pb2", ("has_end_pb2", "end_pb2")),
+                    ("pb3", ("has_end_pb3", "end_pb3")),
+                ]:
+                    if b.pdef.has_field(param):
+                        setattr(a, has_attr, True)
+                        setattr(a, val_attr, b.pdef.get_field(param))
+
+            result.append(a)
+            i += 2  # Skip the offset vowel
+        else:
+            result.append(tokens[i])
+            i += 1
+
+    return result
+
+
+def emit_micro_frames(
+    tokens: list[EmissionToken],
+    pack: PackSet,
+    speed: float,
+    recorder: TrajectoryRecorder,
+) -> None:
+    """Emit micro-frames for a token sequence into the recorder.
+
+    Port of frame_emit.cpp emitFrames(). Each token is inspected for
+    micro-event flags and the appropriate emission pattern is chosen.
+    """
+    lp = pack.lang
+    prev_base: Optional[Frame] = None
+    had_prev_frame = False
+    prev_token_was_stop = False
+    prev_token_was_tap = False
+
+    for idx, t in enumerate(tokens):
+        next_t = tokens[idx + 1] if idx + 1 < len(tokens) else None
+
+        # 1. Voice bar (voiced stop closures)
+        if t.voiced_closure and had_prev_frame and prev_base is not None:
+            _emit_voice_bar(prev_base, t, pack, recorder)
+            continue
+
+        # 2. Coda noise taper (fricative→stop closure)
+        if (t.pre_stop_gap and t.coda_fric_stop_blend
+                and not t.voiced_closure and had_prev_frame
+                and prev_base is not None):
+            _emit_coda_taper(prev_base, t, pack, recorder)
+            continue
+
+        # 3. Silence / no pdef
+        if t.silence or t.pdef is None or t.frame is None:
+            recorder.queue_frame(
+                None, duration_ms=t.duration_ms, fade_ms=t.fade_ms, label=t.label)
+            continue
+
+        # 4. Build base frame (already in t.frame), save prev_base
+        base = t.frame
+        prev_base = base.copy()
+
+        # Rate-adaptive bandwidth widening
+        hr_t = lp.high_rate_threshold
+        bw_f = lp.high_rate_bandwidth_widening_factor
+        if hr_t > 0 and bw_f > 1.0 and speed > hr_t:
+            ceiling = hr_t * 1.8
+            ramp = min((speed - hr_t) / (ceiling - hr_t), 1.0)
+            bw_scale = 1.0 + ramp * (bw_f - 1.0)
+            base.cb1 *= bw_scale
+            base.cb2 *= bw_scale
+            base.cb3 *= bw_scale
+
+        # 5. Diphthong glide
+        if t.is_diphthong_glide and t.duration_ms > 0:
+            _emit_diphthong_glide(base, t, pack, speed, recorder, next_t)
+            had_prev_frame = True
+            prev_token_was_stop = False
+            prev_token_was_tap = False
+            continue
+
+        # 6. Trill modulation
+        if (lp.trill_modulation_ms > 0 and t.pdef.is_trill
+                and t.duration_ms > 0):
+            _emit_trill(base, t, pack, recorder)
+            had_prev_frame = True
+            prev_token_was_stop = False
+            continue
+
+        # 7. Stop burst
+        is_stop = t.pdef.is_stop
+        is_affricate = t.pdef.is_affricate
+        if ((is_stop or is_affricate)
+                and not t.pre_stop_gap and not t.post_stop_aspiration
+                and not t.voiced_closure and t.duration_ms > 1.0):
+            _emit_stop_burst(base, t, pack, speed, recorder)
+            had_prev_frame = True
+            prev_token_was_stop = True
+            prev_token_was_tap = False
+            continue
+
+        # 8. Fricative envelope
+        fric_amp = base.fricationAmplitude
+        if (not is_stop and not is_affricate and not t.pre_stop_gap
+                and not t.post_stop_aspiration and not t.voiced_closure
+                and fric_amp > 0.0):
+            _emit_fricative_envelope(
+                base, t, pack, speed, recorder, prev_token_was_stop)
+            had_prev_frame = True
+            prev_token_was_stop = False
+            prev_token_was_tap = False
+            continue
+
+        # 9. Release spread (post-stop aspiration)
+        if t.post_stop_aspiration and t.pdef and t.duration_ms > 1.0:
+            _emit_release_spread(base, t, pack, recorder)
+            had_prev_frame = True
+            prev_token_was_stop = True
+            prev_token_was_tap = False
+            continue
+
+        # 10. Tap notch
+        if t.pdef.is_tap and t.duration_ms > 2.0:
+            _emit_tap_notch(base, t, pack, speed, recorder)
+            had_prev_frame = True
+            prev_token_was_tap = True
+            prev_token_was_stop = False
+            continue
+
+        # 11. Word boundary dip + normal emission
+        main_dur = t.duration_ms
+        main_fade = t.fade_ms
+        wb_dip_ms = lp.word_boundary_dip_ms
+
+        if (wb_dip_ms > 0 and t.word_start and had_prev_frame
+                and main_dur > wb_dip_ms + 1.0):
+            dip = base.copy()
+            depth = lp.word_boundary_dip_depth
+            dip.voiceAmplitude *= depth
+            dip.fricationAmplitude *= depth
+            dip.aspirationAmplitude *= depth
+            recorder.queue_frame(
+                dip, duration_ms=wb_dip_ms, fade_ms=main_fade, label=t.label)
+            main_dur -= wb_dip_ms
+            main_fade = wb_dip_ms
+
+        # Post-tap fade cap
+        emit_fade = main_fade
+        if prev_token_was_tap and main_dur > 0:
+            emit_fade = min(emit_fade, main_dur * 0.35)
+
+        recorder.queue_frame(
+            base, duration_ms=main_dur, fade_ms=emit_fade, label=t.label)
+        had_prev_frame = True
+        prev_token_was_tap = False
+        prev_token_was_stop = (
+            t.pdef.is_stop or t.pdef.is_affricate or t.post_stop_aspiration)
+
+
+# =============================================================================
+# Individual Micro-Event Emitters
+# =============================================================================
+
+def _emit_voice_bar(
+    prev_base: Frame,
+    token: EmissionToken,
+    pack: PackSet,
+    recorder: TrajectoryRecorder,
+) -> None:
+    """Voiced stop closure: murmur from previous frame's resonators."""
+    vb = prev_base.copy()
+    vb_amp = (token.pdef.voice_bar_amplitude
+              if token.pdef and token.pdef.has_voice_bar_amplitude else 0.3)
+    vb_f1 = (token.pdef.voice_bar_f1
+             if token.pdef and token.pdef.has_voice_bar_f1 else 150.0)
+
+    vb.voiceAmplitude = vb_amp
+    vb.fricationAmplitude = 0.0
+    vb.aspirationAmplitude = 0.0
+    vb.cf1 = vb_f1
+    vb.pf1 = vb_f1
+    vb.preFormantGain = vb_amp
+
+    fade = max(token.fade_ms, 8.0)
+    recorder.queue_frame(vb, duration_ms=token.duration_ms, fade_ms=fade,
+                         label=token.label)
+
+
+def _emit_coda_taper(
+    prev_base: Frame,
+    token: EmissionToken,
+    pack: PackSet,
+    recorder: TrajectoryRecorder,
+) -> None:
+    """Fricative→stop closure crossfade: 2 micro-frames (early sibilant, late aspirated)."""
+    lp = pack.lang
+    total_dur = token.duration_ms
+    early_dur = total_dur * 0.45
+    late_dur = total_dur - early_dur
+    prev_fric = prev_base.fricationAmplitude
+
+    # Early taper: sibilant tail
+    early = prev_base.copy()
+    early.voiceAmplitude = 0.0
+    early.fricationAmplitude = prev_fric * lp.coda_noise_taper_early_fric_scale
+    early.aspirationAmplitude = lp.coda_noise_taper_early_asp_amp
+    early.preFormantGain = lp.coda_noise_taper_pre_gain
+    recorder.queue_frame(early, duration_ms=early_dur, fade_ms=token.fade_ms,
+                         label=token.label)
+
+    # Late taper: aspirated transition
+    late = prev_base.copy()
+    late.voiceAmplitude = 0.0
+    late.fricationAmplitude = prev_fric * lp.coda_noise_taper_late_fric_scale
+    late.aspirationAmplitude = lp.coda_noise_taper_late_asp_amp
+    late.preFormantGain = lp.coda_noise_taper_pre_gain
+
+    # Blend formants toward stop's place (40%)
+    if token.pdef:
+        blend = 0.40
+        for param in ("cf2", "cf3", "pf2", "pf3"):
+            if token.pdef.has_field(param):
+                cur = getattr(late, param)
+                target = token.pdef.get_field(param)
+                setattr(late, param, cur + (target - cur) * blend)
+
+    late_fade = max(early_dur * 0.5, late_dur * 0.4)
+    recorder.queue_frame(late, duration_ms=late_dur, fade_ms=late_fade,
+                         label=token.label)
+
+
+def _emit_stop_burst(
+    base: Frame,
+    token: EmissionToken,
+    pack: PackSet,
+    speed: float,
+    recorder: TrajectoryRecorder,
+) -> None:
+    """Stop/affricate burst: 2 micro-frames (burst + decay)."""
+    pdef = token.pdef
+    place = get_place(pdef.key) if pdef else Place.UNKNOWN
+
+    # Place-based defaults
+    burst_ms = 7.0
+    decay_rate = 0.5
+    spectral_tilt = 0.0
+    if place == Place.LABIAL:
+        burst_ms, decay_rate, spectral_tilt = 5.0, 0.6, 0.1
+    elif place == Place.ALVEOLAR:
+        burst_ms, decay_rate, spectral_tilt = 7.0, 0.5, 0.0
+    elif place == Place.VELAR:
+        burst_ms, decay_rate, spectral_tilt = 11.0, 0.4, -0.15
+    elif place == Place.PALATAL:
+        burst_ms, decay_rate, spectral_tilt = 9.0, 0.45, -0.1
+
+    # Phoneme-level overrides
+    if pdef.has_burst_duration_ms:
+        burst_ms = pdef.burst_duration_ms
+    if pdef.has_burst_decay_rate:
+        decay_rate = pdef.burst_decay_rate
+    if pdef.has_burst_spectral_tilt:
+        spectral_tilt = pdef.burst_spectral_tilt
+
+    # Coda blend: longer burst, faster decay
+    if token.coda_fric_stop_blend and not pdef.is_affricate:
+        burst_ms = max(burst_ms, token.duration_ms * 0.6)
+        decay_rate = 0.7
+
+    # Clamp burst to 75% of token
+    max_burst = token.duration_ms * 0.75
+    if burst_ms > max_burst:
+        burst_ms = max_burst
+
+    total_dur = token.duration_ms
+    start_pitch = base.voicePitch
+    pitch_delta = base.endVoicePitch - start_pitch
+    burst_frac = burst_ms / total_dur if total_dur > 0 else 0
+
+    # Burst micro-frame
+    seg1 = base.copy()
+    seg1.voicePitch = start_pitch
+    seg1.endVoicePitch = start_pitch + pitch_delta * burst_frac
+    if spectral_tilt < 0:
+        seg1.pa5 = min(1.0, seg1.pa5 * (1.0 - spectral_tilt))
+        seg1.pa6 = min(1.0, seg1.pa6 * (1.0 - spectral_tilt * 0.7))
+    elif spectral_tilt > 0:
+        seg1.pa3 = min(1.0, seg1.pa3 * (1.0 + spectral_tilt))
+        seg1.pa4 = min(1.0, seg1.pa4 * (1.0 + spectral_tilt * 0.7))
+    recorder.queue_frame(seg1, duration_ms=burst_ms, fade_ms=token.fade_ms,
+                         label=token.label)
+
+    # Decay micro-frame
+    seg2 = base.copy()
+    seg2.voicePitch = start_pitch + pitch_delta * burst_frac
+    seg2.endVoicePitch = start_pitch + pitch_delta
+    if not pdef.is_affricate:
+        seg2.fricationAmplitude *= (1.0 - decay_rate)
+    decay_dur = total_dur - burst_ms
+    decay_fade = min(burst_ms * 0.5, decay_dur)
+    recorder.queue_frame(seg2, duration_ms=decay_dur, fade_ms=decay_fade,
+                         label=token.label)
+
+
+def _emit_fricative_envelope(
+    base: Frame,
+    token: EmissionToken,
+    pack: PackSet,
+    speed: float,
+    recorder: TrajectoryRecorder,
+    prev_was_stop: bool,
+) -> None:
+    """Fricative: 3 micro-frames (attack/sustain/decay)."""
+    pdef = token.pdef
+    attack_ms = pdef.fric_attack_ms if pdef.has_fric_attack_ms else 3.0
+    decay_ms = pdef.fric_decay_ms if pdef.has_fric_decay_ms else 4.0
+
+    if prev_was_stop:
+        attack_ms = min(attack_ms, 2.5)
+
+    # Only emit micro-frames if long enough
+    if attack_ms + decay_ms + 2.0 >= token.duration_ms:
+        # Too short — single frame fallback
+        recorder.queue_frame(
+            base, duration_ms=token.duration_ms, fade_ms=token.fade_ms,
+            label=token.label)
+        return
+
+    fric_amp = base.fricationAmplitude
+    total_dur = token.duration_ms
+    sustain_dur = total_dur - attack_ms - decay_ms
+    start_pitch = base.voicePitch
+    pitch_delta = base.endVoicePitch - start_pitch
+    attack_frac = attack_ms / total_dur
+    sustain_end_frac = (attack_ms + sustain_dur) / total_dur
+
+    # Attack: 10% → full
+    seg1 = base.copy()
+    seg1.fricationAmplitude = fric_amp * 0.1
+    seg1.voicePitch = start_pitch
+    seg1.endVoicePitch = start_pitch + pitch_delta * attack_frac
+    recorder.queue_frame(seg1, duration_ms=attack_ms, fade_ms=token.fade_ms,
+                         label=token.label)
+
+    # Sustain: full amplitude
+    seg2 = base.copy()
+    seg2.voicePitch = start_pitch + pitch_delta * attack_frac
+    seg2.endVoicePitch = start_pitch + pitch_delta * sustain_end_frac
+    recorder.queue_frame(seg2, duration_ms=sustain_dur, fade_ms=attack_ms,
+                         label=token.label)
+
+    # Decay: full → 30%
+    seg3 = base.copy()
+    seg3.fricationAmplitude = fric_amp * 0.3
+    seg3.voicePitch = start_pitch + pitch_delta * sustain_end_frac
+    seg3.endVoicePitch = start_pitch + pitch_delta
+    recorder.queue_frame(seg3, duration_ms=decay_ms, fade_ms=decay_ms * 0.5,
+                         label=token.label)
+
+
+def _emit_release_spread(
+    base: Frame,
+    token: EmissionToken,
+    pack: PackSet,
+    recorder: TrajectoryRecorder,
+) -> None:
+    """Post-stop aspiration: 2 micro-frames (ramp-in + full)."""
+    pdef = token.pdef
+
+    # Coda blend variant: single frame at 60% aspiration
+    if token.coda_fric_stop_blend:
+        seg = base.copy()
+        seg.aspirationAmplitude *= 0.60
+        recorder.queue_frame(seg, duration_ms=token.duration_ms,
+                             fade_ms=token.duration_ms * 0.5, label=token.label)
+        return
+
+    spread_ms = (pdef.release_spread_ms
+                 if pdef.has_release_spread_ms else 4.0)
+
+    if spread_ms <= 0 or spread_ms >= token.duration_ms:
+        recorder.queue_frame(base, duration_ms=token.duration_ms,
+                             fade_ms=token.fade_ms, label=token.label)
+        return
+
+    total_dur = token.duration_ms
+    start_pitch = base.voicePitch
+    pitch_delta = base.endVoicePitch - start_pitch
+    spread_frac = spread_ms / total_dur if total_dur > 0 else 0
+
+    # Ramp-in: 15% amplitude
+    seg1 = base.copy()
+    seg1.fricationAmplitude *= 0.15
+    seg1.aspirationAmplitude *= 0.15
+    seg1.voicePitch = start_pitch
+    seg1.endVoicePitch = start_pitch + pitch_delta * spread_frac
+    recorder.queue_frame(seg1, duration_ms=spread_ms, fade_ms=token.fade_ms,
+                         label=token.label)
+
+    # Full aspiration
+    seg2 = base.copy()
+    seg2.voicePitch = start_pitch + pitch_delta * spread_frac
+    seg2.endVoicePitch = start_pitch + pitch_delta
+    full_dur = total_dur - spread_ms
+    recorder.queue_frame(seg2, duration_ms=full_dur, fade_ms=spread_ms * 0.5,
+                         label=token.label)
+
+
+def _emit_tap_notch(
+    base: Frame,
+    token: EmissionToken,
+    pack: PackSet,
+    speed: float,
+    recorder: TrajectoryRecorder,
+) -> None:
+    """Tap: 3 micro-frames (onset / amplitude notch / recovery)."""
+    total_dur = token.duration_ms
+    notch_floor_ms = 1.5
+    notch_dur = max(total_dur * 0.50, notch_floor_ms)
+    if notch_dur > total_dur * 0.80:
+        notch_dur = total_dur * 0.80
+    remain_dur = total_dur - notch_dur
+    onset_dur = remain_dur * 0.5
+    recov_dur = remain_dur - onset_dur
+
+    notch_amp = base.voiceAmplitude * 0.50
+    start_pitch = base.voicePitch
+    pitch_delta = base.endVoicePitch - start_pitch
+    onset_frac = onset_dur / total_dur if total_dur > 0 else 0
+    notch_end_frac = (onset_dur + notch_dur) / total_dur if total_dur > 0 else 0
+    micro_fade = max(0.5, 1.5 / max(0.5, speed))
+
+    # Onset
+    seg1 = base.copy()
+    seg1.voicePitch = start_pitch
+    seg1.endVoicePitch = start_pitch + pitch_delta * onset_frac
+    recorder.queue_frame(seg1, duration_ms=onset_dur, fade_ms=token.fade_ms,
+                         label=token.label)
+
+    # Notch
+    seg2 = base.copy()
+    seg2.voiceAmplitude = notch_amp
+    seg2.voicePitch = start_pitch + pitch_delta * onset_frac
+    seg2.endVoicePitch = start_pitch + pitch_delta * notch_end_frac
+    recorder.queue_frame(seg2, duration_ms=notch_dur, fade_ms=micro_fade,
+                         label=token.label)
+
+    # Recovery
+    seg3 = base.copy()
+    seg3.voicePitch = start_pitch + pitch_delta * notch_end_frac
+    seg3.endVoicePitch = start_pitch + pitch_delta
+    recorder.queue_frame(seg3, duration_ms=recov_dur, fade_ms=micro_fade,
+                         label=token.label)
+
+
+def _emit_diphthong_glide(
+    base: Frame,
+    token: EmissionToken,
+    pack: PackSet,
+    speed: float,
+    recorder: TrajectoryRecorder,
+    next_token: Optional[EmissionToken],
+) -> None:
+    """Diphthong: N cosine-smoothed formant sweep waypoints."""
+    lp = pack.lang
+    total_dur = token.duration_ms
+
+    interval_ms = lp.diphthong_micro_frame_interval_ms
+    pitch0 = base.voicePitch
+    if pitch0 > 100.0:
+        interval_ms *= (100.0 / pitch0)
+        if interval_ms < 3.0:
+            interval_ms = 3.0
+
+    N = max(3, min(10, int(total_dur / interval_ms))) if interval_ms > 0 else 3
+
+    start_cf1, start_cf2, start_cf3 = base.cf1, base.cf2, base.cf3
+    start_pf1, start_pf2, start_pf3 = base.pf1, base.pf2, base.pf3
+    start_cb1, start_cb2, start_cb3 = base.cb1, base.cb2, base.cb3
+    start_pb1, start_pb2, start_pb3 = base.pb1, base.pb2, base.pb3
+
+    end_cf1 = token.end_cf1 if token.has_end_cf1 else start_cf1
+    end_cf2 = token.end_cf2 if token.has_end_cf2 else start_cf2
+    end_cf3 = token.end_cf3 if token.has_end_cf3 else start_cf3
+    end_pf1 = token.end_pf1 if token.has_end_pf1 else end_cf1
+    end_pf2 = token.end_pf2 if token.has_end_pf2 else end_cf2
+    end_pf3 = token.end_pf3 if token.has_end_pf3 else end_cf3
+    end_cb1 = token.end_cb1 if token.has_end_cb1 else start_cb1
+    end_cb2 = token.end_cb2 if token.has_end_cb2 else start_cb2
+    end_cb3 = token.end_cb3 if token.has_end_cb3 else start_cb3
+    end_pb1 = token.end_pb1 if token.has_end_pb1 else start_pb1
+    end_pb2 = token.end_pb2 if token.has_end_pb2 else start_pb2
+    end_pb3 = token.end_pb3 if token.has_end_pb3 else start_pb3
+
+    start_pitch = base.voicePitch
+    end_pitch = base.endVoicePitch
+    pitch_delta = end_pitch - start_pitch
+    dip_factor = lp.diphthong_amplitude_dip_factor
+    base_seg_dur = total_dur / N
+
+    # Adaptive onset hold
+    onset_hold = adaptive_onset_hold(
+        lp.diphthong_onset_hold_exponent,
+        start_cf1, end_cf1, start_cf2, end_cf2,
+        total_dur, next_token)
+
+    # Onset settle
+    seg0_dur = base_seg_dur
+    other_seg_dur = base_seg_dur
+    settle_ms = lp.diphthong_onset_settle_ms
+    if settle_ms > 0 and N > 1:
+        seg0_dur = min(base_seg_dur + settle_ms, total_dur * 0.5)
+        other_seg_dur = (total_dur - seg0_dur) / (N - 1)
+
+    for seg in range(N):
+        frac = (seg / (N - 1)) if N > 1 else 0.0
+        if onset_hold > 1.0:
+            frac = pow(frac, onset_hold)
+        s = cosine_smooth(frac)
+
+        mf = base.copy()
+        mf.cf1 = freq_lerp(start_cf1, end_cf1, s)
+        mf.cf2 = freq_lerp(start_cf2, end_cf2, s)
+        mf.cf3 = freq_lerp(start_cf3, end_cf3, s)
+        mf.pf1 = freq_lerp(start_pf1, end_pf1, s)
+        mf.pf2 = freq_lerp(start_pf2, end_pf2, s)
+        mf.pf3 = freq_lerp(start_pf3, end_pf3, s)
+        mf.cb1 = freq_lerp(start_cb1, end_cb1, s)
+        mf.cb2 = freq_lerp(start_cb2, end_cb2, s)
+        mf.cb3 = freq_lerp(start_cb3, end_cb3, s)
+        mf.pb1 = freq_lerp(start_pb1, end_pb1, s)
+        mf.pb2 = freq_lerp(start_pb2, end_pb2, s)
+        mf.pb3 = freq_lerp(start_pb3, end_pb3, s)
+
+        t0 = (seg / N) if N > 1 else 0.0
+        t1 = ((seg + 1) / N) if N > 1 else 1.0
+        mf.voicePitch = start_pitch + pitch_delta * t0
+        mf.endVoicePitch = start_pitch + pitch_delta * t1
+
+        if dip_factor > 0:
+            amp_scale = 1.0 - dip_factor * math.sin(math.pi * frac)
+            mf.voiceAmplitude *= amp_scale
+
+        this_dur = seg0_dur if seg == 0 else other_seg_dur
+        fade_in = token.fade_ms if seg == 0 else this_dur
+        if fade_in > this_dur:
+            fade_in = this_dur
+
+        recorder.queue_frame(mf, duration_ms=this_dur, fade_ms=fade_in,
+                             label=token.label)
+
+
+def _emit_trill(
+    base: Frame,
+    token: EmissionToken,
+    pack: PackSet,
+    recorder: TrajectoryRecorder,
+) -> None:
+    """Trill: alternating open/closure micro-frames (~28ms cycle)."""
+    lp = pack.lang
+    total_dur = token.duration_ms
+
+    K_CLOSE_FACTOR = 0.22
+    K_CLOSE_FRAC = 0.28
+    K_FRIC_FLOOR = 0.12
+    K_MIN_PHASE_MS = 0.25
+    K_FIXED_CYCLE_MS = 28.0
+
+    cycle_ms = K_FIXED_CYCLE_MS
+    if cycle_ms > total_dur:
+        cycle_ms = total_dur
+
+    close_ms = cycle_ms * K_CLOSE_FRAC
+    open_ms = cycle_ms - close_ms
+    if open_ms < K_MIN_PHASE_MS:
+        open_ms = K_MIN_PHASE_MS
+        close_ms = max(K_MIN_PHASE_MS, cycle_ms - open_ms)
+    if close_ms < K_MIN_PHASE_MS:
+        close_ms = K_MIN_PHASE_MS
+        open_ms = max(K_MIN_PHASE_MS, cycle_ms - close_ms)
+
+    micro_fade = lp.trill_modulation_fade_ms
+    if micro_fade <= 0:
+        micro_fade = min(2.0, cycle_ms * 0.12)
+
+    base_voice_amp = base.voiceAmplitude
+    base_fric_amp = base.fricationAmplitude
+    start_pitch = base.voicePitch
+    pitch_delta = base.endVoicePitch - start_pitch
+
+    remaining = total_dur
+    pos = 0.0
+    high_phase = True
+    first_phase = True
+
+    while remaining > 1e-9:
+        phase_dur = open_ms if high_phase else close_ms
+        if phase_dur > remaining:
+            phase_dur = remaining
+
+        t0 = (pos / total_dur) if total_dur > 0 else 0
+        t1 = ((pos + phase_dur) / total_dur) if total_dur > 0 else 1
+
+        seg = base.copy()
+        seg.voicePitch = start_pitch + pitch_delta * t0
+        seg.endVoicePitch = start_pitch + pitch_delta * t1
+
+        if not high_phase:
+            seg.voiceAmplitude = base_voice_amp * K_CLOSE_FACTOR
+            if base_fric_amp > 0:
+                seg.fricationAmplitude = max(base_fric_amp, K_FRIC_FLOOR)
+
+        fade_in = token.fade_ms if first_phase else micro_fade
+        if fade_in <= 0:
+            fade_in = micro_fade
+        if fade_in > phase_dur:
+            fade_in = phase_dur
+
+        recorder.queue_frame(seg, duration_ms=phase_dur, fade_ms=fade_in,
+                             label=token.label)
+
+        remaining -= phase_dur
+        pos += phase_dur
+        high_phase = not high_phase
+        first_phase = False
+
+
+# =============================================================================
+# Main pipeline (refactored: tokenize → build → collapse → emit)
+# =============================================================================
+
+def process_ipa(
+    ipa: str,
+    pack: PackSet,
+    f0: float = 140.0,
+    speed: float = 1.0,
+    sample_rate: int = 16000,
+) -> tuple[list[TrajectoryPoint], list[str]]:
+    """
+    Convert IPA string to trajectory points using pack parameters.
+    Returns (points, ipa_tokens).
+
+    Pipeline: tokenize_ipa → build_tokens → collapse_diphthongs → emit_micro_frames
+    """
+    ipa_tokens = tokenize_ipa(ipa, set(pack.phonemes.keys()))
+
+    # Phase 1: Build emission tokens from IPA
+    etokens = build_tokens(ipa_tokens, pack, f0, speed)
+
+    # Phase 2: Collapse tied diphthong pairs
+    etokens = collapse_diphthongs(etokens, pack)
+
+    # Phase 3: Emit micro-frames into recorder
+    recorder = TrajectoryRecorder(sample_rate=sample_rate, resolution_ms=0.5)
+    emit_micro_frames(etokens, pack, speed, recorder)
 
     points = recorder.run()
-    return points, tokens
+    return points, ipa_tokens
 
 
 def write_wav(path: Path, audio: np.ndarray, sample_rate: int):
