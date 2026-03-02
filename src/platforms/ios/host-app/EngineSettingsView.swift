@@ -121,8 +121,8 @@ struct EngineSettingsView: View {
         _sampleRateIndex = State(initialValue: Double(idx))
 
         let vol = d?.object(forKey: "systemVolume") != nil
-            ? d!.double(forKey: "systemVolume") : 1.0
-        _systemVolume = State(initialValue: vol > 0.0 ? vol : 1.0)
+            ? d!.double(forKey: "systemVolume") : 0.8
+        _systemVolume = State(initialValue: vol > 0.0 ? vol : 0.8)
     }
 
     var body: some View {
@@ -333,7 +333,7 @@ struct EngineSettingsView: View {
 
         pauseMode = 1         // short
         sampleRateIndex = 2   // 22050 Hz
-        systemVolume = 1.0
+        systemVolume = 0.8
 
         // Persist per-voice defaults
         let d = defaults
