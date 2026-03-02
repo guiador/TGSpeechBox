@@ -817,13 +817,21 @@ void emitFrames(
 
     // TAP MICRO-EVENT (v1 path — see emitFramesEx for full rationale).
     const bool isTap = t.def && ((t.def->flags & kIsTap) != 0);
-    if (isTap && t.durationMs > 2.0) {
+    // Micro-event notch only makes sense when the tap is long enough for
+    // 3 phases to ring up properly.  Below ~15 ms the recovery phase is
+    // so short it creates a burst-like transient ("fourgy" for "forty").
+    // Fall through to normal single-frame emission for very short taps.
+    if (isTap && t.durationMs >= 15.0) {
       const double totalDur = t.durationMs;
       const double notchFloorMs = 1.5;
       double notchDur = std::max(totalDur * 0.50, notchFloorMs);
       if (notchDur > totalDur * 0.80) notchDur = totalDur * 0.80;
       const double remainDur = totalDur - notchDur;
-      const double onsetDur = remainDur * 0.5;
+      // Asymmetric split: shorter recovery so the tap exits quickly into the
+      // following vowel.  The onset carries the vowel-to-tap transition (needs
+      // more time); the recovery just needs to restore amplitude briefly before
+      // the crossfade into the next token handles the formant shift.
+      const double onsetDur = remainDur * 0.65;
       const double recovDur = remainDur - onsetDur;
 
       const int vaIdx = static_cast<int>(FieldId::voiceAmplitude);
@@ -901,7 +909,7 @@ void emitFrames(
 
     double emitFade = mainFade;
     if (prevTokenWasTap && mainDur > 0.0) {
-      emitFade = std::min(emitFade, mainDur * 0.35);
+      emitFade = std::min(emitFade, mainDur * 0.50);
     }
 
     cb(userData, &frame, mainDur, emitFade, userIndexBase);
@@ -1727,7 +1735,8 @@ void emitFramesEx(
     // dip, not formant identity.  At high speech rates, smooth crossfade
     // completely smears the dip.  Emit 3 micro-frames: onset, notch, recovery.
     const bool isTap = t.def && ((t.def->flags & kIsTap) != 0);
-    if (isTap && t.durationMs > 2.0) {
+    // See non-Ex path comment: skip micro-event notch for very short taps.
+    if (isTap && t.durationMs >= 15.0) {
       const double totalDur = t.durationMs;
 
       // Phase proportions: onset 25%, notch 50%, recovery 25%.
@@ -1736,7 +1745,8 @@ void emitFramesEx(
       double notchDur = std::max(totalDur * 0.50, notchFloorMs);
       if (notchDur > totalDur * 0.80) notchDur = totalDur * 0.80;
       const double remainDur = totalDur - notchDur;
-      const double onsetDur = remainDur * 0.5;
+      // Asymmetric split: shorter recovery (see non-Ex path for rationale).
+      const double onsetDur = remainDur * 0.65;
       const double recovDur = remainDur - onsetDur;
 
       // Amplitude dip: reduce voiceAmplitude by 50% in the notch.
@@ -1817,7 +1827,7 @@ void emitFramesEx(
     // notch rings briefly before the next sound smears it away.
     double emitFade = t.fadeMs;
     if (prevTokenWasTap && t.durationMs > 0.0) {
-      emitFade = std::min(emitFade, t.durationMs * 0.35);
+      emitFade = std::min(emitFade, t.durationMs * 0.50);
     }
 
     cb(userData, &frame, &frameEx, t.durationMs, emitFade, userIndexBase);
