@@ -23,6 +23,28 @@ Licensed under the MIT License. See LICENSE for details.
 #include <cstdint>
 #include <sstream>
 
+// Temporary debug logging for text parser investigation.
+// Set to 1 to enable, 0 to disable.
+#define TPARSER_DEBUG_LOG 0
+#if TPARSER_DEBUG_LOG
+#include <cstdio>
+#include <cstdlib>
+static FILE* tparserLogFile() {
+  static FILE* f = nullptr;
+  if (!f) {
+    const char* tmp = std::getenv("TEMP");
+    if (!tmp) tmp = std::getenv("TMP");
+    if (!tmp) tmp = "/tmp";
+    std::string path = std::string(tmp) + "/tgsb_textparser.log";
+    f = std::fopen(path.c_str(), "a");
+  }
+  return f;
+}
+#define TPLOG(...) do { FILE* _f = tparserLogFile(); if (_f) { std::fprintf(_f, __VA_ARGS__); std::fflush(_f); } } while(0)
+#else
+#define TPLOG(...) ((void)0)
+#endif
+
 namespace nvsp_frontend {
 
 namespace {
@@ -127,6 +149,66 @@ static std::vector<std::string> splitIpaWords(const std::string& ipa) {
     start = sp + 1;
   }
   return chunks;
+}
+
+// Split IPA chunks that contain multiple primary stress marks (ˈ).
+// A genuine single word never carries two primary stresses; when eSpeak
+// merges number sub-words like "fˈɔːɹhˈʌndɹɪd" (four+hundred) into one
+// chunk, this splits them back into separate IPA words so the IPA engine
+// sees proper word boundaries.
+static void splitMultiStressChunks(std::vector<std::string>& chunks) {
+  for (size_t i = 0; i < chunks.size(); ++i) {
+    // Work in u32 so we can reason about codepoints, not UTF-8 bytes.
+    std::u32string u = utf8ToU32(chunks[i]);
+
+    // Find the first primary stress mark (ˈ U+02C8).
+    size_t first = std::u32string::npos;
+    for (size_t j = 0; j < u.size(); ++j) {
+      if (u[j] == U'\u02C8') { first = j; break; }
+    }
+    if (first == std::u32string::npos) continue;
+
+    // Find the second primary stress mark.
+    size_t second = std::u32string::npos;
+    for (size_t j = first + 1; j < u.size(); ++j) {
+      if (u[j] == U'\u02C8') { second = j; break; }
+    }
+    if (second == std::u32string::npos) continue;
+
+    // The onset consonant(s) of the stressed syllable sit between the
+    // previous syllable's vowel material and the ˈ mark.  Scan backward
+    // from the second ˈ past any consonants to find the true word boundary.
+    size_t splitPos = second;
+    while (splitPos > first + 1) {
+      char32_t prev = u[splitPos - 1];
+      // Stop if we hit a vowel or length mark (ː) —
+      // those belong to the previous word's nucleus.
+      if (isIpaVowel(prev) || isLengthMark(prev))
+        break;
+      // Tie bar (͡) connects the char before it to the char after it
+      // (e.g. ɔː͡ɹ). The character at splitPos was already skipped as a
+      // "consonant" but it's actually tied to the previous vowel.
+      // Restore it to the left chunk.
+      if (isTieBar(prev)) {
+        ++splitPos;
+        break;
+      }
+      --splitPos;
+    }
+
+    std::u32string leftU = u.substr(0, splitPos);
+    std::u32string rightU = u.substr(splitPos);
+
+    if (leftU.empty() || rightU.empty()) continue;
+
+    std::string left = u32ToUtf8(leftU);
+    std::string right = u32ToUtf8(rightU);
+
+    chunks[i] = std::move(left);
+    chunks.insert(chunks.begin() + static_cast<ptrdiff_t>(i) + 1, std::move(right));
+    // Re-check the right half in case it has yet another primary stress
+    // (e.g. eSpeak merged three words).  Don't advance i.
+  }
 }
 
 // ── Lowercase (ASCII only — text words are English) ────────────────────────
@@ -423,8 +505,21 @@ std::string runTextParser(
 
   auto textWords = splitOnWhitespace(text);
   auto ipaChunks = splitIpaWords(ipa);
+  splitMultiStressChunks(ipaChunks);
 
   if (textWords.empty() || ipaChunks.empty()) return ipa;
+
+  TPLOG("--- runTextParser ---\n");
+  TPLOG("  text: \"%s\"\n", text.c_str());
+  TPLOG("  ipa:  \"%s\"\n", ipa.c_str());
+  TPLOG("  textWords(%zu):", textWords.size());
+  for (size_t _i = 0; _i < textWords.size(); ++_i)
+    TPLOG(" [%s]", textWords[_i].c_str());
+  TPLOG("\n");
+  TPLOG("  ipaChunks(%zu):", ipaChunks.size());
+  for (size_t _i = 0; _i < ipaChunks.size(); ++_i)
+    TPLOG(" [%s]", ipaChunks[_i].c_str());
+  TPLOG("\n");
 
   // When word counts don't match, try greedy IPA chunk merging first:
   // eSpeak often splits compound words into separate IPA "words"
@@ -445,9 +540,14 @@ std::string runTextParser(
         const std::string key = asciiLower(stripPunct(textWords[tw]));
         auto dictIt = key.empty() ? stressDict.end() : stressDict.find(key);
 
+        TPLOG("  tw=%zu key=\"%s\" ipaIdx=%zu inDict=%s\n",
+              tw, key.c_str(), ipaIdx,
+              (dictIt != stressDict.end()) ? "yes" : "no");
+
         if (dictIt != stressDict.end() && dictIt->second.size() >= 2) {
           // We have a stress pattern — try consuming 1..N IPA chunks.
           const size_t expectedNuclei = dictIt->second.size();
+          TPLOG("    dict-matched: expectedNuclei=%zu\n", expectedNuclei);
           std::string joined;
           size_t bestEnd = 0;
 
@@ -467,12 +567,15 @@ std::string runTextParser(
             if (nucleij.size() > expectedNuclei) break;  // overshot
           }
 
+          TPLOG("    bestEnd=%zu (consumed %zu chunks)\n", bestEnd, bestEnd > ipaIdx ? bestEnd - ipaIdx : 0);
+
           if (bestEnd > ipaIdx) {
             // Rebuild the joined chunk without spaces (single IPA word).
             std::string merged;
             for (size_t k = ipaIdx; k < bestEnd; ++k) {
               merged += ipaChunks[k];
             }
+            TPLOG("    merged=\"%s\"\n", merged.c_str());
 
             std::string corrected = correctStress(textWords[tw], merged, stressDict, legalOnsets);
             // Always merge the chunks into one, even if stress didn't change.
@@ -521,12 +624,17 @@ std::string runTextParser(
 
                 if (nuclei.size() == probeNuclei) {
                   skip = s;
-                  break;
+                  // Don't break — keep searching for the largest valid skip.
+                  // Number expansions produce many IPA chunks; an early chunk
+                  // may coincidentally match the anchor's nucleus count
+                  // (e.g. "fourhundred" has 3 nuclei, same as "characters").
+                  // The real anchor is the furthest match.
                 }
               }
               break;  // only use the first anchoring word
             }
           }
+          TPLOG("    no-dict skip=%zu -> ipaIdx=%zu\n", skip, ipaIdx + skip);
           ipaIdx += skip;
         }
       }
@@ -590,7 +698,10 @@ std::string runTextParser(
       }
     }
 
-    if (!anyChange) return ipa;
+    if (!anyChange) {
+      TPLOG("  -> no changes, returning original\n");
+      return ipa;
+    }
 
     // Reassemble, skipping blanked-out chunks from the merge phase.
     std::string result;
@@ -599,6 +710,7 @@ std::string runTextParser(
       if (!result.empty()) result.push_back(' ');
       result += ipaChunks[i];
     }
+    TPLOG("  -> result: \"%s\"\n", result.c_str());
     return result;
   }
 
