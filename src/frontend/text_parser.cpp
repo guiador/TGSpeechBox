@@ -487,8 +487,48 @@ std::string runTextParser(
           }
         }
 
-        // No dict match or merge failed — skip this text word, consume one chunk.
-        ++ipaIdx;
+        // No dict match or merge failed — figure out how many IPA chunks
+        // this text word maps to.  Numbers and abbreviations often expand
+        // to multiple IPA words (e.g. "68" → "sˈɪksti ˈeɪt" = 2 chunks),
+        // so consuming only 1 chunk misaligns all subsequent corrections.
+        //
+        // Look-ahead: find the next text word whose multi-syllable dict
+        // entry can anchor the alignment, then pick the skip count that
+        // places that word's IPA chunk at the right position.
+        {
+          size_t skip = 1;
+          const size_t excess = ipaChunks.size() - textWords.size();
+          if (excess > 0) {
+            for (size_t probe = tw + 1; probe < textWords.size(); ++probe) {
+              const std::string probeKey = asciiLower(stripPunct(textWords[probe]));
+              auto probeIt = probeKey.empty() ? stressDict.end()
+                                              : stressDict.find(probeKey);
+              if (probeIt == stressDict.end() || probeIt->second.size() < 2)
+                continue;
+
+              const size_t probeNuclei = probeIt->second.size();
+              // Text words between current (tw) and the anchor each consume
+              // at least 1 IPA chunk.
+              const size_t textGap = probe - tw - 1;
+
+              for (size_t s = 1; s <= excess + 1; ++s) {
+                const size_t candidateIdx = ipaIdx + s + textGap;
+                if (candidateIdx >= ipaChunks.size()) break;
+
+                std::u32string u32 = utf8ToU32(ipaChunks[candidateIdx]);
+                std::u32string stripped = stripStress(u32);
+                auto nuclei = findNuclei(stripped);
+
+                if (nuclei.size() == probeNuclei) {
+                  skip = s;
+                  break;
+                }
+              }
+              break;  // only use the first anchoring word
+            }
+          }
+          ipaIdx += skip;
+        }
       }
     }
 
