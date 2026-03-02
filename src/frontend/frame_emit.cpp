@@ -304,8 +304,16 @@ void emitFrames(
       const double totalDur = t.durationMs;
       double intervalMs = pack.lang.diphthongMicroFrameIntervalMs;
       const double pitch0Leg = base[vp];
-      if (pitch0Leg > 100.0) {
+      if (pitch0Leg > 0.0) {
+        // Scale interval proportionally to pitch period so each micro-frame
+        // covers roughly the same number of glottal cycles regardless of F0.
         intervalMs *= (100.0 / pitch0Leg);
+        // Floor: each micro-frame must span at least 2 full pitch periods
+        // so cascade resonators settle before formants shift again.
+        // Without this, declining F0 (statement intonation) produces
+        // shimmer because micro-frames are shorter than one glottal cycle.
+        double minInterval = 2000.0 / pitch0Leg;
+        if (intervalMs < minInterval) intervalMs = minInterval;
         if (intervalMs < 3.0) intervalMs = 3.0;
       }
       int N = (intervalMs > 0.0)
@@ -1197,8 +1205,12 @@ void emitFramesEx(
       // crossfade phasing more audible — tighten the interval.
       double intervalMs = lang.diphthongMicroFrameIntervalMs;
       const double pitch0 = base[vp];
-      if (pitch0 > 100.0) {
+      if (pitch0 > 0.0) {
+        // Scale interval proportionally to pitch period (see non-Ex path).
         intervalMs *= (100.0 / pitch0);
+        // Floor: at least 2 pitch periods per micro-frame for resonator settling.
+        double minInterval = 2000.0 / pitch0;
+        if (intervalMs < minInterval) intervalMs = minInterval;
         if (intervalMs < 3.0) intervalMs = 3.0;
       }
       int N = (intervalMs > 0.0)
