@@ -66,16 +66,16 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
     val inflectionScale = MutableStateFlow(loadSlider("inflectionScale", 58f))
     val inflection = MutableStateFlow(loadSlider("inflection", 50f))
 
-    // ── System rate override ────────────────────────────────────────
+    // ── System rate override (global, NOT per-voice) ────────────────
 
-    val overrideSystemRate = MutableStateFlow(loadBool("overrideSystemRate", false))
-    val globalRate = MutableStateFlow(loadSlider("globalRate", 1.0f))
+    val overrideSystemRate = MutableStateFlow(loadGlobalBool("overrideSystemRate", false))
+    val globalRate = MutableStateFlow(loadGlobalFloat("globalRate", 1.0f))
 
-    // ── Output ───────────────────────────────────────────────────────
+    // ── Output (global, NOT per-voice) ───────────────────────────────
 
-    val pauseMode = MutableStateFlow(loadInt("pauseMode", 1))  // 0=off, 1=short, 2=long
-    val systemVolume = MutableStateFlow(loadSlider("systemVolume", 1.0f))
-    val sampleRateIndex = MutableStateFlow(loadInt("sampleRate", 22050).let { rate ->
+    val pauseMode = MutableStateFlow(loadGlobalInt("pauseMode", 1))  // 0=off, 1=short, 2=long
+    val systemVolume = MutableStateFlow(loadGlobalFloat("systemVolume", 1.0f))
+    val sampleRateIndex = MutableStateFlow(loadGlobalInt("sampleRate", 22050).let { rate ->
         SAMPLE_RATES.indexOfFirst { it == rate }.coerceAtLeast(0).toFloat()
     })
 
@@ -188,8 +188,40 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
         selectedVoiceIndex.value = index
         val voiceId = voices[index].id
         engine.setVoice(voiceId)
-        applyVoicingTone()
         prefs.edit().putString(TgsbTtsService.PREF_VOICE_PRESET, voiceId).apply()
+        loadSettingsForVoice()
+        applyVoicingTone()
+        applyFrameExDefaults()
+        applyPitchSettings()
+    }
+
+    /**
+     * Reload all per-voice slider/setting StateFlows from SharedPreferences.
+     * Called when the user switches voices so the UI reflects that voice's
+     * saved values (matching iOS loadSettingsForVoice behaviour).
+     */
+    private fun loadSettingsForVoice() {
+        // VoicingTone sliders
+        voiceTilt.value          = loadSlider("voiceTilt", 50f)
+        noiseGlottalMod.value    = loadSlider("noiseGlottalMod", 0f)
+        pitchSyncF1.value        = loadSlider("pitchSyncF1", 50f)
+        pitchSyncB1.value        = loadSlider("pitchSyncB1", 50f)
+        speedQuotient.value      = loadSlider("speedQuotient", 50f)
+        aspirationTilt.value     = loadSlider("aspirationTilt", 50f)
+        cascadeBwScale.value     = loadSlider("cascadeBwScale", 50f)
+        voiceTremor.value        = loadSlider("voiceTremor", 0f)
+
+        // FrameEx sliders
+        creakiness.value         = loadSlider("creakiness", 0f)
+        breathiness.value        = loadSlider("breathiness", 0f)
+        jitter.value             = loadSlider("jitter", 0f)
+        shimmer.value            = loadSlider("shimmer", 0f)
+        glottalSharpness.value   = loadSlider("glottalSharpness", 50f)
+
+        // Pitch settings
+        pitchMode.value          = loadString("pitchMode", "espeak_style")
+        inflectionScale.value    = loadSlider("inflectionScale", 58f)
+        inflection.value         = loadSlider("inflection", 50f)
     }
 
     // ── Voice quality: slider change handlers ───────────────────────
@@ -212,56 +244,56 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
     fun onPitchModeChanged(mode: String)       { pitchMode.value = mode;       saveString("pitchMode", mode);       applyPitchSettings() }
     fun onInflectionScaleChanged(v: Float)     { inflectionScale.value = v;    saveSlider("inflectionScale", v);    applyPitchSettings() }
     fun onInflectionChanged(v: Float)          { inflection.value = v;         saveSlider("inflection", v);         applyPitchSettings() }
-    fun onOverrideSystemRateChanged(v: Boolean){ overrideSystemRate.value = v;  saveBool("overrideSystemRate", v) }
-    fun onGlobalRateChanged(v: Float)          { globalRate.value = v;          saveSlider("globalRate", v) }
-    fun onSystemVolumeChanged(v: Float)        { systemVolume.value = v;        saveSlider("systemVolume", v);       engine.setVolume(v) }
+    fun onOverrideSystemRateChanged(v: Boolean){ overrideSystemRate.value = v;  saveGlobalBool("overrideSystemRate", v) }
+    fun onGlobalRateChanged(v: Float)          { globalRate.value = v;          saveGlobalFloat("globalRate", v) }
+    fun onSystemVolumeChanged(v: Float)        { systemVolume.value = v;        saveGlobalFloat("systemVolume", v);  engine.setVolume(v) }
     fun onSampleRateChanged(index: Float) {
         sampleRateIndex.value = index
         val rate = SAMPLE_RATES[index.roundToInt().coerceIn(0, SAMPLE_RATES.size - 1)]
-        saveInt("sampleRate", rate)
+        saveGlobalInt("sampleRate", rate)
         engine.setSampleRate(rate)
     }
     fun onPauseModeChanged(mode: Int) {
         pauseMode.value = mode
-        saveInt("pauseMode", mode)
+        saveGlobalInt("pauseMode", mode)
         engine.setPauseMode(mode)
     }
 
     // ── Reset to defaults ──────────────────────────────────────────
 
     fun resetToDefaults() {
-        // VoicingTone sliders
-        voiceTilt.value = 50f;       onVoiceTiltChanged(50f)
-        speedQuotient.value = 50f;   onSpeedQuotientChanged(50f)
-        aspirationTilt.value = 50f;  onAspirationTiltChanged(50f)
-        cascadeBwScale.value = 50f;  onCascadeBwScaleChanged(50f)
-        noiseGlottalMod.value = 0f;  onNoiseGlottalModChanged(0f)
-        pitchSyncF1.value = 50f;     onPitchSyncF1Changed(50f)
-        pitchSyncB1.value = 50f;     onPitchSyncB1Changed(50f)
-        voiceTremor.value = 0f;      onVoiceTremorChanged(0f)
+        // Per-voice: VoicingTone sliders (saved under current voice)
+        onVoiceTiltChanged(50f)
+        onSpeedQuotientChanged(50f)
+        onAspirationTiltChanged(50f)
+        onCascadeBwScaleChanged(50f)
+        onNoiseGlottalModChanged(0f)
+        onPitchSyncF1Changed(50f)
+        onPitchSyncB1Changed(50f)
+        onVoiceTremorChanged(0f)
 
-        // FrameEx sliders
-        creakiness.value = 0f;       onCreakinessChanged(0f)
-        breathiness.value = 0f;      onBreathinessChanged(0f)
-        jitter.value = 0f;           onJitterChanged(0f)
-        shimmer.value = 0f;          onShimmerChanged(0f)
-        glottalSharpness.value = 50f; onGlottalSharpnessChanged(50f)
+        // Per-voice: FrameEx sliders
+        onCreakinessChanged(0f)
+        onBreathinessChanged(0f)
+        onJitterChanged(0f)
+        onShimmerChanged(0f)
+        onGlottalSharpnessChanged(50f)
 
-        // Pitch
+        // Per-voice: Pitch
         onPitchModeChanged("espeak_style")
-        inflectionScale.value = 58f; onInflectionScaleChanged(58f)
-        inflection.value = 50f;      onInflectionChanged(50f)
+        onInflectionScaleChanged(58f)
+        onInflectionChanged(50f)
 
-        // System rate
+        // Global: System rate
         onOverrideSystemRateChanged(false)
         globalRate.value = 1.0f;     onGlobalRateChanged(1.0f)
 
-        // Output
+        // Global: Output
         onPauseModeChanged(1)  // short
         onSampleRateChanged(2f)  // 22050 Hz
         onSystemVolumeChanged(1.0f)
 
-        // Reset language filter — all checked
+        // Global: Reset language filter — all checked
         val allKeys = allLocaleEntries.map { it.first }.toSet()
         _enabledLocaleKeys.value = allKeys
         prefs.edit().remove(TgsbTtsService.PREF_SUPPORTED_LANGUAGES).apply()
@@ -331,31 +363,87 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
 
     // ── Helpers ─────────────────────────────────────────────────────
 
-    private fun loadSlider(key: String, default: Float): Float =
-        prefs.getFloat("${PREF_PREFIX}$key", default)
+    /** Current voice ID for per-voice keying (e.g. "adam", "benjamin"). */
+    private val currentVoiceId: String
+        get() = TgsbTtsService.VOICES.getOrNull(selectedVoiceIndex.value)?.id ?: "adam"
+
+    /**
+     * Load a per-voice slider value.
+     * Tries "adv_key.voiceName" first, falls back to "adv_key" (migration).
+     */
+    private fun loadSlider(key: String, default: Float): Float {
+        val voiceKey = "${PREF_PREFIX}$key.${currentVoiceId}"
+        if (prefs.contains(voiceKey)) return prefs.getFloat(voiceKey, default)
+        // Fallback: old global key (pre-per-voice migration)
+        return prefs.getFloat("${PREF_PREFIX}$key", default)
+    }
 
     private fun saveSlider(key: String, value: Float) {
+        prefs.edit().putFloat("${PREF_PREFIX}$key.${currentVoiceId}", value).apply()
+    }
+
+    /**
+     * Load a per-voice string value.
+     * Tries "adv_key.voiceName" first, falls back to "adv_key" (migration).
+     */
+    private fun loadString(key: String, default: String): String {
+        val voiceKey = "${PREF_PREFIX}$key.${currentVoiceId}"
+        if (prefs.contains(voiceKey)) return prefs.getString(voiceKey, default) ?: default
+        return prefs.getString("${PREF_PREFIX}$key", default) ?: default
+    }
+
+    private fun saveString(key: String, value: String) {
+        prefs.edit().putString("${PREF_PREFIX}$key.${currentVoiceId}", value).apply()
+    }
+
+    /**
+     * Load a per-voice boolean.
+     * Tries "adv_key.voiceName" first, falls back to "adv_key" (migration).
+     */
+    private fun loadBool(key: String, default: Boolean): Boolean {
+        val voiceKey = "${PREF_PREFIX}$key.${currentVoiceId}"
+        if (prefs.contains(voiceKey)) return prefs.getBoolean(voiceKey, default)
+        return prefs.getBoolean("${PREF_PREFIX}$key", default)
+    }
+
+    private fun saveBool(key: String, value: Boolean) {
+        prefs.edit().putBoolean("${PREF_PREFIX}$key.${currentVoiceId}", value).apply()
+    }
+
+    /**
+     * Load a per-voice int.
+     * Tries "adv_key.voiceName" first, falls back to "adv_key" (migration).
+     */
+    private fun loadInt(key: String, default: Int): Int {
+        val voiceKey = "${PREF_PREFIX}$key.${currentVoiceId}"
+        if (prefs.contains(voiceKey)) return prefs.getInt(voiceKey, default)
+        return prefs.getInt("${PREF_PREFIX}$key", default)
+    }
+
+    private fun saveInt(key: String, value: Int) {
+        prefs.edit().putInt("${PREF_PREFIX}$key.${currentVoiceId}", value).apply()
+    }
+
+    // ── Global (NOT per-voice) preference helpers ─────────────────────
+
+    private fun loadGlobalFloat(key: String, default: Float): Float =
+        prefs.getFloat("${PREF_PREFIX}$key", default)
+
+    private fun saveGlobalFloat(key: String, value: Float) {
         prefs.edit().putFloat("${PREF_PREFIX}$key", value).apply()
     }
 
-    private fun loadString(key: String, default: String): String =
-        prefs.getString("${PREF_PREFIX}$key", default) ?: default
-
-    private fun saveString(key: String, value: String) {
-        prefs.edit().putString("${PREF_PREFIX}$key", value).apply()
-    }
-
-    private fun loadBool(key: String, default: Boolean): Boolean =
+    private fun loadGlobalBool(key: String, default: Boolean): Boolean =
         prefs.getBoolean("${PREF_PREFIX}$key", default)
 
-    private fun saveBool(key: String, value: Boolean) {
+    private fun saveGlobalBool(key: String, value: Boolean) {
         prefs.edit().putBoolean("${PREF_PREFIX}$key", value).apply()
     }
 
-    private fun loadInt(key: String, default: Int): Int =
+    private fun loadGlobalInt(key: String, default: Int): Int =
         prefs.getInt("${PREF_PREFIX}$key", default)
 
-    private fun saveInt(key: String, value: Int) {
+    private fun saveGlobalInt(key: String, value: Int) {
         prefs.edit().putInt("${PREF_PREFIX}$key", value).apply()
     }
 

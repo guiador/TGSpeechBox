@@ -70,6 +70,13 @@ fun AdvancedScreen(
             .verticalScroll(rememberScrollState())
             .padding(20.dp)
     ) {
+        // ── Voice selector (per-voice settings, matching iOS) ────────
+        Column(modifier = Modifier.semantics { isTraversalGroup = true }) {
+            EditingVoiceDropdown(viewModel)
+        }
+
+        Spacer(Modifier.height(12.dp))
+
         // ── Reset to Defaults ───────────────────────────────────────
         Column(modifier = Modifier.semantics { isTraversalGroup = true }) {
             Button(
@@ -525,6 +532,69 @@ private fun PauseModeDropdown(viewModel: TgsbViewModel) {
                     text = { Text(modeLabel) },
                     onClick = {
                         viewModel.onPauseModeChanged(modeId)
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Voice selector dropdown for per-voice settings — "Editing Voice".
+ * Matches iOS EngineSettingsView segmented picker.
+ * Uses plain Box + DropdownMenu for correct TalkBack traversal order.
+ */
+@Composable
+private fun EditingVoiceDropdown(viewModel: TgsbViewModel) {
+    val voiceIndex by viewModel.selectedVoiceIndex.collectAsState()
+    val currentLabel = viewModel.voices.getOrNull(voiceIndex)?.label ?: "Adam"
+    val label = stringResource(R.string.editing_voice_label)
+
+    var expanded by remember { mutableStateOf(false) }
+
+    Box(modifier = Modifier.fillMaxWidth()) {
+        Surface(
+            onClick = { expanded = true },
+            modifier = Modifier
+                .fillMaxWidth()
+                .semantics {
+                    role = androidx.compose.ui.semantics.Role.DropdownList
+                    contentDescription = "$label: $currentLabel"
+                },
+            shape = MaterialTheme.shapes.small,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.clearAndSetSemantics {}
+                    )
+                    Text(
+                        text = currentLabel,
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.clearAndSetSemantics {}
+                    )
+                }
+            }
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            for ((index, voice) in viewModel.voices.withIndex()) {
+                DropdownMenuItem(
+                    text = { Text(voice.label) },
+                    onClick = {
+                        viewModel.onVoiceSelected(index)
                         expanded = false
                     }
                 )

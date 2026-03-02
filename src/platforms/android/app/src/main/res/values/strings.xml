@@ -65,10 +65,13 @@
     <string name="pause_mode_short">Short</string>
     <string name="pause_mode_long">Long</string>
 
+    <!-- Advanced tab: Voice selector -->
+    <string name="editing_voice_label">Editing Voice</string>
+
     <!-- Reset to defaults -->
     <string name="reset_defaults_button">Reset to Defaults</string>
     <string name="reset_defaults_title">Reset to Defaults</string>
-    <string name="reset_defaults_message">This will reset all engine settings to their default values, including the language filter.</string>
+    <string name="reset_defaults_message">This will reset all voice quality and pitch settings for the current voice, plus output settings (volume, sample rate, pause mode) and the language filter.</string>
     <string name="reset_button">Reset</string>
     <string name="cancel_button">Cancel</string>
 

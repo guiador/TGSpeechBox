@@ -247,20 +247,23 @@ class TgsbTtsService : TextToSpeechService() {
      * Read Advanced tab sliders from SharedPreferences and apply to the
      * native engine.  Called before each synthesis so TalkBack picks up
      * any changes the user made in the consumer UI.
+     *
+     * Per-voice settings use key "adv_key.voiceName" with fallback to
+     * the global "adv_key" for migration from pre-per-voice builds.
      */
     private fun applyAdvancedSettings() {
         if (nativeHandle == 0L) return
-        val p = "adv_"
+        val voice = currentPreset  // e.g. "adam", "benjamin"
 
         // VoicingTone (slider 0-100 → real range, same math as TgsbViewModel)
-        val tiltSlider   = prefs.getFloat("${p}voiceTilt", 50f)
-        val noiseMod     = prefs.getFloat("${p}noiseGlottalMod", 0f) / 100f
-        val psF1         = (prefs.getFloat("${p}pitchSyncF1", 50f) - 50f) * 1.2f
-        val psB1         = (prefs.getFloat("${p}pitchSyncB1", 50f) - 50f) * 1.0f
-        val sqSlider     = prefs.getFloat("${p}speedQuotient", 50f)
-        val aspTilt      = (prefs.getFloat("${p}aspirationTilt", 50f) - 50f) * 0.24f
-        val bwSlider     = prefs.getFloat("${p}cascadeBwScale", 50f)
-        val tremorSlider = prefs.getFloat("${p}voiceTremor", 0f)
+        val tiltSlider   = prefFloat("voiceTilt", 50f, voice)
+        val noiseMod     = prefFloat("noiseGlottalMod", 0f, voice) / 100f
+        val psF1         = (prefFloat("pitchSyncF1", 50f, voice) - 50f) * 1.2f
+        val psB1         = (prefFloat("pitchSyncB1", 50f, voice) - 50f) * 1.0f
+        val sqSlider     = prefFloat("speedQuotient", 50f, voice)
+        val aspTilt      = (prefFloat("aspirationTilt", 50f, voice) - 50f) * 0.24f
+        val bwSlider     = prefFloat("cascadeBwScale", 50f, voice)
+        val tremorSlider = prefFloat("voiceTremor", 0f, voice)
 
         val tilt = (tiltSlider - 50f) * (24f / 50f)
         val sq = if (sqSlider <= 50f)
@@ -281,11 +284,11 @@ class TgsbTtsService : TextToSpeechService() {
         )
 
         // FrameEx defaults
-        val creak     = prefs.getFloat("${p}creakiness", 0f) / 100f
-        val breath    = prefs.getFloat("${p}breathiness", 0f) / 100f
-        val jit       = prefs.getFloat("${p}jitter", 0f) / 100f
-        val shim      = prefs.getFloat("${p}shimmer", 0f) / 100f
-        val sharpness = prefs.getFloat("${p}glottalSharpness", 50f) / 50f
+        val creak     = prefFloat("creakiness", 0f, voice) / 100f
+        val breath    = prefFloat("breathiness", 0f, voice) / 100f
+        val jit       = prefFloat("jitter", 0f, voice) / 100f
+        val shim      = prefFloat("shimmer", 0f, voice) / 100f
+        val sharpness = prefFloat("glottalSharpness", 50f, voice) / 50f
 
         nativeSetFrameExDefaults(
             nativeHandle,
@@ -293,25 +296,40 @@ class TgsbTtsService : TextToSpeechService() {
             jit.toDouble(), shim.toDouble(), sharpness.toDouble()
         )
 
-        // Pitch mode + inflection scale + inflection
-        val pitchMode = prefs.getString("${p}pitchMode", "espeak_style") ?: "espeak_style"
+        // Pitch mode + inflection scale + inflection (per-voice)
+        val pitchMode = prefString("pitchMode", "espeak_style", voice)
         nativeSetPitchMode(nativeHandle, pitchMode)
 
-        val inflScale = prefs.getFloat("${p}inflectionScale", 58f) / 100f
+        val inflScale = prefFloat("inflectionScale", 58f, voice) / 100f
         nativeSetInflectionScale(nativeHandle, inflScale.toDouble())
 
-        val inflection = prefs.getFloat("${p}inflection", 50f) / 100f
+        val inflection = prefFloat("inflection", 50f, voice) / 100f
         nativeSetInflection(nativeHandle, inflection.toDouble())
 
-        val volume = prefs.getFloat("${p}systemVolume", 1.0f).coerceIn(0.05f, 1.0f)
+        // Global output settings (not per-voice)
+        val volume = prefs.getFloat("adv_systemVolume", 1.0f).coerceIn(0.05f, 1.0f)
         nativeSetVolume(nativeHandle, volume.toDouble())
 
-        val sampleRate = prefs.getInt("${p}sampleRate", SAMPLE_RATE)
+        val sampleRate = prefs.getInt("adv_sampleRate", SAMPLE_RATE)
         nativeSetSampleRate(nativeHandle, sampleRate)
         currentSampleRate = sampleRate
 
-        val pauseMode = prefs.getInt("${p}pauseMode", 1)  // default: short
+        val pauseMode = prefs.getInt("adv_pauseMode", 1)  // default: short
         nativeSetPauseMode(nativeHandle, pauseMode)
+    }
+
+    /** Read per-voice float: "adv_key.voice" with fallback to "adv_key". */
+    private fun prefFloat(key: String, default: Float, voice: String): Float {
+        val voiceKey = "adv_$key.$voice"
+        if (prefs.contains(voiceKey)) return prefs.getFloat(voiceKey, default)
+        return prefs.getFloat("adv_$key", default)
+    }
+
+    /** Read per-voice string: "adv_key.voice" with fallback to "adv_key". */
+    private fun prefString(key: String, default: String, voice: String): String {
+        val voiceKey = "adv_$key.$voice"
+        if (prefs.contains(voiceKey)) return prefs.getString(voiceKey, default) ?: default
+        return prefs.getString("adv_$key", default) ?: default
     }
 
     override fun onDestroy() {
