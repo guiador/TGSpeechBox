@@ -149,6 +149,8 @@ void emitFrames(
   // Reset state at start of each utterance
   const LanguagePack& lang = pack.lang;
   trajectoryState->hasPrevFrame = false;
+  trajectoryState->hasPrevBase = false;
+  trajectoryState->hasPrevFrameEx = false;
 
   // Track previous frame values for voiced closure continuation
   bool hadPrevFrame = false;
@@ -941,6 +943,8 @@ void emitFramesEx(
   // Trajectory limiting state (per-handle, reset at utterance start)
   const LanguagePack& lang = pack.lang;
   trajectoryState->hasPrevFrame = false;
+  trajectoryState->hasPrevBase = false;
+  trajectoryState->hasPrevFrameEx = false;
 
   // Track whether we've emitted at least one real frame
   bool hadPrevFrame = false;
