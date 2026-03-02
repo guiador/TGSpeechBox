@@ -1519,8 +1519,12 @@ static void autoTieDiphthongs(const PackSet& pack, std::vector<Token>& tokens) {
       // If the current token starts a new syllable (explicit stress, word start,
       // etc.), treat it as hiatus instead.
       if (prevVowelLike && !prevIsRColored && !prevIsNasal && curVowelLike && !cur.wordStart && !cur.syllableStart) {
-        // Skip if the IPA already encoded tying, or the vowel is explicitly long.
-        if (!prev.tiedTo && !prev.tiedFrom && !cur.tiedTo && !cur.tiedFrom && cur.lengthened == 0) {
+        // Skip if the IPA already encoded tying, or either vowel is explicitly long.
+        // A lengthened onset (e.g. oː from GOAT monophthongization) is a monophthong,
+        // not a diphthong candidate — tying it with the next vowel creates a false
+        // glide (e.g. "going" /ɡoːɪŋ/ → /ɡo͡ɪŋ/ sounds like "boing").
+        if (!prev.tiedTo && !prev.tiedFrom && !cur.tiedTo && !cur.tiedFrom &&
+            prev.lengthened == 0 && cur.lengthened == 0) {
           // Only auto-tie when the second vowel is a common offglide candidate.
           if (isAutoDiphthongOffglideCandidate(cur.baseChar)) {
             prev.tiedTo = true;
