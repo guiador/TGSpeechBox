@@ -2187,9 +2187,9 @@ phonemes:
     pa1: 0.15
     pa2: 0.25
     pa3: 0.38
-    pa4: 0.50
-    pa5: 0.55
-    pa6: 0.60
+    pa4: 0.48
+    pa5: 0.35
+    pa6: 0.30
     parallelBypass: 0
     pb1: 280
     pb2: 110
