@@ -24,9 +24,16 @@ from __future__ import annotations
 
 import argparse
 import math
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional
+
+# Ensure UTF-8 output on Windows consoles (IPA characters, delta, etc.)
+if sys.stdout and hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if sys.stderr and hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 import numpy as np
 
@@ -59,7 +66,7 @@ def dump_frame(f: Frame, label: str = "") -> str:
     lines = [f"=== Frame: {label} ===" if label else "=== Frame ==="]
     
     # Voice
-    lines.append(f"  Pitch:     {f.voicePitch:.1f} Hz → {f.endVoicePitch:.1f} Hz")
+    lines.append(f"  Pitch:     {f.voicePitch:.1f} Hz -> {f.endVoicePitch:.1f} Hz")
     lines.append(f"  VoiceAmp:  {f.voiceAmplitude:.3f}")
     lines.append(f"  AspAmp:    {f.aspirationAmplitude:.3f}")
     lines.append(f"  FricAmp:   {f.fricationAmplitude:.3f}")
@@ -210,7 +217,7 @@ def format_transition_metrics(m: TransitionMetrics, pack: PackSet) -> str:
     lp = pack.lang
     
     lines = [
-        f"Transition: {m.phoneme_a} → {m.phoneme_b}",
+        f"Transition: {m.phoneme_a} -> {m.phoneme_b}",
         f"Fade time: {m.fade_ms:.1f} ms",
         "",
         f"Formant changes:",
@@ -393,7 +400,7 @@ def format_pair_grid_summary(
     
     for (a, b), m in items[:20]:
         val = getattr(m, metric)
-        lines.append(f"  {a:>4} → {b:<4}  {val:+8.1f}")
+        lines.append(f"  {a:>4} -> {b:<4}  {val:+8.1f}")
     
     return "\n".join(lines)
 
@@ -546,7 +553,7 @@ def format_detailed_settings(pack: PackSet) -> str:
     for clause_type in [".", ",", "?", "!"]:
         if clause_type in lp.intonation:
             ic = lp.intonation[clause_type]
-            lines.append(f"  '{clause_type}': nucleus {ic.nucleus_start}→{ic.nucleus_end}, tail {ic.tail_start}→{ic.tail_end}")
+            lines.append(f"  '{clause_type}': nucleus {ic.nucleus_start}->{ic.nucleus_end}, tail {ic.tail_start}->{ic.tail_end}")
     
     return "\n".join(lines)
 
@@ -719,7 +726,7 @@ def main():
             fade_ms=fade,
         )
         
-        print(f"Trace: {args.phoneme_a} → {args.phoneme_b}")
+        print(f"Trace: {args.phoneme_a} -> {args.phoneme_b}")
         print(f"Duration: {args.duration} ms, Fade: {fade:.1f} ms (from pack)")
         print(f"Points: {len(trace)}")
         print()
@@ -735,7 +742,7 @@ def main():
         if args.out or args.show:
             fig = plot_interpolation_trace(
                 trace,
-                title=f"Interpolation: {args.phoneme_a} → {args.phoneme_b} (fade={fade:.1f}ms)"
+                title=f"Interpolation: {args.phoneme_a} -> {args.phoneme_b} (fade={fade:.1f}ms)"
             )
             if fig:
                 if args.out:
@@ -765,7 +772,7 @@ def main():
         print()
         print("Transitions:")
         for t in result["transitions"]:
-            print(f"  → /{t['vowel']}/  vowel={t['vowel_formant']:.0f} Hz  Δ={t['delta']:+.0f} Hz")
+            print(f"  -> /{t['vowel']}/  vowel={t['vowel_formant']:.0f} Hz  Δ={t['delta']:+.0f} Hz")
     
     return 0
 
