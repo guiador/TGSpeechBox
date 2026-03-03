@@ -301,7 +301,7 @@ typedef struct {
     0.91,   /* voicingPeakPos */ \
     0.92,   /* voicedPreEmphA */ \
     0.35,   /* voicedPreEmphMix */ \
-    7.0,    /* highShelfGainDb */ \
+    5.5,    /* highShelfGainDb */ \
     2000.0, /* highShelfFcHz */ \
     0.7,    /* highShelfQ */ \
     0.0,    /* voicedTiltDbPerOct (no tilt by default) */ \
