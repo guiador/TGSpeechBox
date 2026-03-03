@@ -56,7 +56,7 @@ const double kGlottalCycleBwDelta = 40.0;
 //
 // References: Lulich et al. 2012, Hanna et al. 2018, Klatt & Klatt 1990.
 // Signal chain: Source → STC tilt → **Sg1 pole-zero** → Cascade (N0/NP → F6…F1)
-const double kSubglottalCoupling    = 0.6;    // 0=off, 1=full
+const double kSubglottalCoupling    = 0.3;    // 0=off, 1=full
 const double kSg1Freq               = 630.0;  // Hz, pole (resonance)
 const double kSg1Bw                 = 70.0;   // Hz, pole bandwidth
 const double kSgZ1Freq              = 590.0;  // Hz, zero (anti-resonance), 40 Hz below pole

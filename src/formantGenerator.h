@@ -90,8 +90,8 @@ void setCascadeBwScale(double scale) {
         // dominance that the series cascade architecture creates.
         // Upper formants (F2-F6) use the global scale so they don't ring.
         const double cascadeBwScale = bwScale;
-        const double f1BwScale = cascadeBwScale * 0.65;  // tighter F1 — sharper vowel identity
-        const double f2BwScale = cascadeBwScale * 0.80;  // tighter F2 — deepens F1-F2 valley (anti-nasal)
+        const double f1BwScale = cascadeBwScale * 0.75;  // tighter F1 — sharper vowel identity
+        const double f2BwScale = cascadeBwScale * 0.88;  // tighter F2 — deepens F1-F2 valley (anti-nasal)
         cb1 *= f1BwScale;
         cb2 *= f2BwScale;
         cb3 *= cascadeBwScale;
