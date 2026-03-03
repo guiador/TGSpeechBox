@@ -111,7 +111,19 @@ def bump_version():
     )
     with open(PROJECT_YML, "w") as f:
         f.write(text)
-    print(f"  Version bumped: {old} -> {new}")
+    # Sync AudioComponent version in AU extension Info.plist
+    # (<integer> tags can't use build variables, so we hardcode it)
+    info_plist = os.path.join(SCRIPT_DIR, "au-extension", "Info.plist")
+    with open(info_plist) as f:
+        plist_text = f.read()
+    plist_text = re.sub(
+        r'(<key>version</key>\s*<integer>)\d+(</integer>)',
+        rf'\g<1>{new}\2',
+        plist_text,
+    )
+    with open(info_plist, "w") as f:
+        f.write(plist_text)
+    print(f"  Version bumped: {old} -> {new} (project.yml + Info.plist)")
     return new
 
 
