@@ -232,7 +232,7 @@ settings:
     durationScale: 1.0
     pairScales:
       "ɑ ɪ": 1.05        # PRICE — wide, needs full open onset + glide
-      "ä ʊ": 1.15         # MOUTH — wide, must not sound Canadian-flat
+      "ä ʊ": 1.22         # MOUTH — wide; pre-voiceless ×0.80 → net 0.98
       "ɔ ɪ": 1.15         # CHOICE — wide
       "e ɪ": 0.95         # FACE — narrow, fine short
       "o ʊ": 0.92         # GOAT — narrow
