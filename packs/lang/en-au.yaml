@@ -199,7 +199,7 @@ settings:
         replaceTo: ɾ
         replaceDurationMs: 30.0
         replaceRemovesClosure: true
-        replaceClosureScale: 0.5
+        replaceClosureScale: 0
         replaceRemovesAspiration: false
 
     # ── /l/ darkness by position ─────────────────────────────────

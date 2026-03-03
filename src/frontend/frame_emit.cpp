@@ -827,11 +827,9 @@ void emitFrames(
       double notchDur = std::max(totalDur * 0.50, notchFloorMs);
       if (notchDur > totalDur * 0.80) notchDur = totalDur * 0.80;
       const double remainDur = totalDur - notchDur;
-      // Asymmetric split: shorter recovery so the tap exits quickly into the
-      // following vowel.  The onset carries the vowel-to-tap transition (needs
-      // more time); the recovery just needs to restore amplitude briefly before
-      // the crossfade into the next token handles the formant shift.
-      const double onsetDur = remainDur * 0.65;
+      // Asymmetric split: short onset, longer recovery.  Sharp entry into
+      // the tap; recovery bridges back to the following vowel.
+      const double onsetDur = remainDur * 0.35;
       const double recovDur = remainDur - onsetDur;
 
       const int vaIdx = static_cast<int>(FieldId::voiceAmplitude);
@@ -841,12 +839,13 @@ void emitFrames(
       const double pitchDelta = base[evp] - startPitch;
       const double onsetFrac = (totalDur > 0.0) ? (onsetDur / totalDur) : 0.0;
       const double notchEndFrac = (totalDur > 0.0) ? ((onsetDur + notchDur) / totalDur) : 0.0;
+      // Short micro-fade for all phases (see Ex path comment).
       const double microFade = std::max(0.5, 1.5 / std::max(0.5, speed));
 
       { double seg[kFrameFieldCount]; std::memcpy(seg, base, sizeof(seg));
         seg[vp] = startPitch; seg[evp] = startPitch + pitchDelta * onsetFrac;
         nvspFrontend_Frame f; std::memcpy(&f, seg, sizeof(f));
-        cb(userData, &f, onsetDur, t.fadeMs, userIndexBase); hadPrevFrame = true; }
+        cb(userData, &f, onsetDur, microFade, userIndexBase); hadPrevFrame = true; }
 
       { double seg[kFrameFieldCount]; std::memcpy(seg, base, sizeof(seg));
         seg[vaIdx] = notchAmp;
@@ -1745,8 +1744,10 @@ void emitFramesEx(
       double notchDur = std::max(totalDur * 0.50, notchFloorMs);
       if (notchDur > totalDur * 0.80) notchDur = totalDur * 0.80;
       const double remainDur = totalDur - notchDur;
-      // Asymmetric split: shorter recovery (see non-Ex path for rationale).
-      const double onsetDur = remainDur * 0.65;
+      // Asymmetric split: short onset, longer recovery.  The tap should
+      // interrupt the vowel stream sharply; the recovery bridges back to the
+      // following vowel and benefits from more time.
+      const double onsetDur = remainDur * 0.35;
       const double recovDur = remainDur - onsetDur;
 
       // Amplitude dip: reduce voiceAmplitude by 50% in the notch.
@@ -1760,10 +1761,12 @@ void emitFramesEx(
       const double onsetFrac = (totalDur > 0.0) ? (onsetDur / totalDur) : 0.0;
       const double notchEndFrac = (totalDur > 0.0) ? ((onsetDur + notchDur) / totalDur) : 0.0;
 
-      // Short micro-fade between phases — sharp transitions, not smooth.
+      // Short micro-fade for ALL phases — the tap is a micro-event, not a
+      // normal segment.  Using t.fadeMs (10 ms) on the onset consumed the
+      // entire onset in crossfade, creating an audible gap before the notch.
       const double microFade = std::max(0.5, 1.5 / std::max(0.5, speed));
 
-      // Phase 1: onset — full amplitude, tap formants, fade from previous.
+      // Phase 1: onset — full amplitude, tap formants, sharp entry.
       {
         double seg[kFrameFieldCount];
         std::memcpy(seg, base, sizeof(seg));
@@ -1772,7 +1775,7 @@ void emitFramesEx(
 
         nvspFrontend_Frame f;
         std::memcpy(&f, seg, sizeof(f));
-        cb(userData, &f, &frameEx, onsetDur, t.fadeMs, userIndexBase);
+        cb(userData, &f, &frameEx, onsetDur, microFade, userIndexBase);
         hadPrevFrame = true;
       }
 
