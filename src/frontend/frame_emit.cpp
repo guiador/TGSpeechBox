@@ -189,6 +189,25 @@ void emitFrames(
         vb[static_cast<int>(FieldId::pf1)] = vbF1;
         vb[static_cast<int>(FieldId::preFormantGain)] = vbAmp;
 
+        // Pre-position F2/F3 at the stop's own formants instead of the
+        // previous vowel's.  This lets the cascade transition during the
+        // voice bar so the burst fires into matching resonator state,
+        // eliminating the interference pop at stop onsets.
+        if (t.def) {
+          auto vbField = [&](FieldId id) -> double {
+            int idx = static_cast<int>(id);
+            return (t.def->setMask & (1ULL << idx)) ? t.def->field[idx] : 0.0;
+          };
+          double sCf2 = vbField(FieldId::cf2);
+          double sCf3 = vbField(FieldId::cf3);
+          double sPf2 = vbField(FieldId::pf2);
+          double sPf3 = vbField(FieldId::pf3);
+          if (sCf2 > 0.0) vb[static_cast<int>(FieldId::cf2)] = sCf2;
+          if (sCf3 > 0.0) vb[static_cast<int>(FieldId::cf3)] = sCf3;
+          if (sPf2 > 0.0) vb[static_cast<int>(FieldId::pf2)] = sPf2;
+          if (sPf3 > 0.0) vb[static_cast<int>(FieldId::pf3)] = sPf3;
+        }
+
         nvspFrontend_Frame vbFrame;
         std::memcpy(&vbFrame, vb, sizeof(vbFrame));
         cb(userData, &vbFrame, t.durationMs, vbFadeMs, userIndexBase);
@@ -992,6 +1011,22 @@ void emitFramesEx(
         vb[static_cast<int>(FieldId::cf1)] = vbF1;
         vb[static_cast<int>(FieldId::pf1)] = vbF1;
         vb[static_cast<int>(FieldId::preFormantGain)] = vbAmp;
+
+        // Pre-position F2/F3 at the stop's own formants (see emitFrames path).
+        if (t.def) {
+          auto vbField = [&](FieldId id) -> double {
+            int idx = static_cast<int>(id);
+            return (t.def->setMask & (1ULL << idx)) ? t.def->field[idx] : 0.0;
+          };
+          double sCf2 = vbField(FieldId::cf2);
+          double sCf3 = vbField(FieldId::cf3);
+          double sPf2 = vbField(FieldId::pf2);
+          double sPf3 = vbField(FieldId::pf3);
+          if (sCf2 > 0.0) vb[static_cast<int>(FieldId::cf2)] = sCf2;
+          if (sCf3 > 0.0) vb[static_cast<int>(FieldId::cf3)] = sCf3;
+          if (sPf2 > 0.0) vb[static_cast<int>(FieldId::pf2)] = sPf2;
+          if (sPf3 > 0.0) vb[static_cast<int>(FieldId::pf3)] = sPf3;
+        }
 
         nvspFrontend_Frame vbFrame;
         std::memcpy(&vbFrame, vb, sizeof(vbFrame));

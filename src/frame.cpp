@@ -199,6 +199,34 @@ class FrameManagerImpl: public FrameManager {
 						((speechPlayer_frameParam_t*)&curFrame)[i]=calculateValueAtFadePosition(oldVal, newVal, paramLinear);
 					}
 				}
+
+				// ── Transition bandwidth widening ──
+				// During crossfades with large formant frequency changes,
+				// temporarily widen cascade/parallel bandwidths so IIR
+				// resonators can track without storing transient energy.
+				// Sine envelope: peaks at mid-transition, zero at endpoints.
+				{
+					const int szP = (int)sizeof(speechPlayer_frameParam_t);
+					auto widenForDelta = [&](int cfIdx, int cbIdx) {
+						double oldF = ((speechPlayer_frameParam_t*)&(oldFrameRequest->frame))[cfIdx];
+						double newF = ((speechPlayer_frameParam_t*)&(newFrameRequest->frame))[cfIdx];
+						double deltaHz = fabs(newF - oldF);
+						if(deltaHz > 400.0) {
+							double env = sin(linearRatio * 3.14159265);
+							double extraBw = env * (deltaHz - 400.0) * 0.25;
+							((speechPlayer_frameParam_t*)&curFrame)[cbIdx] += extraBw;
+						}
+					};
+					widenForDelta((int)(offsetof(speechPlayer_frame_t,cf2)/szP),
+					              (int)(offsetof(speechPlayer_frame_t,cb2)/szP));
+					widenForDelta((int)(offsetof(speechPlayer_frame_t,cf3)/szP),
+					              (int)(offsetof(speechPlayer_frame_t,cb3)/szP));
+					widenForDelta((int)(offsetof(speechPlayer_frame_t,pf2)/szP),
+					              (int)(offsetof(speechPlayer_frame_t,pb2)/szP));
+					widenForDelta((int)(offsetof(speechPlayer_frame_t,pf3)/szP),
+					              (int)(offsetof(speechPlayer_frame_t,pb3)/szP));
+				}
+
 				if(oldFrameRequest->hasFrameEx || newFrameRequest->hasFrameEx) {
 					curHasFrameEx = true;
 
