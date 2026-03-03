@@ -9,6 +9,28 @@ Licensed under the MIT License. See LICENSE for details.
 #include <algorithm>
 #include <cmath>
 
+// Debug logging for diphthong collapse investigation.
+// Set to 1 to enable, 0 to disable.
+#define DCOLLAPSE_DEBUG_LOG 0
+#if DCOLLAPSE_DEBUG_LOG
+#include <cstdio>
+#include <cstdlib>
+static FILE* dcollapseLogFile() {
+  static FILE* f = nullptr;
+  if (!f) {
+    const char* tmp = std::getenv("TEMP");
+    if (!tmp) tmp = std::getenv("TMP");
+    if (!tmp) tmp = "/tmp";
+    std::string path = std::string(tmp) + "/tgsb_diphthong_collapse.log";
+    f = std::fopen(path.c_str(), "a");
+  }
+  return f;
+}
+#define DCLOG(...) do { FILE* _f = dcollapseLogFile(); if (_f) { std::fprintf(_f, __VA_ARGS__); std::fflush(_f); } } while(0)
+#else
+#define DCLOG(...) ((void)0)
+#endif
+
 namespace nvsp_frontend::passes {
 
 namespace {
@@ -140,6 +162,17 @@ bool runDiphthongCollapse(
 
     // Flag it
     a.isDiphthongGlide = true;
+
+    DCLOG("COLLAPSE speed=%.2f dur=%.1fms fade=%.1fms "
+          "cf1=%.0f->%.0f cf2=%.0f->%.0f cf3=%.0f->%.0f "
+          "cb1=%.0f->%.0f cb2=%.0f->%.0f\n",
+          ctx.speed,
+          a.durationMs, a.fadeMs,
+          getField(a, cf1), a.endCf1,
+          getField(a, cf2), a.endCf2,
+          getField(a, cf3), a.endCf3,
+          getField(a, cb1), a.endCb1,
+          getField(a, cb2), a.endCb2);
 
     // Inherit A's syllableIndex, stress, wordStart, syllableStart (already there).
     // fadeMs from A (entry fade into the diphthong).

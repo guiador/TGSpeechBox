@@ -592,11 +592,12 @@ phonemes:
     pf6: 4900
     voiceAmplitude: 0.9
   "ä":
-    # GenAm MOUTH diphthong onset — open, slightly back of center.
-    # F1=780 (wide open, Hillenbrand male MOUTH=768), F2=1300 (fronted GenAm).
-    # Old F2=1430 was 30 Hz from schwa (1400) → "ertside".  F2=1200 was
-    # too back/Canadian.  F2=1300 splits the difference: 100 Hz from
-    # schwa, clearly "ah" not "er", but front enough for GenAm MOUTH.
+    # GenAm MOUTH diphthong onset — open central [a].
+    # F1=730 (open, Hillenbrand male MOUTH=768), F2=1450 (central).
+    # History: F2=1430+F1=680 was schwa-like → "ertside".  F2=1300+F1=780
+    # was only 30 Hz from ɑ (1330) → "sauna".  F2=1450 with F1=730 is
+    # 120 Hz from ɑ and 230 Hz F1-gap from schwa — distinct from both.
+    # Gives 580 Hz F2 sweep to ʊ (870) for a wide, satisfying glide.
     _isVowel: true
     _isVoiced: true
     aspirationAmplitude: 0
@@ -609,8 +610,8 @@ phonemes:
     cb6: 1000
     cbN0: 100
     cbNP: 100
-    cf1: 780
-    cf2: 1300
+    cf1: 730
+    cf2: 1450
     cf3: 2500
     cf4: 3300
     cf5: 3750
@@ -631,13 +632,13 @@ phonemes:
     pb4: 250
     pb5: 200
     pb6: 1000
-    pf1: 750
-    pf2: 1300
+    pf1: 730
+    pf2: 1450
     pf3: 2600
     pf4: 3300
     pf5: 3750
     pf6: 4900
-    voiceAmplitude: 0.78
+    voiceAmplitude: 0.72
   a_es:
     # This is a plain /a/ vowel, tuned on purpose for Spanish.
     _isLiquid: false

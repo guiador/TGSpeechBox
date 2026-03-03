@@ -18,6 +18,28 @@ Licensed under the MIT License. See LICENSE for details.
 #include <algorithm>
 #include <type_traits>
 
+// Debug logging for frame emission investigation.
+// Set to 1 to enable, 0 to disable.
+#define FEMIT_DEBUG_LOG 0
+#if FEMIT_DEBUG_LOG
+#include <cstdio>
+#include <cstdlib>
+static FILE* femitLogFile() {
+  static FILE* f = nullptr;
+  if (!f) {
+    const char* tmp = std::getenv("TEMP");
+    if (!tmp) tmp = std::getenv("TMP");
+    if (!tmp) tmp = "/tmp";
+    std::string path = std::string(tmp) + "/tgsb_frame_emit.log";
+    f = std::fopen(path.c_str(), "a");
+  }
+  return f;
+}
+#define FELOG(...) do { FILE* _f = femitLogFile(); if (_f) { std::fprintf(_f, __VA_ARGS__); std::fflush(_f); } } while(0)
+#else
+#define FELOG(...) ((void)0)
+#endif
+
 namespace nvsp_frontend {
 
 // Helper to clamp a value to [0, 1]
@@ -341,7 +363,7 @@ void emitFrames(
         if (intervalMs < 3.0) intervalMs = 3.0;
       }
       int N = (intervalMs > 0.0)
-            ? std::max(3, std::min(10, static_cast<int>(totalDur / intervalMs)))
+            ? std::max(5, std::min(10, static_cast<int>(totalDur / intervalMs)))
             : 3;
 
       const double startCf1 = base[static_cast<int>(FieldId::cf1)];
@@ -1246,8 +1268,9 @@ void emitFramesEx(
       const double totalDur = t.durationMs;
 
       // Number of micro-frames scales with duration.
-      // Minimum 3: with N=2, onset hold pow() and cosineSmooth() are
-      // identity functions (0^x=0, 1^x=1) — no shaping, just endpoints.
+      // Minimum 5: with N=3, onset hold concentrates waypoints near the
+      // onset, leaving only one big jump to the offset — losing the glide.
+      // N=5 guarantees enough interior points for a smooth sweep curve.
       // At higher pitch, fewer harmonics per formant bandwidth makes
       // crossfade phasing more audible — tighten the interval.
       double intervalMs = lang.diphthongMicroFrameIntervalMs;
@@ -1261,7 +1284,7 @@ void emitFramesEx(
         if (intervalMs < 3.0) intervalMs = 3.0;
       }
       int N = (intervalMs > 0.0)
-            ? std::max(3, std::min(10, static_cast<int>(totalDur / intervalMs)))
+            ? std::max(5, std::min(10, static_cast<int>(totalDur / intervalMs)))
             : 3;
 
       // Start and end formant targets (Hz).
@@ -1314,6 +1337,14 @@ void emitFramesEx(
           startCf1, endCascF1, startCf2, endCascF2,
           totalDur, nextTok);
 
+      FELOG("DIPH-EX speed=%.2f dur=%.1fms N=%d intv=%.1fms hold=%.2f "
+            "cf1=%.0f->%.0f cf2=%.0f->%.0f cf3=%.0f->%.0f "
+            "pitch=%.1f->%.1f fade=%.1fms\n",
+            speed, totalDur, N, intervalMs, onsetHold,
+            startCf1, endCascF1, startCf2, endCascF2,
+            startCf3, endCascF3,
+            startPitch, endPitch, t.fadeMs);
+
       // Onset settle: give the first micro-frame extra time so the
       // resonator can settle from the preceding consonant before the
       // formant sweep begins.  Borrowed from remaining segments.
@@ -1350,6 +1381,10 @@ void emitFramesEx(
         wpPb1[seg] = calculateFreqAtFadePosition(startPb1, endParB1, s);
         wpPb2[seg] = calculateFreqAtFadePosition(startPb2, endParB2, s);
         wpPb3[seg] = calculateFreqAtFadePosition(startPb3, endParB3, s);
+
+        FELOG("  wp[%d] frac=%.3f s=%.3f cf1=%.0f cf2=%.0f cf3=%.0f\n",
+              seg, (N > 1) ? (static_cast<double>(seg) / (N - 1)) : 0.0,
+              s, wpCf1[seg], wpCf2[seg], wpCf3[seg]);
       }
 
       // Emit micro-frames with endCf pointing to the next waypoint.
@@ -1417,6 +1452,13 @@ void emitFramesEx(
           mfEx.fujisakiAccentAmp = 0.0;
           mfEx.fujisakiReset = 0.0;
         }
+
+        FELOG("  emit[%d] dur=%.1fms fade=%.1fms cf1=%.0f cf2=%.0f endCf1=%.0f endCf2=%.0f\n",
+              seg, thisDur, fadeIn,
+              mf[static_cast<int>(FieldId::cf1)],
+              mf[static_cast<int>(FieldId::cf2)],
+              nvsp_isnan(mfEx.endCf1) ? -1.0 : mfEx.endCf1,
+              nvsp_isnan(mfEx.endCf2) ? -1.0 : mfEx.endCf2);
 
         cb(userData, &frame, &mfEx, thisDur, fadeIn, userIndexBase);
         hadPrevFrame = true;
