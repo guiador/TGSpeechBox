@@ -1807,6 +1807,28 @@ bool convertIpaToTokens(
     }
   }
 
+  // Clause-final hold: extend the last voiced sonorant in ALL utterances
+  // (multi-word included) so it doesn't sound clipped/swallowed.
+  // For single-word utterances, singleWordFinalHoldMs already handled this.
+  if (!isSingleWordUtterance && pack.lang.clauseFinalHoldMs > 0.0) {
+    int lastReal = -1;
+    for (int i = static_cast<int>(outTokens.size()) - 1; i >= 0; --i) {
+      if (outTokens[i].def && !outTokens[i].silence) { lastReal = i; break; }
+    }
+    if (lastReal >= 0) {
+      const Token& lt = outTokens[static_cast<size_t>(lastReal)];
+      const bool voiced = tokenIsVoiced(lt);
+      const bool tailSensitive = tokenIsVowel(lt) || tokenIsSemivowel(lt) ||
+                                 tokenIsLiquid(lt) || tokenIsTap(lt) ||
+                                 tokenIsTrill(lt) || tokenIsNasal(lt);
+      if (voiced && tailSensitive) {
+        const double sp = (speed > 0.0) ? speed : 1.0;
+        outTokens[static_cast<size_t>(lastReal)].durationMs +=
+            (pack.lang.clauseFinalHoldMs / sp);
+      }
+    }
+  }
+
   // Clause-final fade: append a silence fade token at the end of ALL
   // utterances (multi-word included) so clause-final stops get a proper
   // crossfade through voiceGenerator instead of the crude stopFade path.

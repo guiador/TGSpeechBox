@@ -280,6 +280,7 @@ class LanguagePack:
     single_word_final_hold_ms: float = 0.0
     single_word_final_liquid_hold_scale: float = 1.0
     single_word_final_fade_ms: float = 0.0
+    clause_final_hold_ms: float = 0.0
     clause_final_fade_ms: float = 0.0
     single_word_clause_type_override: str = ''
     single_word_clause_type_override_comma_only: bool = True
@@ -830,6 +831,7 @@ def _merge_settings(lp: LanguagePack, s: dict):
     lp.single_word_final_hold_ms = gn("singleWordFinalHoldMs", lp.single_word_final_hold_ms)
     lp.single_word_final_liquid_hold_scale = gn("singleWordFinalLiquidHoldScale", lp.single_word_final_liquid_hold_scale)
     lp.single_word_final_fade_ms = gn("singleWordFinalFadeMs", lp.single_word_final_fade_ms)
+    lp.clause_final_hold_ms = gn("clauseFinalHoldMs", lp.clause_final_hold_ms)
     lp.clause_final_fade_ms = gn("clauseFinalFadeMs", lp.clause_final_fade_ms)
     lp.single_word_clause_type_override_comma_only = gb("singleWordClauseTypeOverrideCommaOnly", lp.single_word_clause_type_override_comma_only)
     lp.auto_tie_diphthongs = gb("autoTieDiphthongs", lp.auto_tie_diphthongs)

@@ -564,6 +564,12 @@ struct LanguagePack {
   // to avoid abrupt cutoffs at the end of single-word utterances.
   double singleWordFinalFadeMs = 0.0;
 
+  // Extra hold added to the final voiced vowel/liquid/nasal of ALL utterances
+  // (multi-word included), in ms at speed=1.0.  Prevents the final sonorant
+  // from sounding clipped/swallowed.  singleWordFinalHoldMs takes precedence
+  // for single-word utterances if set.
+  double clauseFinalHoldMs = 0.0;
+
   // If >0, append a final silence frame with this fade time at the end of ALL
   // utterances (multi-word included).  This lets clause-final voiceless stops
   // decay their aspiration through the cascade instead of hitting the crude
@@ -1095,7 +1101,7 @@ double liquidDynamicsLabialGlideTransitionPct = 0.60;
   double rateCompLiquidFloorMs = 15.0;
   double rateCompAffricateFloorMs = 12.0;
   double rateCompSemivowelFloorMs = 10.0;
-  double rateCompTapFloorMs = 4.0;
+  double rateCompTapFloorMs = 10.0;
   double rateCompTrillFloorMs = 12.0;
   double rateCompVoicedConsonantFloorMs = 10.0;
 

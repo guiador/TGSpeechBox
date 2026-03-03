@@ -433,6 +433,7 @@ def _getPanelClass():
                 # ============================================================
 
                 # --- Clause-final ---
+                "clauseFinalHoldMs",
                 "clauseFinalFadeMs",
 
                 # --- Coarticulation ---

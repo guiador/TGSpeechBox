@@ -567,6 +567,7 @@ getNum("primaryStressDiv", lp.primaryStressDiv);
   getNum("singleWordFinalHoldMs", lp.singleWordFinalHoldMs);
   getNum("singleWordFinalLiquidHoldScale", lp.singleWordFinalLiquidHoldScale);
   getNum("singleWordFinalFadeMs", lp.singleWordFinalFadeMs);
+  getNum("clauseFinalHoldMs", lp.clauseFinalHoldMs);
   getNum("clauseFinalFadeMs", lp.clauseFinalFadeMs);
   getBool("singleWordClauseTypeOverrideCommaOnly", lp.singleWordClauseTypeOverrideCommaOnly);
   {

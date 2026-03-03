@@ -6834,7 +6834,7 @@ phonemes:
     cf6: 4900
     cfN0: 250
     cfNP: 200
-    fricationAmplitude: 0.25
+    fricationAmplitude: 0.55
     pa1: 0.10
     pa2: 0.22
     pa3: 0.32
@@ -6854,7 +6854,7 @@ phonemes:
     pf4: 3300
     pf5: 3750
     pf6: 4900
-    voiceAmplitude: 0.95
+    voiceAmplitude: 1.0
   "ɾ_wf":
     # Word-final tap for Spanish. At utterance end the base ɾ is held
     # by singleWordFinalHold and sounds nasal (voiced alveolar closure

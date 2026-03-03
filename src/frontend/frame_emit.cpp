@@ -842,10 +842,10 @@ void emitFrames(
     // TAP MICRO-EVENT (v1 path — see emitFramesEx for full rationale).
     const bool isTap = t.def && ((t.def->flags & kIsTap) != 0);
     // Micro-event notch only makes sense when the tap is long enough for
-    // 3 phases to ring up properly.  Below ~15 ms the recovery phase is
+    // 3 phases to ring up properly.  Below ~8 ms the recovery phase is
     // so short it creates a burst-like transient ("fourgy" for "forty").
     // Fall through to normal single-frame emission for very short taps.
-    if (isTap && t.durationMs >= 15.0) {
+    if (isTap && t.durationMs >= 8.0) {
       const double totalDur = t.durationMs;
       const double notchFloorMs = 1.5;
       double notchDur = std::max(totalDur * 0.50, notchFloorMs);
@@ -1775,7 +1775,7 @@ void emitFramesEx(
     // completely smears the dip.  Emit 3 micro-frames: onset, notch, recovery.
     const bool isTap = t.def && ((t.def->flags & kIsTap) != 0);
     // See non-Ex path comment: skip micro-event notch for very short taps.
-    if (isTap && t.durationMs >= 15.0) {
+    if (isTap && t.durationMs >= 8.0) {
       const double totalDur = t.durationMs;
 
       // Phase proportions: onset 25%, notch 50%, recovery 25%.
