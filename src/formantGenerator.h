@@ -85,13 +85,15 @@ void setCascadeBwScale(double scale) {
         // Source-tract coupling: widen F1 bandwidth when F1 is low.
         cb1 += f1BwOffset;
 
-        // --- Global cascade bandwidth scaling ---
-        // Multiplier < 1.0 = narrower bandwidths = sharper/ringy-er formant peaks (Eloquence-like)
-        // Multiplier > 1.0 = wider bandwidths = softer/warmer blended formants (DECTalk-like)
-        // This changes the fundamental resonance character of the entire instrument.
+        // --- Per-formant cascade bandwidth scaling ---
+        // F1 gets a tighter scale to sharpen its peak and reduce the nasal-murmur
+        // dominance that the series cascade architecture creates.
+        // Upper formants (F2-F6) use the global scale so they don't ring.
         const double cascadeBwScale = bwScale;
-        cb1 *= cascadeBwScale;
-        cb2 *= cascadeBwScale;
+        const double f1BwScale = cascadeBwScale * 0.65;  // tighter F1 — sharper vowel identity
+        const double f2BwScale = cascadeBwScale * 0.80;  // tighter F2 — deepens F1-F2 valley (anti-nasal)
+        cb1 *= f1BwScale;
+        cb2 *= f2BwScale;
         cb3 *= cascadeBwScale;
         double cb4 = frame->cb4 * cascadeBwScale;
         double cb5 = frame->cb5 * cascadeBwScale;

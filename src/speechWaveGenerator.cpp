@@ -149,6 +149,45 @@ private:
     double sgCouplingSmooth;   // smoothed coupling strength (glottal-gated)
     double sgCouplingAlpha;    // per-sample smoothing coefficient
 
+    // Low-shelf EQ: attenuates below ~400 Hz to reduce nasal-murmur energy.
+    double lsB0, lsB1, lsB2, lsA1, lsA2;
+    double lsIn1, lsIn2, lsOut1, lsOut2;
+
+    void initLowShelf(double fc, double gainDb, double Q) {
+        double nyq = 0.5 * (double)sampleRate;
+        if (!std::isfinite(fc)) fc = 400.0;
+        if (!std::isfinite(gainDb)) gainDb = 0.0;
+        if (!std::isfinite(Q)) Q = 0.7;
+        if (fc < 20.0) fc = 20.0;
+        if (fc > nyq * 0.95) fc = nyq * 0.95;
+        if (Q < 0.1) Q = 0.1;
+        if (Q > 4.0) Q = 4.0;
+        if (gainDb < -24.0) gainDb = -24.0;
+        if (gainDb > 24.0) gainDb = 24.0;
+
+        double A = pow(10.0, gainDb / 40.0);
+        double w0 = PITWO * fc / sampleRate;
+        double cosw0 = cos(w0);
+        double sinw0 = sin(w0);
+        double alpha = sinw0 / (2.0 * Q);
+
+        double a0 = (A+1) + (A-1)*cosw0 + 2*sqrt(A)*alpha;
+        lsB0 = (A*((A+1) - (A-1)*cosw0 + 2*sqrt(A)*alpha)) / a0;
+        lsB1 = (2*A*((A-1) - (A+1)*cosw0)) / a0;
+        lsB2 = (A*((A+1) - (A-1)*cosw0 - 2*sqrt(A)*alpha)) / a0;
+        lsA1 = (-2*((A-1) + (A+1)*cosw0)) / a0;
+        lsA2 = ((A+1) + (A-1)*cosw0 - 2*sqrt(A)*alpha) / a0;
+    }
+
+    double applyLowShelf(double in) {
+        double out = lsB0*in + lsB1*lsIn1 + lsB2*lsIn2 - lsA1*lsOut1 - lsA2*lsOut2;
+        lsIn2 = lsIn1;
+        lsIn1 = in;
+        lsOut2 = lsOut1;
+        lsOut1 = out;
+        return out;
+    }
+
     void initHighShelf(double fc, double gainDb, double Q) {
         // Clamp inputs to prevent NaNs and weird filter behavior from bad UI values
         double nyq = 0.5 * (double)sampleRate;
@@ -186,7 +225,7 @@ private:
     }
 
 public:
-    SpeechWaveGeneratorImpl(int sr): sampleRate(sr), voiceGenerator(sr), fricGenerator(), cascade(sr), parallel(sr), frameManager(NULL), lastInput(0.0), lastOutput(0.0), wasSilence(true), smoothPreGain(0.0), preGainAttackAlpha(0.0), preGainReleaseAlpha(0.0), smoothFricAmp(0.0), fricAttackAlpha(0.0), fricReleaseAlpha(0.0), hsIn1(0), hsIn2(0), hsOut1(0), hsOut2(0), fricBurstLp1(sr), fricBurstLp2(sr), fricSustainLp1(sr), fricSustainLp2(sr), lastTargetFricAmp(0.0), lastTargetAspAmp(0.0), fricBurstFc(0.0), fricSustainFc(0.0), burstEnv(0.0), burstEnvDecayMul(1.0), aspLp1(sr), aspLp2(sr), aspBurstFc(0.0), shelfMix(1.0), shelfMixAlpha(0.0), lastBrightOut(0.0), stopFadeRemaining(0), stopFadeTotal(0), startFadeRemaining(0), startFadeTotal(0), limiterGain(1.0), limiterAttackAlpha(0.0), limiterReleaseAlpha(0.0), limiterThreshold(0.0), smoothCascadeDuck(1.0), cascadeDuckAlpha(0.0), stcTiltState(0.0), stcSmoothPole(0.0), stcSmoothBwOff(0.0), stcAlpha(0.0), sgPole(sr), sgZero(sr, true), sgCouplingSmooth(0.0), sgCouplingAlpha(0.0) {
+    SpeechWaveGeneratorImpl(int sr): sampleRate(sr), voiceGenerator(sr), fricGenerator(), cascade(sr), parallel(sr), frameManager(NULL), lastInput(0.0), lastOutput(0.0), wasSilence(true), smoothPreGain(0.0), preGainAttackAlpha(0.0), preGainReleaseAlpha(0.0), smoothFricAmp(0.0), fricAttackAlpha(0.0), fricReleaseAlpha(0.0), hsIn1(0), hsIn2(0), hsOut1(0), hsOut2(0), fricBurstLp1(sr), fricBurstLp2(sr), fricSustainLp1(sr), fricSustainLp2(sr), lastTargetFricAmp(0.0), lastTargetAspAmp(0.0), fricBurstFc(0.0), fricSustainFc(0.0), burstEnv(0.0), burstEnvDecayMul(1.0), aspLp1(sr), aspLp2(sr), aspBurstFc(0.0), shelfMix(1.0), shelfMixAlpha(0.0), lastBrightOut(0.0), stopFadeRemaining(0), stopFadeTotal(0), startFadeRemaining(0), startFadeTotal(0), limiterGain(1.0), limiterAttackAlpha(0.0), limiterReleaseAlpha(0.0), limiterThreshold(0.0), smoothCascadeDuck(1.0), cascadeDuckAlpha(0.0), stcTiltState(0.0), stcSmoothPole(0.0), stcSmoothBwOff(0.0), stcAlpha(0.0), sgPole(sr), sgZero(sr, true), sgCouplingSmooth(0.0), sgCouplingAlpha(0.0), lsB0(1), lsB1(0), lsB2(0), lsA1(0), lsA2(0), lsIn1(0), lsIn2(0), lsOut1(0), lsOut2(0) {
         const double attackMs = 1.0;
         const double releaseMs = 0.5;
         preGainAttackAlpha = 1.0 - exp(-1.0 / (sampleRate * (attackMs * 0.001)));
@@ -244,6 +283,9 @@ public:
 
         // High shelf: use defaults from voicing tone
         initHighShelf(currentTone.highShelfFcHz, currentTone.highShelfGainDb, currentTone.highShelfQ);
+
+        // Low shelf: cut below 400 Hz to reduce nasal-murmur dominance
+        initLowShelf(400.0, -3.0, 0.7);
 
         // Pitch-sync F1 modulation: include glottal-cycle BW delta
         cascade.setPitchSyncParams(currentTone.pitchSyncF1DeltaHz,
@@ -615,6 +657,9 @@ public:
 
                 // Crossfade between unshelved and shelved
                 double bright = filteredOut + shelfMix * (shelved - filteredOut);
+
+                // Low-shelf: cut below 400 Hz to reduce nasal-murmur dominance
+                bright = applyLowShelf(bright);
 
                 // Apply start fade-in if active (prevents pop on speech start)
                 if (startFadeRemaining > 0) {
