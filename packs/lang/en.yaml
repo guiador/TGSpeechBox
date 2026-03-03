@@ -17,8 +17,8 @@ settings:
   stopClosureMode: vowel-and-cluster
   stopClosureVowelGapMs: 20
   stopClosureVowelFadeMs: 4
-  stopClosureClusterGapMs: 16
-  stopClosureClusterFadeMs: 3
+  stopClosureClusterGapMs: 24
+  stopClosureClusterFadeMs: 5
 
   # English: insert short aspiration after unvoiced stops in the right contexts.
   postStopAspirationEnabled: true

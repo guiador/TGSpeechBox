@@ -276,6 +276,21 @@ settings:
           pa1: 1.25
           pa2: 1.20
 
+    # ── Pre-stop unreleased (first stop in cluster) ──────────────
+    # In natural speech the first stop in a cluster like /kt/ ("locked"),
+    # /pt/ ("kept"), /gd/ ("bagged") is unreleased — the vocal tract
+    # moves directly from one closure to the next without an audible
+    # burst (Ladefoged & Maddieson 1996).  Only the LAST stop gets
+    # released.  Without this, both stops fire full bursts and merge
+    # into one big click that's hard to parse as two consonants.
+      - name: stop_before_stop_unreleased
+        flags: [stop]
+        beforeFlags: [stop]
+        action: scale
+        fieldScales:
+          fricationAmplitude: 0.12
+          aspirationAmplitude: 0.08
+
     # ── Unreleased word-final stops ──────────────────────────────
     # Australians often have unreleased or glottalized final stops,
     # similar to RP but slightly softer.  Between RP and GenAm.
@@ -287,6 +302,7 @@ settings:
       - name: unreleased_word_final
         flags: [stop]
         notFlags: [voiced]
+        notAfterFlags: [stop]
         position: word-final
         action: scale
         durationScale: 0.82
