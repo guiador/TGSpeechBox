@@ -931,6 +931,16 @@ normalization:
     - from: "o"
       to:   "ᵒ"
 
+    # -og/-ogue words: GenAm uses THOUGHT /ɔ/, not LOT /ɑ/.
+    # eSpeak systematically produces ɑːɡ for dog, fog, frog, dialog,
+    # catalogue, epilogue, etc.  All should be /ɔɡ/ in American English
+    # (rounded "aw" quality, not flat "ah").
+    # Must run BEFORE the ɔ→ᴐ rule below so the output gets transformed.
+    - from: "ɑːɡ"
+      to:   "ɔːɡ"
+    - from: "ɑɡ"
+      to:   "ɔɡ"
+
     # US THOUGHT vowel: make /ɔ(ː)/ more open so it doesn't drift toward an "owe" quality.
     - from: "ɔː"
       to:   "ᴐː"
@@ -965,8 +975,6 @@ normalization:
       to:   "ʌɹ"
     - from: "ɑɹ"
       to:   "ʌɹ"
-
-
 
     # Use a dedicated US /r/ variant.
 

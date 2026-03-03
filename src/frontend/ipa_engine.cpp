@@ -22,6 +22,38 @@ Licensed under the MIT License. See LICENSE for details.
 #include <type_traits>
 #include <sstream>
 
+// Debug logging for IPA normalization / preReplacement investigation.
+// Set to 1 to enable, 0 to disable.
+#define IPA_NORM_DEBUG_LOG 0
+#if IPA_NORM_DEBUG_LOG
+#include <cstdio>
+#include <cstdlib>
+static FILE* ipaNormLogFile() {
+  static FILE* f = nullptr;
+  if (!f) {
+    const char* tmp = std::getenv("TEMP");
+    if (!tmp) tmp = std::getenv("TMP");
+    if (!tmp) tmp = "/tmp";
+    std::string path = std::string(tmp) + "/tgsb_ipa_norm.log";
+    f = std::fopen(path.c_str(), "a");
+  }
+  return f;
+}
+static std::string u32toUtf8(const std::u32string& s) {
+  std::string out;
+  for (char32_t c : s) {
+    if (c < 0x80) out += (char)c;
+    else if (c < 0x800) { out += (char)(0xC0|(c>>6)); out += (char)(0x80|(c&0x3F)); }
+    else if (c < 0x10000) { out += (char)(0xE0|(c>>12)); out += (char)(0x80|((c>>6)&0x3F)); out += (char)(0x80|(c&0x3F)); }
+    else { out += (char)(0xF0|(c>>18)); out += (char)(0x80|((c>>12)&0x3F)); out += (char)(0x80|((c>>6)&0x3F)); out += (char)(0x80|(c&0x3F)); }
+  }
+  return out;
+}
+#define INLOG(...) do { FILE* _f = ipaNormLogFile(); if (_f) { std::fprintf(_f, __VA_ARGS__); std::fflush(_f); } } while(0)
+#else
+#define INLOG(...) ((void)0)
+#endif
+
 namespace nvsp_frontend {
 
 static inline bool hasFlag(const PhonemeDef* def, std::uint32_t bit) {
@@ -391,17 +423,27 @@ static void applyRules(std::u32string& text, const PackSet& pack, const std::vec
   // (e.g. u→ᵾ then ᵾ→ᵿ, or uː→ᵾː then ᵾ→ᵿ).
   std::vector<bool> prot(text.size(), false);
 
+  int ruleIdx = 0;
   for (const auto& rule : rules) {
-    if (rule.from.empty()) continue;
+    if (rule.from.empty()) { ++ruleIdx; continue; }
 
     const bool patHasTie = (rule.from.find(U'͡') != std::u32string::npos) || (rule.from.find(U'͜') != std::u32string::npos);
     const bool useLooseTie = (rule.from.size() > 1) && (textHasTie || patHasTie);
+
+    // Debug: trace rules that contain ɑ
+    bool traceThis = (rule.from.find(U'\u0251') != std::u32string::npos); // ɑ = U+0251
+    if (traceThis) {
+      INLOG("RULE[%d] from='%s' useLooseTie=%d textHasTie=%d text='%s'\n",
+            ruleIdx, u32toUtf8(rule.from).c_str(), useLooseTie, textHasTie,
+            u32toUtf8(text).c_str());
+    }
 
     // Fast skip: only safe when we can rely on direct substring search.
     // If tie bars are involved, a pattern like "a͡ɪ" should also match "aɪ", so
     // we can't skip purely on text.find(rule.from).
     if (!useLooseTie) {
       if (text.find(rule.from) == std::u32string::npos) {
+        if (traceThis) INLOG("  SKIP (not found)\n");
         continue;
       }
     } else if (patHasTie) {
@@ -500,10 +542,13 @@ static void applyRules(std::u32string& text, const PackSet& pack, const std::vec
           ok = false;
         }
 
+        if (traceThis) {
+          INLOG("  MATCH at %zu ok=%d\n", matchStart, ok);
+        }
         if (ok) {
+          if (traceThis) INLOG("  APPLIED: '%s' -> '%s'\n", u32toUtf8(rule.from).c_str(), u32toUtf8(to).c_str());
           out.append(to);
           // Only protect replacement output when it is LONGER than the
-          // matched text.  Longer replacements introduce new character
           // positions that could cause cascade corruption (a→a_es then
           // e→e_es).  Same-length or shorter replacements just swap
           // characters in-place — no new substrings are created, so
@@ -522,6 +567,7 @@ static void applyRules(std::u32string& text, const PackSet& pack, const std::vec
 
     text.swap(out);
     prot.swap(outProt);
+    ++ruleIdx;
   }
   if (protResult) *protResult = std::move(prot);
 }
@@ -573,8 +619,10 @@ static std::u32string normalizeIpaText(const PackSet& pack, const std::string& i
   // 1) Pack pre-replacements (lets you preserve info before we strip chars like '-').
   // Carry protection forward: escape protected characters into Supplementary
   // PUA-A so that cleanup passes and the replacements phase cannot mangle them.
+  INLOG("PRE-IN:  %s\n", u32toUtf8(t).c_str());
   std::vector<bool> preProt;
   applyRules(t, pack, pack.lang.preReplacements, &preProt);
+  INLOG("PRE-OUT: %s\n", u32toUtf8(t).c_str());
   escapeProtected(t, preProt);
 
   // 2) Basic cleanup, mirroring ipa_convert.py defaults.
