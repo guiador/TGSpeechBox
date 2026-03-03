@@ -133,6 +133,55 @@ static std::vector<std::string> splitOnWhitespace(const std::string& s) {
   return words;
 }
 
+// Characters that eSpeak expands to spoken words (e.g. % → "percent").
+static bool isExpandedSymbol(char c) {
+  switch (c) {
+    case '%': case '$': case '#': case '+': case '&': case '@':
+      return true;
+    default:
+      return false;
+  }
+}
+
+// Further split text words at digit→alpha boundaries and around symbols
+// that eSpeak expands into spoken words.
+// "25Increasing" → ["25", "Increasing"]
+// "100%"         → ["100", "%"]
+// Normal words like "bonus;" are left intact (stripPunct handles trailing).
+static void splitMixedTokens(std::vector<std::string>& words) {
+  std::vector<std::string> result;
+  result.reserve(words.size());
+  for (const auto& w : words) {
+    if (w.size() < 2) {
+      result.push_back(w);
+      continue;
+    }
+
+    size_t start = 0;
+    for (size_t i = 1; i < w.size(); ++i) {
+      unsigned char prev = static_cast<unsigned char>(w[i - 1]);
+      unsigned char cur  = static_cast<unsigned char>(w[i]);
+
+      bool split = false;
+      // digit → alpha: "25Increasing"
+      if (std::isdigit(prev) && std::isalpha(cur)) split = true;
+      // digit → expanded symbol: "100%"
+      if (std::isdigit(prev) && isExpandedSymbol(static_cast<char>(cur))) split = true;
+      // expanded symbol → alpha/digit: "%EXP", "%100"
+      if (isExpandedSymbol(static_cast<char>(prev)) && (std::isalpha(cur) || std::isdigit(cur))) split = true;
+
+      if (split) {
+        result.push_back(w.substr(start, i - start));
+        start = i;
+      }
+    }
+    if (start < w.size()) {
+      result.push_back(w.substr(start));
+    }
+  }
+  words = std::move(result);
+}
+
 // Split IPA on spaces.  eSpeak separates word-level IPA with spaces.
 static std::vector<std::string> splitIpaWords(const std::string& ipa) {
   std::vector<std::string> chunks;
@@ -504,8 +553,12 @@ std::string runTextParser(
   if (text.empty() || stressDict.empty()) return ipa;
 
   auto textWords = splitOnWhitespace(text);
+  splitMixedTokens(textWords);
   auto ipaChunks = splitIpaWords(ipa);
-  splitMultiStressChunks(ipaChunks);
+  // NOTE: splitMultiStressChunks is applied AFTER alignment (at reassembly),
+  // not here.  Splitting before alignment creates extra chunks from number
+  // expansions (e.g. "wˈʌnhˈʌndɹɪd" → "wˈʌ"+"nhˈʌndɹɪd") that misalign
+  // the text↔IPA mapping.
 
   if (textWords.empty() || ipaChunks.empty()) return ipa;
 
@@ -601,6 +654,18 @@ std::string runTextParser(
         {
           size_t skip = 1;
           const size_t excess = ipaChunks.size() - textWords.size();
+
+          // Is this text word purely numeric?  Numbers expand to multiple
+          // IPA words ("100" → "one hundred" = 2 chunks), so we prefer
+          // consuming MORE chunks to avoid misaligning subsequent words.
+          bool isNumeric = !textWords[tw].empty();
+          for (unsigned char ch : textWords[tw]) {
+            if (!std::isdigit(ch) && ch != ',' && ch != '.') {
+              isNumeric = false;
+              break;
+            }
+          }
+
           if (excess > 0) {
             for (size_t probe = tw + 1; probe < textWords.size(); ++probe) {
               const std::string probeKey = asciiLower(stripPunct(textWords[probe]));
@@ -624,13 +689,17 @@ std::string runTextParser(
 
                 if (nuclei.size() == probeNuclei) {
                   skip = s;
-                  break;
+                  // Numeric text words: prefer last match (consume more
+                  // chunks) since numbers expand to many IPA words and
+                  // an early match is likely a number sub-word whose
+                  // nucleus count accidentally equals the probe word's.
+                  if (!isNumeric) break;
                 }
               }
               break;  // only use the first anchoring word
             }
           }
-          TPLOG("    no-dict skip=%zu -> ipaIdx=%zu\n", skip, ipaIdx + skip);
+          TPLOG("    no-dict skip=%zu (numeric=%d) -> ipaIdx=%zu\n", skip, (int)isNumeric, ipaIdx + skip);
           ipaIdx += skip;
         }
       }
@@ -700,11 +769,18 @@ std::string runTextParser(
     }
 
     // Reassemble, skipping blanked-out chunks from the merge phase.
-    std::string result;
+    // First collect non-empty chunks, then split multi-stress words
+    // for IPA engine word boundaries.
+    std::vector<std::string> finalChunks;
     for (size_t i = 0; i < ipaChunks.size(); ++i) {
-      if (ipaChunks[i].empty()) continue;
+      if (!ipaChunks[i].empty()) finalChunks.push_back(std::move(ipaChunks[i]));
+    }
+    splitMultiStressChunks(finalChunks);
+    std::string result;
+    for (const auto& c : finalChunks) {
+      if (c.empty()) continue;
       if (!result.empty()) result.push_back(' ');
-      result += ipaChunks[i];
+      result += c;
     }
     TPLOG("  -> result: \"%s\"\n", result.c_str());
     return result;
@@ -722,10 +798,12 @@ std::string runTextParser(
 
   if (!anyChange) return ipa;
 
-  // Reassemble.
+  // Reassemble.  Split multi-stress chunks for IPA engine word boundaries.
+  splitMultiStressChunks(ipaChunks);
   std::string result;
   for (size_t i = 0; i < ipaChunks.size(); ++i) {
-    if (i > 0) result.push_back(' ');
+    if (ipaChunks[i].empty()) continue;
+    if (!result.empty()) result.push_back(' ');
     result += ipaChunks[i];
   }
   return result;
