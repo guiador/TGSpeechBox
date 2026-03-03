@@ -801,8 +801,9 @@ normalization:
     # With tie-insensitive rule matching in the frontend, these match both 'aɪ' and 'a͡ɪ'.
     - from: "a͡ɪ"
       to:   "ɑ͡ɪ"
-    # MOUTH onset: use ä (F1=680, F2=1430) — open, front-of-center per
-    # Hillenbrand data.  The old ɑ onset (F2=1330) sounded too back/Canadian.
+    # MOUTH onset: use ä (F1=730, F2=1200) — open, back-of-center per
+    # Hillenbrand (1995) male MOUTH data (F1=768, F2=1192).  Old F2=1430
+    # was only 30 Hz from schwa (1400), making "outside" → "ertside".
     # Single-char key avoids cascade corruption from later a→æ, o→ᵒ rules.
     - from: "a͡ʊ"
       to:   "ä͡ʊ"

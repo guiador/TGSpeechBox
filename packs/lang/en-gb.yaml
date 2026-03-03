@@ -20,10 +20,11 @@ settings:
   # Keep word-final long /uː/ (do/two/you) from sounding too clipped.
   englishLongUWordFinalScale: 1.00
 
-  # Single-word tuning: original Python had no special single-word handling.
-  # Keep at 0 to match legacy behavior.
-  singleWordFinalHoldMs: 0
-  clauseFinalFadeMs: 0
+  # Single-word tuning: give final voiced sounds a bit of sustain
+  # so word-final schwa/NURSE (/ə/ in "paper", "never") doesn't
+  # cut out abruptly.  More conservative than en-us (25/15).
+  singleWordFinalHoldMs: 15
+  clauseFinalFadeMs: 10
 
   stopClosureAfterNasalsEnabled: true
 

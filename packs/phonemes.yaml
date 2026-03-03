@@ -592,9 +592,11 @@ phonemes:
     pf6: 4900
     voiceAmplitude: 0.9
   "ä":
-    # GenAm MOUTH diphthong onset — open, front-of-center (IPA: centralized /a/).
-    # F1 raised vs base /a/ (680 vs 600) to match Hillenbrand male data;
-    # F2 kept at 1430 (front) rather than /ɑ/'s 1330 (too back/Canadian).
+    # GenAm MOUTH diphthong onset — open, back-of-center.
+    # F1=730 (open, Hillenbrand male MOUTH=768), F2=1200 (Hillenbrand=1192).
+    # Old F2=1430 was only 30 Hz from schwa/NURSE (F2=1400), making
+    # "outside" sound like "ertside".  F2=1200 puts it clearly in back
+    # vowel territory, 200 Hz away from schwa.
     _isVowel: true
     _isVoiced: true
     aspirationAmplitude: 0
@@ -607,8 +609,8 @@ phonemes:
     cb6: 1000
     cbN0: 100
     cbNP: 100
-    cf1: 680
-    cf2: 1430
+    cf1: 730
+    cf2: 1200
     cf3: 2500
     cf4: 3300
     cf5: 3750
@@ -629,8 +631,8 @@ phonemes:
     pb4: 250
     pb5: 200
     pb6: 1000
-    pf1: 650
-    pf2: 1220
+    pf1: 700
+    pf2: 1200
     pf3: 2600
     pf4: 3300
     pf5: 3750
