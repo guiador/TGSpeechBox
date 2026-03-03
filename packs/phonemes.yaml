@@ -605,8 +605,8 @@ phonemes:
     _isVoiced: true
     aspirationAmplitude: 0
     caNP: 0
-    cb1: 150
-    cb2: 100
+    cb1: 170
+    cb2: 120
     cb3: 170
     cb4: 250
     cb5: 200
@@ -629,8 +629,8 @@ phonemes:
     pa5: 0
     pa6: 0
     parallelBypass: 0
-    pb1: 150
-    pb2: 100
+    pb1: 170
+    pb2: 120
     pb3: 170
     pb4: 250
     pb5: 200
@@ -641,7 +641,7 @@ phonemes:
     pf4: 3300
     pf5: 3750
     pf6: 4900
-    voiceAmplitude: 0.72
+    voiceAmplitude: 0.62
   a_es:
     # This is a plain /a/ vowel, tuned on purpose for Spanish.
     _isLiquid: false
