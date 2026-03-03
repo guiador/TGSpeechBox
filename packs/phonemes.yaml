@@ -637,7 +637,7 @@ phonemes:
     pf4: 3300
     pf5: 3750
     pf6: 4900
-    voiceAmplitude: 0.9
+    voiceAmplitude: 0.78
   a_es:
     # This is a plain /a/ vowel, tuned on purpose for Spanish.
     _isLiquid: false
