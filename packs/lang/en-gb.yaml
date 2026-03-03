@@ -36,9 +36,10 @@ settings:
 
   # RP diphthongs linger on the onset and rush the offglide.
   # Default 1.4 gives roughly 50/50 onset/offglide which makes
-  # MOUTH /aʊ/ in "thousand" sound drawn-out at the end.
-  # 1.8 compresses the offglide into the final ~30% of the sweep.
-  diphthongOnsetHoldExponent: 1.8
+  # Onset hold: 1.3 gives roughly 50/50 onset/offglide balance.
+  # Was 1.8, which compressed the offglide so much that GOAT/MOUTH
+  # sounded like monophthongs ("bote" not "boat", "ertside" not "outside").
+  diphthongOnsetHoldExponent: 1.3
 
   # ── Core processing passes ─────────────────────────────────────
   # These are accent-neutral improvements that benefit any English variant.
@@ -170,8 +171,9 @@ settings:
       "a w": 1.15          # MOUTH — wide
       "ɔ j": 1.15          # CHOICE — wide
       "e j": 0.95          # FACE — narrow
+      "ə w": 1.05          # GOAT — needs audible rounding glide to stay distinct from NURSE
     durationFloorMs: 60
-    onsetHoldExponent: 1.7
+    onsetHoldExponent: 1.3
     microFrameIntervalMs: 8
 
   lengthContrast:
@@ -248,6 +250,38 @@ settings:
           pa1: 1.25
           pa2: 1.20
 
+    # ── Voiced stop burst clarity (place-specific) ──────────────
+    # Voiced stops have weak bursts because voicing masks the transient.
+    # RP articulates more crisply than GenAm.  Boost the spectral region
+    # that carries place identity: labial=low (pa1/pa2), alveolar=mid-high
+    # (pa3/pa4), velar=compact mid (pa2/pa3).
+      - name: voiced_labial_burst_boost
+        flags: [stop, voiced]
+        place: labial
+        action: scale
+        fieldScales:
+          fricationAmplitude: 1.25
+          pa1: 1.40
+          pa2: 1.35
+
+      - name: voiced_alveolar_burst_boost
+        flags: [stop, voiced]
+        place: alveolar
+        action: scale
+        fieldScales:
+          fricationAmplitude: 1.15
+          pa3: 1.35
+          pa4: 1.25
+
+      - name: voiced_velar_burst_boost
+        flags: [stop, voiced]
+        place: velar
+        action: scale
+        fieldScales:
+          fricationAmplitude: 1.20
+          pa2: 1.30
+          pa3: 1.25
+
     # ── Unreleased word-final stops ──────────────────────────────
     # RP often has unreleased or glottalized final stops.  Slightly
     # more aggressive than US — RP speakers release finals less.
@@ -306,6 +340,20 @@ settings:
           pa1: 2.80
           pa2: 2.20
           pa3: 1.80
+
+    # ── Voiced alveolar word-final softening ─────────────────────────
+    # Word-final /d/ pops too bright with the diffuse-rising burst.
+    # Soften high-frequency components so it blends into the vowel.
+      - name: voiced_alveolar_word_final_soften
+        flags: [stop, voiced]
+        place: alveolar
+        position: word-final
+        action: scale
+        fieldScales:
+          fricationAmplitude: 0.55
+          pa4: 0.65
+          pa5: 0.50
+          pa6: 0.40
 
     # NOTE: No American flapping rule — RP preserves /t/ and /d/
     # in intervocalic position ("water" = /wɔːtə/, not /wɔːɾɚ/).
@@ -710,12 +758,11 @@ normalization:
     - from: "ɝ"
       to: "ɜ"
 
-    # GOAT (əʊ): monophthongize to əː. The diphthong collapse glide from
-    # ə→ʊ created a perceptible "ow" sweep that made words like "combobox"
-    # sound drawn-out. RP GOAT onset is ə (not o like GenAm), so we keep
-    # the schwa quality as a long monophthong.
-    - from: "əʊ"
-      to:   "əː"
+    # GOAT (əʊ): keep as diphthong.  The onset hold exponent (1.7) already
+    # compresses the offglide to prevent a drawn-out "ow" sweep.
+    # Monophthongizing to əː merged GOAT with NURSE (ɜː) because our ə
+    # and ɜ share identical F1/F2.  RP GOAT needs the falling F2 offglide
+    # toward [ʊ] to stay distinct.
 
     # NEAR vowel: collapse word-final iə to short schwa tail.
     - from: "iə"
