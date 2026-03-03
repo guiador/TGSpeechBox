@@ -598,13 +598,16 @@ phonemes:
     # was only 30 Hz from ɑ (1330) → "sauna".  F2=1450 with F1=730 is
     # 120 Hz from ɑ and 230 Hz F1-gap from schwa — distinct from both.
     # Gives 580 Hz F2 sweep to ʊ (870) for a wide, satisfying glide.
+    # Bandwidths: Hillenbrand 1995 Table III open vowels B1=150-170,
+    # B2=100-120.  Old eSpeak-inherited B1=116/B2=76 was too narrow,
+    # producing sharp resonance peaks that clipped on mobile speakers.
     _isVowel: true
     _isVoiced: true
     aspirationAmplitude: 0
     caNP: 0
-    cb1: 116.6
-    cb2: 76.5
-    cb3: 178
+    cb1: 150
+    cb2: 100
+    cb3: 170
     cb4: 250
     cb5: 200
     cb6: 1000
@@ -626,9 +629,9 @@ phonemes:
     pa5: 0
     pa6: 0
     parallelBypass: 0
-    pb1: 130
-    pb2: 70
-    pb3: 160
+    pb1: 150
+    pb2: 100
+    pb3: 170
     pb4: 250
     pb5: 200
     pb6: 1000
