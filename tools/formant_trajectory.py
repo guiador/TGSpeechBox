@@ -1751,8 +1751,15 @@ def collapse_diphthongs(
             a = tokens[i]
             b = tokens[i + 1]
 
-            # Merge duration (with floor)
+            # Merge duration with per-pair scaling (Gay 1968)
             merged_dur = a.duration_ms + b.duration_ms
+            pair_scale = pack.lang.diphthong_duration_scale
+            if pack.lang.diphthong_pair_scales and a.pdef and b.pdef:
+                pair_key = f"{a.pdef.key} {b.pdef.key}"
+                if pair_key in pack.lang.diphthong_pair_scales:
+                    pair_scale = pack.lang.diphthong_pair_scales[pair_key]
+            if pair_scale > 0.0 and pair_scale != 1.0:
+                merged_dur *= pair_scale
             floor = pack.lang.diphthong_duration_floor_ms
             if merged_dur < floor:
                 merged_dur = floor

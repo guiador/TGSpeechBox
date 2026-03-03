@@ -687,6 +687,17 @@ double lengthContrastPreGeminateVowelScale = 0.85;
   double diphthongOnsetHoldExponent = 1.4;           // pow(frac, exp): >1 = linger at onset
   double diphthongOnsetSettleMs = 0.0;               // extra ms added to first micro-frame for resonator settling
 
+  // Per-diphthong-pair duration scales (Gay 1968: wide diphthongs are
+  // intrinsically longer than narrow ones).  Looked up by onset+offset
+  // phoneme keys at collapse time.  Falls back to diphthongDurationScale
+  // when no pair matches.
+  struct DiphthongPairScale {
+      std::u32string onset;
+      std::u32string offset;
+      double scale;
+  };
+  std::vector<DiphthongPairScale> diphthongPairScales;
+
   double lengthenedScaleHu = 1.3;
   bool applyLengthenedScaleToVowelsOnly = true;
 

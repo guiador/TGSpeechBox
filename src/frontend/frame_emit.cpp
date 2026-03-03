@@ -60,10 +60,15 @@ static double adaptiveOnsetHold(
   const double sweepF1 = fabs(endCf1 - startCf1);
   const double sweepMax = std::max(sweepF2, sweepF1);
 
-  // Narrow (<300 Hz): full hold.  Wide (>600 Hz): hold → 1.0 (linear).
+  // Narrow (<300 Hz): full hold.  Wide (>600 Hz): hold → floor.
+  // Floor of 1.12 ensures wide diphthongs still linger briefly at onset
+  // so the open vowel quality registers before the sweep begins — without
+  // this, PRICE /aɪ/ sounds "chesty" at rates above ~70 because the F1/F2
+  // sweep starts immediately and the onset never settles.
+  constexpr double kMinHold = 1.12;
   if (sweepMax > 300.0) {
     double widthFrac = std::min((sweepMax - 300.0) / 300.0, 1.0);
-    hold = hold + (1.0 - hold) * widthFrac;
+    hold = hold + (kMinHold - hold) * widthFrac;
   }
 
   // 2. Following-context check: stops, glottal stops, and silence give

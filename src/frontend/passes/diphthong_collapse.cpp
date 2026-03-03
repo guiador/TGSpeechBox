@@ -65,33 +65,25 @@ bool runDiphthongCollapse(
 
     // === Merge B into A ===
 
-    // Duration: combined, scaled, with floor to ensure enough micro-frames for the glide.
+    // Duration: combined.
     a.durationMs += b.durationMs;
 
-    // Only apply duration scaling when the diphthong has consonant context
-    // on BOTH sides within the same word.  One-sided context (e.g. "out"
-    // /aʊt/) still leaves the exposed onset or offset vulnerable to smearing.
-    // Bare diphthongs like "I" /aɪ/ have no context at all.
-    // Words like "page" /peɪdʒ/, "doubt" /daʊt/ have both — scale those.
-    if (lp.diphthongDurationScale > 0.0 && lp.diphthongDurationScale != 1.0) {
-      bool hasPrecedingConsonant = false;
-      bool hasFollowingConsonant = false;
-      // Preceding token: consonant in same word?
-      if (i > 0 && !a.wordStart) {
-        const Token& prev = tokens[i - 1];
-        if (prev.def && !prev.silence &&
-            !(prev.def->flags & (kIsVowel | kIsSemivowel)))
-          hasPrecedingConsonant = true;
+    // Per-diphthong duration scaling (Gay 1968: F2 rate of change is fixed,
+    // so wide diphthongs need proportionally more time than narrow ones).
+    // Look up pair-specific scale; fall back to global diphthongDurationScale.
+    {
+      double pairScale = lp.diphthongDurationScale;
+      if (!lp.diphthongPairScales.empty() && a.def && b.def) {
+          for (const auto& ps : lp.diphthongPairScales) {
+              if (ps.onset == a.def->key && ps.offset == b.def->key) {
+                  pairScale = ps.scale;
+                  break;
+              }
+          }
       }
-      // Following token (after b): consonant in same word?
-      if (i + 2 < tokens.size()) {
-        const Token& next = tokens[i + 2];
-        if (next.def && !next.silence && !next.wordStart &&
-            !(next.def->flags & (kIsVowel | kIsSemivowel)))
-          hasFollowingConsonant = true;
+      if (pairScale > 0.0 && pairScale != 1.0) {
+          a.durationMs *= pairScale;
       }
-      if (hasPrecedingConsonant && hasFollowingConsonant)
-        a.durationMs *= lp.diphthongDurationScale;
     }
 
     // Rate compensation: at high speeds, undo some of the rate compression

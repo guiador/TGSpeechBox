@@ -229,7 +229,13 @@ settings:
       dipDurationPct: 0.25
   diphthongCollapse:
     enabled: true
-    durationScale: 0.95
+    durationScale: 1.0
+    pairScales:
+      "ɑ ɪ": 1.20        # PRICE — wide, needs full open onset + glide
+      "ä ʊ": 1.15         # MOUTH — wide, must not sound Canadian-flat
+      "ɔ ɪ": 1.15         # CHOICE — wide
+      "e ɪ": 0.95         # FACE — narrow, fine short
+      "o ʊ": 0.92         # GOAT — narrow
     durationFloorMs: 50
     rateCompensation: 0.15
     onsetHoldExponent: 1.3

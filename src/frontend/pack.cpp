@@ -1100,6 +1100,24 @@ if (const yaml_min::Node* dc = settings.get("diphthongCollapse"); dc && dc->isMa
   getNumFrom(*dc, "rateCompensation", lp.diphthongRateCompensation);
   getNumFrom(*dc, "onsetHoldExponent", lp.diphthongOnsetHoldExponent);
   getNumFrom(*dc, "onsetSettleMs", lp.diphthongOnsetSettleMs);
+
+  // Per-pair duration scales: "onset offset" -> scale factor.
+  if (const yaml_min::Node* ps = dc->get("pairScales"); ps && ps->isMap()) {
+      for (const auto& kv : ps->map) {
+          double s = 1.0;
+          if (!kv.second.asNumber(s)) continue;
+          // Split "onset offset" on first space.
+          auto sp = kv.first.find(' ');
+          if (sp == std::string::npos) continue;
+          std::string onsetUtf8  = kv.first.substr(0, sp);
+          std::string offsetUtf8 = kv.first.substr(sp + 1);
+          LanguagePack::DiphthongPairScale dps;
+          dps.onset  = utf8ToU32(onsetUtf8);
+          dps.offset = utf8ToU32(offsetUtf8);
+          dps.scale  = s;
+          lp.diphthongPairScales.push_back(std::move(dps));
+      }
+  }
 }
 
 // Fujisaki clause-type overrides (nested: fujisakiClauseType: { question: { ... } })

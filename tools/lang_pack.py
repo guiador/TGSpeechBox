@@ -306,6 +306,7 @@ class LanguagePack:
     diphthong_rate_compensation: float = 0.0
     diphthong_onset_hold_exponent: float = 1.4
     diphthong_onset_settle_ms: float = 0.0
+    diphthong_pair_scales: Dict[str, float] = field(default_factory=dict)  # {"onset offset": scale}
     word_boundary_dip_ms: float = 0.0
     word_boundary_dip_depth: float = 0.70
     coda_noise_taper_pre_gain: float = 0.40
@@ -1260,6 +1261,10 @@ def _merge_settings(lp: LanguagePack, s: dict):
         lp.diphthong_rate_compensation = _gn_from(_dc, "rateCompensation", lp.diphthong_rate_compensation)
         lp.diphthong_onset_hold_exponent = _gn_from(_dc, "onsetHoldExponent", lp.diphthong_onset_hold_exponent)
         lp.diphthong_onset_settle_ms = _gn_from(_dc, "onsetSettleMs", lp.diphthong_onset_settle_ms)
+        if "pairScales" in _dc and isinstance(_dc["pairScales"], dict):
+            for pair_str, scale in _dc["pairScales"].items():
+                if isinstance(scale, (int, float)) and " " in pair_str:
+                    lp.diphthong_pair_scales[pair_str] = float(scale)
 
     if "codaNoiseTaper" in s and isinstance(s["codaNoiseTaper"], dict):
         _cnt = s["codaNoiseTaper"]

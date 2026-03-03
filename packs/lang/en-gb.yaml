@@ -164,6 +164,12 @@ settings:
   # ── Diphthong collapse ─────────────────────────────────────────
   diphthongCollapse:
     enabled: true
+    durationScale: 1.0
+    pairScales:
+      "a j": 1.20         # PRICE — wide (offglide is semivowel in RP)
+      "a w": 1.15          # MOUTH — wide
+      "ɔ j": 1.15          # CHOICE — wide
+      "e j": 0.95          # FACE — narrow
     durationFloorMs: 60
     onsetHoldExponent: 1.7
     microFrameIntervalMs: 8

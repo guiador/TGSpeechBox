@@ -177,6 +177,13 @@ settings:
   # ── Diphthong collapse ─────────────────────────────────────────
   diphthongCollapse:
     enabled: true
+    durationScale: 1.0
+    pairScales:
+      "ɑ ɪ": 1.20         # PRICE — wide
+      "ɑ ʊ": 1.15          # MOUTH — wide
+      "ɔ ɪ": 1.15          # CHOICE — wide
+      "æ ɪ": 0.95          # FACE — narrow (Australian raised onset)
+      "ə ᵘ": 0.92          # GOAT — narrow (fronted offglide)
     durationFloorMs: 60
     onsetHoldExponent: 1.7
     microFrameIntervalMs: 8
