@@ -624,11 +624,7 @@ std::string runTextParser(
 
                 if (nuclei.size() == probeNuclei) {
                   skip = s;
-                  // Don't break — keep searching for the largest valid skip.
-                  // Number expansions produce many IPA chunks; an early chunk
-                  // may coincidentally match the anchor's nucleus count
-                  // (e.g. "fourhundred" has 3 nuclei, same as "characters").
-                  // The real anchor is the furthest match.
+                  break;
                 }
               }
               break;  // only use the first anchoring word
