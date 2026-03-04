@@ -2,6 +2,12 @@
 # TGSpeechBox language pack.
 # Polish is syllable-timed with penultimate stress, no phonemic vowel length,
 # heavy consonant clusters, and rich palatalization contrasts.
+#
+# Vowel formant sources:
+#   Klesta 1998 (male speakers), Gonet 1993 (female), Lobacz 1996 (children).
+#   F1-F4 ranges from Gdańsk University of Technology course material.
+#   Nasal vowel acoustics from Styler 2017 (JASA), Chen 1997, Klessa et al. 2020.
+#   Central vowel /ɨ/ from Jassem 2003 (JIPA) and Wierzchowska 1971.
 
 settings:
   primaryStressDiv: 1.25
@@ -127,14 +133,12 @@ normalization:
     - from: "ɐ"
       to: "a"
 
-    # eSpeak pl sometimes emits nasal vowels (especially word-final ą as ɔ̃).
-    # NVSP doesn't have dedicated ɔ̃/ɛ̃ keys in the base phoneme table, so
-    # approximate them as vowel+nasal (matches many other Polish contexts like
-    # "kąt" -> ɔnt).
-    - from: "ɔ̃"
-      to: "ɔn"
-    - from: "ɛ̃"
-      to: "ɛn"
+    # eSpeak Polish emits nasal vowels ɔ̃/ɛ̃ in word-final and pre-fricative
+    # positions (e.g. "są" → sˈɔ̃, "mięso" → mʲˈɛ̃sɔ). These now have
+    # dedicated phoneme entries in phonemes.yaml with proper nasal coupling
+    # (caNP=0.40, cfN0=380-400 Hz) based on Styler 2017 / Chen 1997.
+    # Pre-consonant contexts (ręka → rˈɛŋka, kąt → kˈɔnt) are already
+    # decomposed by eSpeak into vowel+nasal consonant, which is correct Polish.
 
     # Safety: some IPA sources use velarized-l symbols for Polish "ł".
     # eSpeak usually already outputs /w/, but keep a fallback.
