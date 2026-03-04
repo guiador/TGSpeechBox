@@ -28,7 +28,7 @@ settings:
 
   # Single-word utterance smoothing (key echo / word-by-word navigation)
   singleWordTuningEnabled: true
-  singleWordFinalHoldMs: 45
+  singleWordFinalHoldMs: 25
   singleWordFinalFadeMs: 18
   singleWordClauseTypeOverride: "."
   singleWordClauseTypeOverrideCommaOnly: true
@@ -75,8 +75,10 @@ normalization:
       - u
 
     # This is needed to smoot wors like 'convencer', which are phonetically transcribed into /m/ and /b/ coda.
-    SMOOTB:
+    # And soften /d/ (andar)
+    NASAL:
       - m
+      - n
   replacements:
     # Pronounciation-level normalization rules:
     # Palatal nasal: some tables emit ñ as nʲ (or n͡ʲ). Map it to /ɲ/ so it doesn't collapse to plain /n/.
@@ -96,7 +98,7 @@ normalization:
     - from: b
       to: "β"
       when:
-        afterClass: SMOOTB
+        afterClass: NASAL
     - from: b
       to: "β"
       when:
@@ -120,11 +122,11 @@ normalization:
       when:
         afterClass: VOWELS
         beforeClass: VOWELS
-    # Word-final tap: use ɾ_wf allophone which has fricationAmplitude
+    # Word-final tap for  r: use ɾ_wf allophone which has fricationAmplitude
     # for a tongue-flick release and raised F2 to distinguish from /n/.
     # Without this, utterance-final taps sound nasal ("perdén", "amón").
     - from: "ɾ"
-      to: "ɾ_wf"
+      to: "ɾ_wfᵊɾ_wf"
       when:
         atWordEnd: true
     # Fix espeak's pronounciation mistakes like 'prueba', when 'u' is preceded by a stressed vowel. That always should be 'w', diphthong.
@@ -141,6 +143,27 @@ normalization:
       to: "ɾᵊɣ"
     - from: "ɾβ"
       to: "ɾᵊβ"
+    - from: "ɾθ"
+      to: "ɾᵊθ"
+    - from: "ɾf"
+      to: "ɾᵊf"
+    - from: "ɾx"
+      to: "ɾᵊx"
+    - from: "ɾk"
+      to: "ɾᵊk"
+    - from: "ɾm"
+      to: "ɾᵊm"
+    - from: "ɾn"
+      to: "ɾᵊn"
+    - from: "ɾp"
+      to: "ɾᵊp"
+    - from: "ɾs"
+      to: "ɾᵊs_es"
+    # Todo: I don't know why this doesn't work. Proper r with micro schwa for words like "archivo"
+    - from: "ɾt͡ʃ"
+      to: "ɾᵊt͡ʃ_es"
+    - from: "ɾt"
+      to: "ɾᵊt"
     # Approximant/stop + ɾ clusters (e.g. "madre" = ðɾ, "abrir" = βɾ)
     - from: "βɾ"
       to: "βᵊɾ"
