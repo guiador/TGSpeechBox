@@ -143,6 +143,110 @@ static bool isExpandedSymbol(char c) {
   }
 }
 
+// ── Number expansion ──────────────────────────────────────────────────────
+//
+// Expand a numeric text word into its spoken-word components using
+// language-pack YAML rules.  Returns empty vector if rules are disabled,
+// the string isn't a pure integer, or the word lists are too short.
+// Commas are stripped ("1,000" → 1000).
+// Leading zeros trigger digit-by-digit reading ("07" → "zero seven").
+
+static std::vector<std::string> expandNumber(
+    const std::string& numStr,
+    const NumberExpansionRules& rules)
+{
+  if (!rules.enabled) return {};
+  if (rules.digits.size() < 10 || rules.teens.size() < 10 || rules.tens.size() < 10)
+    return {};
+
+  // Strip commas.
+  std::string cleaned;
+  cleaned.reserve(numStr.size());
+  for (char c : numStr) {
+    if (c != ',') cleaned.push_back(c);
+  }
+
+  // Reject non-pure-digit strings (decimals, negatives → Phase 2).
+  if (cleaned.empty()) return {};
+  for (unsigned char c : cleaned) {
+    if (!std::isdigit(c)) return {};
+  }
+
+  // Leading zeros → digit-by-digit (eSpeak behavior: "07" → "zero seven").
+  if (cleaned.size() > 1 && cleaned[0] == '0') {
+    std::vector<std::string> result;
+    for (char c : cleaned) {
+      result.push_back(rules.digits[c - '0']);
+    }
+    return result;
+  }
+
+  // Parse as uint64.
+  unsigned long long val = 0;
+  try {
+    val = std::stoull(cleaned);
+  } catch (...) {
+    return {};  // overflow or parse failure
+  }
+
+  if (val == 0) return { rules.digits[0] };  // "zero"
+
+  // Two-digit expansion (1-99).
+  auto expandTwoDigit = [&](unsigned int n, std::vector<std::string>& out) {
+    if (n < 10) {
+      out.push_back(rules.digits[n]);
+    } else if (n < 20) {
+      out.push_back(rules.teens[n - 10]);
+    } else {
+      out.push_back(rules.tens[n / 10]);
+      if (n % 10 != 0) {
+        out.push_back(rules.digits[n % 10]);
+      }
+    }
+  };
+
+  // Group expansion (1-999).
+  auto expandGroup = [&](unsigned int n, std::vector<std::string>& out) {
+    if (n >= 100) {
+      out.push_back(rules.digits[n / 100]);
+      out.push_back(rules.hundred);
+      unsigned int rem = n % 100;
+      if (rem > 0) {
+        if (!rules.conjunction.empty())
+          out.push_back(rules.conjunction);
+        expandTwoDigit(rem, out);
+      }
+    } else {
+      expandTwoDigit(n, out);
+    }
+  };
+
+  std::vector<std::string> result;
+
+  struct Scale { unsigned long long divisor; const std::string* word; };
+  Scale scales[] = {
+    { 1000000000ULL, &rules.billion  },
+    { 1000000ULL,    &rules.million  },
+    { 1000ULL,       &rules.thousand },
+  };
+
+  for (const auto& s : scales) {
+    if (val >= s.divisor && !s.word->empty()) {
+      expandGroup(static_cast<unsigned int>(val / s.divisor), result);
+      result.push_back(*s.word);
+      val %= s.divisor;
+    }
+  }
+  if (val > 0) {
+    // British "and" between thousands+ and a sub-100 remainder.
+    if (!result.empty() && val < 100 && !rules.conjunction.empty())
+      result.push_back(rules.conjunction);
+    expandGroup(static_cast<unsigned int>(val), result);
+  }
+
+  return result;
+}
+
 // Further split text words at digit→alpha boundaries and around symbols
 // that eSpeak expands into spoken words.
 // "25Increasing" → ["25", "Increasing"]
@@ -548,17 +652,48 @@ std::string runTextParser(
     const std::string& text,
     const std::string& ipa,
     const std::unordered_map<std::string, std::vector<int>>& stressDict,
-    const std::vector<std::u32string>& legalOnsets)
+    const std::vector<std::u32string>& legalOnsets,
+    const NumberExpansionRules& numberRules)
 {
   if (text.empty() || stressDict.empty()) return ipa;
 
   auto textWords = splitOnWhitespace(text);
   splitMixedTokens(textWords);
+
+  // ── Number expansion ──────────────────────────────────────────────────
+  // Expand numeric text words using YAML rules so "24" becomes
+  // ["twenty", "four"], matching eSpeak's 2 IPA words.  Languages
+  // without numberExpansion rules fall through to existing heuristics.
+  if (numberRules.enabled) {
+    std::vector<std::string> expanded;
+    expanded.reserve(textWords.size());
+    for (const auto& tw : textWords) {
+      bool isNum = !tw.empty();
+      for (unsigned char ch : tw) {
+        if (!std::isdigit(ch) && ch != ',') { isNum = false; break; }
+      }
+      if (isNum) {
+        auto words = expandNumber(tw, numberRules);
+        if (!words.empty()) {
+          for (auto& w : words) expanded.push_back(std::move(w));
+          continue;
+        }
+      }
+      expanded.push_back(tw);
+    }
+    textWords = std::move(expanded);
+  }
+
   auto ipaChunks = splitIpaWords(ipa);
-  // NOTE: splitMultiStressChunks is applied AFTER alignment (at reassembly),
-  // not here.  Splitting before alignment creates extra chunks from number
-  // expansions (e.g. "wˈʌnhˈʌndɹɪd" → "wˈʌ"+"nhˈʌndɹɪd") that misalign
-  // the text↔IPA mapping.
+
+  // When number expansion made textWords longer than ipaChunks, eSpeak
+  // merged some number sub-words (e.g. "wˈʌnhˈʌndɹɪd" = one+hundred).
+  // Split multi-stress IPA chunks to recover them.  Safe here because the
+  // excess text words are known to be from number expansion.
+  // Without expansion, splitting is deferred to reassembly as before.
+  if (numberRules.enabled && textWords.size() > ipaChunks.size()) {
+    splitMultiStressChunks(ipaChunks);
+  }
 
   if (textWords.empty() || ipaChunks.empty()) return ipa;
 
@@ -697,6 +832,20 @@ std::string runTextParser(
                 }
               }
               break;  // only use the first anchoring word
+            }
+          }
+          // Numeric words (e.g. "24") often expand to multiple IPA words
+          // ("twenty four") but the look-ahead anchor may fail when the
+          // next text word is monosyllabic and doesn't qualify as an anchor.
+          // Use remaining word/chunk counts to estimate the correct skip.
+          if (isNumeric && skip == 1) {
+            size_t remainingText = textWords.size() - tw - 1;
+            size_t remainingIpa = 0;
+            for (size_t k = ipaIdx; k < ipaChunks.size(); ++k) {
+              if (!ipaChunks[k].empty()) ++remainingIpa;
+            }
+            if (remainingIpa > remainingText + 1) {
+              skip = remainingIpa - remainingText;
             }
           }
           TPLOG("    no-dict skip=%zu (numeric=%d) -> ipaIdx=%zu\n", skip, (int)isNumeric, ipaIdx + skip);

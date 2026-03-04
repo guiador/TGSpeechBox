@@ -1019,6 +1019,18 @@ if (const yaml_min::Node* ss = settings.get("syllableStructure"); ss && ss->isMa
   }
 }
 
+if (const yaml_min::Node* ne = settings.get("numberExpansion"); ne && ne->isMap()) {
+  getBoolFrom(*ne, "enabled", lp.numberExpansion.enabled);
+  getStrListFrom(*ne, "digits", lp.numberExpansion.digits);
+  getStrListFrom(*ne, "teens",  lp.numberExpansion.teens);
+  getStrListFrom(*ne, "tens",   lp.numberExpansion.tens);
+  getStrFrom(*ne, "hundred",     lp.numberExpansion.hundred);
+  getStrFrom(*ne, "thousand",    lp.numberExpansion.thousand);
+  getStrFrom(*ne, "million",     lp.numberExpansion.million);
+  getStrFrom(*ne, "billion",     lp.numberExpansion.billion);
+  getStrFrom(*ne, "conjunction", lp.numberExpansion.conjunction);
+}
+
 if (const yaml_min::Node* tl = settings.get("trajectoryLimit"); tl && tl->isMap()) {
   getBoolFrom(*tl, "enabled", lp.trajectoryLimitEnabled);
   getNumFrom(*tl, "windowMs", lp.trajectoryLimitWindowMs);

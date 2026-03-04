@@ -383,7 +383,8 @@ static int queueIPA_ExImpl(
   const char* finalIpa = ipaUtf8;
   if (textUtf8 && textUtf8[0] && !h->pack.stressDict.empty()) {
     parsedIpa = runTextParser(textUtf8, ipaUtf8, h->pack.stressDict,
-                               h->pack.lang.legalOnsets);
+                               h->pack.lang.legalOnsets,
+                               h->pack.lang.numberExpansion);
     finalIpa = parsedIpa.c_str();
   }
 

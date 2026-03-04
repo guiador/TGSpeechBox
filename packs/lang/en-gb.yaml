@@ -28,6 +28,10 @@ settings:
 
   stopClosureAfterNasalsEnabled: true
 
+  # British English: "one hundred AND twenty four"
+  numberExpansion:
+    conjunction: "and"
+
   # ── Diphthong tying ──────────────────────────────────────────────
   # eSpeak outputs PRICE/MOUTH/FACE/CHOICE as plain vowel pairs
   # without tie bars.  Enable auto-tying so the diphthong collapse

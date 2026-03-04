@@ -302,6 +302,22 @@ struct AllophoneRule {
     std::vector<std::string> insertContexts;
 };
 
+// Number expansion rules for text parser alignment.
+// When enabled, numeric text words are expanded to word sequences
+// ("24" → "twenty four") before alignment, eliminating fragile skip heuristics.
+// Loaded from the numberExpansion: YAML block in language packs.
+struct NumberExpansionRules {
+  bool enabled = false;
+  std::vector<std::string> digits;      // [0..9]: "zero".."nine"
+  std::vector<std::string> teens;       // [0..9]: "ten".."nineteen"
+  std::vector<std::string> tens;        // [0..9]: tens[2]="twenty"..tens[9]="ninety"
+  std::string hundred;                  // "hundred"
+  std::string thousand;                 // "thousand"
+  std::string million;                  // "million"
+  std::string billion;                  // "billion"
+  std::string conjunction;              // "" (en-us) or "and" (en-gb)
+};
+
 struct LanguagePack {
   std::string langTag; // normalized (lowercase, '-')
 
@@ -816,6 +832,9 @@ double lengthContrastPreGeminateVowelScale = 0.85;
   // Used by text_parser to place syllable boundaries correctly.
   // Empty = onset maximization disabled for this language.
   std::vector<std::u32string> legalOnsets;
+
+  // Number expansion rules for text parser alignment.
+  NumberExpansionRules numberExpansion;
 
   // Special coarticulation rules (language-specific Hz deltas).
   bool specialCoarticulationEnabled = false;

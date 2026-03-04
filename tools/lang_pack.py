@@ -188,6 +188,20 @@ class IntonationClause:
     tail_end: int = 8
 
 
+@dataclass
+class NumberExpansionRules:
+    """Number expansion rules for text parser alignment."""
+    enabled: bool = False
+    digits: List[str] = field(default_factory=list)
+    teens: List[str] = field(default_factory=list)
+    tens: List[str] = field(default_factory=list)
+    hundred: str = ""
+    thousand: str = ""
+    million: str = ""
+    billion: str = ""
+    conjunction: str = ""
+
+
 # =============================================================================
 # LanguagePack dataclass (auto-generated from pack.h LanguagePack struct)
 # =============================================================================
@@ -529,6 +543,7 @@ class LanguagePack:
     transforms: List[TransformRule] = field(default_factory=list)
     intonation: Dict[str, IntonationClause] = field(default_factory=dict)
     tone_contours: Dict[str, List[int]] = field(default_factory=dict)
+    number_expansion: NumberExpansionRules = field(default_factory=NumberExpansionRules)
 
 
 @dataclass
@@ -1347,6 +1362,19 @@ def _merge_settings(lp: LanguagePack, s: dict):
                         lp.trajectory_limit_max_hz_per_ms[FIELD_ID[fn]] = float(v)
                     except (ValueError, TypeError):
                         pass
+
+    # --- numberExpansion nested block ---
+    if "numberExpansion" in s and isinstance(s["numberExpansion"], dict):
+        _ne = s["numberExpansion"]
+        ne = lp.number_expansion
+        if "enabled" in _ne:
+            ne.enabled = _gb_from(_ne, "enabled", ne.enabled)
+        for key in ("digits", "teens", "tens"):
+            if key in _ne and isinstance(_ne[key], list):
+                setattr(ne, key, [str(x) for x in _ne[key]])
+        for key in ("hundred", "thousand", "million", "billion", "conjunction"):
+            if key in _ne:
+                setattr(ne, key, str(_ne[key]))
 
 
 # =============================================================================
