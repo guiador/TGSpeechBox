@@ -1230,6 +1230,12 @@ struct PackSet {
   // Loaded from packs/dict/{langTag}-stress.tsv at pack load time.
   // Empty if no dict file exists for this language (= no-op).
   std::unordered_map<std::string, std::vector<int>> stressDict;
+
+  // Compound word map: word → split halves (e.g., "lockbox" → ["lock", "box"]).
+  // Loaded from packs/dict/{langTag}-compounds.tsv at pack load time.
+  // Phase 1: stress fallback when stressDict misses.
+  // Phase 2: pre-eSpeak splitting for vowel quality.
+  std::unordered_map<std::string, std::vector<std::string>> compoundMap;
 };
 
 // Load phonemes.yaml + merged language packs.

@@ -593,6 +593,7 @@ static std::string correctStress(
     const std::string& textWord,
     const std::string& ipaChunk,
     const std::unordered_map<std::string, std::vector<int>>& dict,
+    const std::unordered_map<std::string, std::vector<std::string>>& compoundMap,
     const std::vector<std::u32string>& legalOnsets)
 {
   // Lowercase and strip punctuation from text word.
@@ -601,7 +602,46 @@ static std::string correctStress(
 
   // Lookup.
   auto it = dict.find(key);
-  if (it == dict.end()) return ipaChunk;
+  if (it == dict.end()) {
+    // Compound fallback: default stress for words in compound map.
+    // Primary on first nucleus, secondary on last, rest unstressed.
+    TPLOG("  correctStress: \"%s\" not in stressDict, checking compoundMap (size=%zu)\n",
+          key.c_str(), compoundMap.size());
+    auto compIt = compoundMap.find(key);
+    if (compIt == compoundMap.end()) { TPLOG("    not in compoundMap\n"); return ipaChunk; }
+    TPLOG("    compound hit!\n");
+
+    std::u32string u32 = utf8ToU32(ipaChunk);
+    std::u32string stripped = stripStress(u32);
+    auto nuclei = findNuclei(stripped);
+    TPLOG("    nuclei=%zu\n", nuclei.size());
+    if (nuclei.size() < 2) return ipaChunk;
+
+    // Default compound stress: primary on first nucleus, secondary on last.
+    // This is a safety net — Phase 2 pre-eSpeak splitting handles the common
+    // case with correct vowel quality.  This fallback only fires if a compound
+    // word somehow wasn't split before eSpeak.
+    std::vector<int> pattern(nuclei.size(), 0);
+    pattern[0] = 1;
+    pattern[nuclei.size() - 1] = 2;
+
+    // Same safety checks as normal path.
+    for (size_t n = 0; n < nuclei.size() && n < pattern.size(); ++n) {
+      if (pattern[n] == 1 && isReducedVowel(stripped[nuclei[n].start]))
+        return ipaChunk;
+    }
+
+    if (!legalOnsets.empty() && nuclei.size() >= 2) {
+      std::u32string dotted = applySyllableBoundaries(stripped, nuclei, legalOnsets);
+      auto dottedNuclei = findNuclei(dotted);
+      std::string result = u32ToUtf8(applyStressPattern(dotted, dottedNuclei, pattern));
+      TPLOG("    compound result: \"%s\" (was \"%s\")\n", result.c_str(), ipaChunk.c_str());
+      return result;
+    }
+    std::string result = u32ToUtf8(applyStressPattern(stripped, nuclei, pattern));
+    TPLOG("    compound result: \"%s\" (was \"%s\")\n", result.c_str(), ipaChunk.c_str());
+    return result;
+  }
 
   const std::vector<int>& pattern = it->second;
 
@@ -657,6 +697,7 @@ std::string runTextParser(
     const std::string& text,
     const std::string& ipa,
     const std::unordered_map<std::string, std::vector<int>>& stressDict,
+    const std::unordered_map<std::string, std::vector<std::string>>& compoundMap,
     const std::vector<std::u32string>& legalOnsets,
     const NumberExpansionRules& numberRules)
 {
@@ -770,7 +811,7 @@ std::string runTextParser(
             }
             TPLOG("    merged=\"%s\"\n", merged.c_str());
 
-            std::string corrected = correctStress(textWords[tw], merged, stressDict, legalOnsets);
+            std::string corrected = correctStress(textWords[tw], merged, stressDict, compoundMap, legalOnsets);
             // Always merge the chunks into one, even if stress didn't change.
             // The merge itself is the fix — it reunites split compound IPA.
             ipaChunks[ipaIdx] = (corrected != merged) ? std::move(corrected) : std::move(merged);
@@ -943,7 +984,7 @@ std::string runTextParser(
   bool anyChange = false;
 
   for (size_t i = 0; i < textWords.size(); ++i) {
-    std::string corrected = correctStress(textWords[i], ipaChunks[i], stressDict, legalOnsets);
+    std::string corrected = correctStress(textWords[i], ipaChunks[i], stressDict, compoundMap, legalOnsets);
     if (corrected != ipaChunks[i]) {
       ipaChunks[i] = std::move(corrected);
       anyChange = true;
@@ -960,6 +1001,76 @@ std::string runTextParser(
     if (!result.empty()) result.push_back(' ');
     result += ipaChunks[i];
   }
+  return result;
+}
+
+std::string splitCompoundsInText(
+    const std::string& text,
+    const std::unordered_map<std::string, std::vector<std::string>>& compoundMap)
+{
+  if (text.empty() || compoundMap.empty()) return text;
+
+  std::string result;
+  result.reserve(text.size() + 32);
+
+  size_t i = 0;
+  while (i < text.size()) {
+    // Skip whitespace — copy as-is.
+    if (text[i] == ' ' || text[i] == '\t' || text[i] == '\n' || text[i] == '\r') {
+      result.push_back(text[i]);
+      ++i;
+      continue;
+    }
+
+    // Find the end of this word token.
+    size_t wordStart = i;
+    while (i < text.size() && text[i] != ' ' && text[i] != '\t' &&
+           text[i] != '\n' && text[i] != '\r') {
+      ++i;
+    }
+    std::string token = text.substr(wordStart, i - wordStart);
+
+    // Strip leading and trailing punctuation for lookup.
+    size_t lo = 0;
+    while (lo < token.size() && std::ispunct(static_cast<unsigned char>(token[lo])))
+      ++lo;
+    size_t hi = token.size();
+    while (hi > lo && std::ispunct(static_cast<unsigned char>(token[hi - 1])))
+      --hi;
+
+    if (lo >= hi) {
+      // All punctuation — just emit.
+      result += token;
+      continue;
+    }
+
+    std::string core = token.substr(lo, hi - lo);
+    std::string key = core;
+    for (auto& c : key) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+
+    auto it = compoundMap.find(key);
+    if (it == compoundMap.end()) {
+      result += token;
+      continue;
+    }
+
+    // Found compound.  Replace core with halves joined by spaces.
+    // Preserve leading/trailing punctuation.
+    const auto& halves = it->second;
+
+    // Preserve original casing of first letter if the source was capitalized.
+    // For simplicity, just emit the halves as lowercase (eSpeak is case-insensitive
+    // for phonemization purposes).
+    result += token.substr(0, lo);  // leading punctuation
+    for (size_t h = 0; h < halves.size(); ++h) {
+      if (h > 0) result.push_back(' ');
+      result += halves[h];
+    }
+    result += token.substr(hi);  // trailing punctuation
+
+    TPLOG("  splitCompound: \"%s\" -> halves[%zu]\n", token.c_str(), halves.size());
+  }
+
   return result;
 }
 

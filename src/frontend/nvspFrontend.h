@@ -482,6 +482,28 @@ NVSP_FRONTEND_API void nvspFrontend_setLegacyPitchInflectionScale(
   double scale
 );
 
+/*
+  Pre-eSpeak compound word splitting (ABI v4+).
+
+  Scans textUtf8 for words in the loaded compound map and replaces them
+  with their constituent halves joined by spaces.  The caller should feed
+  the returned text to eSpeak instead of the original, so each half is
+  phonemized independently with correct vowel quality.
+
+  Returns NULL if no compounds were found (use original text unchanged).
+  Returns a malloc'd UTF-8 string if compounds were split.  The caller
+  must free the returned pointer with nvspFrontend_freeString().
+*/
+NVSP_FRONTEND_API char* nvspFrontend_splitCompounds(
+  nvspFrontend_handle_t handle,
+  const char* textUtf8
+);
+
+/*
+  Free a string returned by nvspFrontend_splitCompounds().
+*/
+NVSP_FRONTEND_API void nvspFrontend_freeString(char* str);
+
 #ifdef __cplusplus
 }
 #endif
