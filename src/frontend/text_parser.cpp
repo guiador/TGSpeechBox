@@ -221,6 +221,11 @@ static std::vector<std::string> expandNumber(
     }
   };
 
+  // Beyond billions (trillions+), we don't have YAML words — return empty
+  // so the caller falls back to eSpeak's alignment heuristics.
+  // eSpeak handles up to septillion natively, so let it do the work.
+  if (val > 999999999999ULL) return {};
+
   std::vector<std::string> result;
 
   struct Scale { unsigned long long divisor; const std::string* word; };
