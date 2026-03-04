@@ -28,7 +28,7 @@ settings:
 
   # Single-word utterance smoothing (key echo / word-by-word navigation)
   singleWordTuningEnabled: true
-  singleWordFinalHoldMs: 25
+  singleWordFinalHoldMs: 35
   singleWordFinalFadeMs: 18
   singleWordClauseTypeOverride: "."
   singleWordClauseTypeOverrideCommaOnly: true
@@ -94,6 +94,10 @@ normalization:
     - from: "ɟʝ"
       to: "ʝ"
     # Specific replacements
+    # Make ñ a bit longer, so "mañana" could sound a bit better, and can be distinguished from n.
+    # Rate compensation isn't ideal, we'll need to lengthen it even on normal speed.
+    - from: "ɲ"
+      to: "ɲɲ"
     # Smoot /b/ to /β/ in the following cases: before m, and when it is located at the end to avoid strange glitches.
     - from: b
       to: "β"
