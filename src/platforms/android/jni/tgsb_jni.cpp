@@ -15,6 +15,8 @@
 #include <string.h>
 #include <math.h>
 
+#include <string>
+
 #include <espeak-ng/speak_lib.h>
 #include "speechPlayer.h"
 #include "nvspFrontend.h"
@@ -253,16 +255,23 @@ static void synthesizeClauses(TgsbEngine *engine,
         memcpy(clause, clauseStart, len);
         clause[len] = '\0';
 
-        /* eSpeak → IPA for this clause */
+        /* eSpeak → IPA for this clause.
+         * Accumulate all IPA chunks into one string so the text parser
+         * can align the full clause text against the full IPA output
+         * (matches NVDA's one-call-per-clause pattern). */
         const void *ePtr = clause;
+        std::string combinedIpa;
         while (ePtr && *(const char *)ePtr && !engine->stopRequested) {
             const char *ipa = espeak_TextToPhonemes(
                 &ePtr, espeakCHARS_UTF8, 0x02 /* IPA */);
             if (!ipa || !*ipa) continue;
-
+            if (!combinedIpa.empty()) combinedIpa += ' ';
+            combinedIpa += ipa;
+        }
+        if (!combinedIpa.empty() && !engine->stopRequested) {
             char clauseStr[2] = { clauseType, 0 };
-            nvspFrontend_queueIPA_Ex(
-                engine->frontend, ipa,
+            nvspFrontend_queueIPA_ExWithText(
+                engine->frontend, clause, combinedIpa.c_str(),
                 speed, basePitch, engine->inflection, clauseStr, 0,
                 cb, ctx
             );

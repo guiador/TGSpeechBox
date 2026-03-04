@@ -199,6 +199,34 @@ class FrameManagerImpl: public FrameManager {
 						((speechPlayer_frameParam_t*)&curFrame)[i]=calculateValueAtFadePosition(oldVal, newVal, paramLinear);
 					}
 				}
+
+				// ── Transition bandwidth widening ──
+				// During crossfades with large formant frequency changes,
+				// temporarily widen cascade/parallel bandwidths so IIR
+				// resonators can track without storing transient energy.
+				// Sine envelope: peaks at mid-transition, zero at endpoints.
+				{
+					const int szP = (int)sizeof(speechPlayer_frameParam_t);
+					auto widenForDelta = [&](int cfIdx, int cbIdx) {
+						double oldF = ((speechPlayer_frameParam_t*)&(oldFrameRequest->frame))[cfIdx];
+						double newF = ((speechPlayer_frameParam_t*)&(newFrameRequest->frame))[cfIdx];
+						double deltaHz = fabs(newF - oldF);
+						if(deltaHz > 400.0) {
+							double env = sin(linearRatio * 3.14159265);
+							double extraBw = env * (deltaHz - 400.0) * 0.25;
+							((speechPlayer_frameParam_t*)&curFrame)[cbIdx] += extraBw;
+						}
+					};
+					widenForDelta((int)(offsetof(speechPlayer_frame_t,cf2)/szP),
+					              (int)(offsetof(speechPlayer_frame_t,cb2)/szP));
+					widenForDelta((int)(offsetof(speechPlayer_frame_t,cf3)/szP),
+					              (int)(offsetof(speechPlayer_frame_t,cb3)/szP));
+					widenForDelta((int)(offsetof(speechPlayer_frame_t,pf2)/szP),
+					              (int)(offsetof(speechPlayer_frame_t,pb2)/szP));
+					widenForDelta((int)(offsetof(speechPlayer_frame_t,pf3)/szP),
+					              (int)(offsetof(speechPlayer_frame_t,pb3)/szP));
+				}
+
 				if(oldFrameRequest->hasFrameEx || newFrameRequest->hasFrameEx) {
 					curHasFrameEx = true;
 
@@ -448,15 +476,14 @@ class FrameManagerImpl: public FrameManager {
 		if(purgeQueue) {
 			for(;!frameRequestQueue.empty();frameRequestQueue.pop()) delete frameRequestQueue.front();
 			sampleCounter=oldFrameRequest->minNumSamples;
-			// Always snapshot curFrame to preserve current audio state for smooth transitions.
-			// This ensures we fade FROM the current state, not from stale/garbage parameters.
-			// Must happen regardless of whether newFrameRequest exists.
-			if(!curFrameIsNULL) {
-				oldFrameRequest->NULLFrame=false;
-				memcpy(&(oldFrameRequest->frame),&curFrame,sizeof(speechPlayer_frame_t));
-				oldFrameRequest->hasFrameEx=curHasFrameEx;
-				memcpy(&(oldFrameRequest->frameEx),&curFrameEx,sizeof(speechPlayer_frameEx_t));
-			}
+			// Mark as coming from silence so the next frame triggers the from-silence
+			// transition path (line 253): new frame's formants/pitch used on BOTH sides
+			// of the crossfade, with gain ramping from zero.  Without this, the old
+			// curFrame snapshot (which may carry low pitch from an utterance-final
+			// declination) bleeds into the crossfade, exciting freshly-reset resonators
+			// at a sweeping pitch and producing audible shimmer on the new utterance.
+			oldFrameRequest->NULLFrame=true;
+			curFrameIsNULL=true;
 			if(newFrameRequest) {
 				delete newFrameRequest;
 				newFrameRequest=NULL;

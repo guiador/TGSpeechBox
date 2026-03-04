@@ -85,6 +85,26 @@ class PhonemeDef:
     end_pf2: float = float('nan')
     end_pf3: float = float('nan')
 
+    # Micro-event shaping fields (top-level phoneme keys, not frame fields)
+    has_burst_duration_ms: bool = False
+    has_burst_decay_rate: bool = False
+    has_burst_spectral_tilt: bool = False
+    has_voice_bar_amplitude: bool = False
+    has_voice_bar_f1: bool = False
+    has_release_spread_ms: bool = False
+    has_fric_attack_ms: bool = False
+    has_fric_decay_ms: bool = False
+    has_duration_scale: bool = False
+    burst_duration_ms: float = 0.0
+    burst_decay_rate: float = 0.0
+    burst_spectral_tilt: float = 0.0
+    voice_bar_amplitude: float = 0.0
+    voice_bar_f1: float = 0.0
+    release_spread_ms: float = 0.0
+    fric_attack_ms: float = 0.0
+    fric_decay_ms: float = 0.0
+    duration_scale: float = 1.0
+
     @property
     def is_vowel(self) -> bool: return bool(self.flags & PHONEME_FLAGS["_isVowel"])
     @property
@@ -260,6 +280,7 @@ class LanguagePack:
     single_word_final_hold_ms: float = 0.0
     single_word_final_liquid_hold_scale: float = 1.0
     single_word_final_fade_ms: float = 0.0
+    clause_final_hold_ms: float = 0.0
     clause_final_fade_ms: float = 0.0
     single_word_clause_type_override: str = ''
     single_word_clause_type_override_comma_only: bool = True
@@ -281,8 +302,19 @@ class LanguagePack:
     diphthong_collapse_enabled: bool = True
     diphthong_amplitude_dip_factor: float = 0.03
     diphthong_micro_frame_interval_ms: float = 6.0
+    diphthong_duration_scale: float = 1.0
     diphthong_duration_floor_ms: float = 50.0
+    diphthong_rate_compensation: float = 0.0
     diphthong_onset_hold_exponent: float = 1.4
+    diphthong_onset_settle_ms: float = 0.0
+    diphthong_pair_scales: Dict[str, float] = field(default_factory=dict)  # {"onset offset": scale}
+    word_boundary_dip_ms: float = 0.0
+    word_boundary_dip_depth: float = 0.70
+    coda_noise_taper_pre_gain: float = 0.40
+    coda_noise_taper_early_fric_scale: float = 0.45
+    coda_noise_taper_early_asp_amp: float = 0.04
+    coda_noise_taper_late_fric_scale: float = 0.08
+    coda_noise_taper_late_asp_amp: float = 0.22
     lengthened_scale_hu: float = 1.3
     apply_lengthened_scale_to_vowels_only: bool = True
     lengthened_vowel_final_coda_scale: float = 1.0
@@ -559,6 +591,27 @@ def _parse_phoneme(key: str, data: dict) -> PhonemeDef:
                         pass
             continue
 
+        # Micro-event shaping fields (top-level phoneme keys)
+        _MICRO_EVENT_MAP = {
+            "burstDurationMs": ("has_burst_duration_ms", "burst_duration_ms"),
+            "burstDecayRate": ("has_burst_decay_rate", "burst_decay_rate"),
+            "burstSpectralTilt": ("has_burst_spectral_tilt", "burst_spectral_tilt"),
+            "voiceBarAmplitude": ("has_voice_bar_amplitude", "voice_bar_amplitude"),
+            "voiceBarF1": ("has_voice_bar_f1", "voice_bar_f1"),
+            "releaseSpreadMs": ("has_release_spread_ms", "release_spread_ms"),
+            "fricAttackMs": ("has_fric_attack_ms", "fric_attack_ms"),
+            "fricDecayMs": ("has_fric_decay_ms", "fric_decay_ms"),
+            "durationScale": ("has_duration_scale", "duration_scale"),
+        }
+        if field_name in _MICRO_EVENT_MAP:
+            has_attr, val_attr = _MICRO_EVENT_MAP[field_name]
+            try:
+                setattr(pdef, has_attr, True)
+                setattr(pdef, val_attr, float(val))
+            except (ValueError, TypeError):
+                pass
+            continue
+
         # Frame fields
         if field_name in FIELD_ID:
             try:
@@ -778,6 +831,7 @@ def _merge_settings(lp: LanguagePack, s: dict):
     lp.single_word_final_hold_ms = gn("singleWordFinalHoldMs", lp.single_word_final_hold_ms)
     lp.single_word_final_liquid_hold_scale = gn("singleWordFinalLiquidHoldScale", lp.single_word_final_liquid_hold_scale)
     lp.single_word_final_fade_ms = gn("singleWordFinalFadeMs", lp.single_word_final_fade_ms)
+    lp.clause_final_hold_ms = gn("clauseFinalHoldMs", lp.clause_final_hold_ms)
     lp.clause_final_fade_ms = gn("clauseFinalFadeMs", lp.clause_final_fade_ms)
     lp.single_word_clause_type_override_comma_only = gb("singleWordClauseTypeOverrideCommaOnly", lp.single_word_clause_type_override_comma_only)
     lp.auto_tie_diphthongs = gb("autoTieDiphthongs", lp.auto_tie_diphthongs)
@@ -984,8 +1038,18 @@ def _merge_settings(lp: LanguagePack, s: dict):
     lp.diphthong_collapse_enabled = gb("diphthongCollapseEnabled", lp.diphthong_collapse_enabled)
     lp.diphthong_amplitude_dip_factor = gn("diphthongAmplitudeDipFactor", lp.diphthong_amplitude_dip_factor)
     lp.diphthong_micro_frame_interval_ms = gn("diphthongMicroFrameIntervalMs", lp.diphthong_micro_frame_interval_ms)
+    lp.diphthong_duration_scale = gn("diphthongDurationScale", lp.diphthong_duration_scale)
     lp.diphthong_duration_floor_ms = gn("diphthongDurationFloorMs", lp.diphthong_duration_floor_ms)
+    lp.diphthong_rate_compensation = gn("diphthongRateCompensation", lp.diphthong_rate_compensation)
     lp.diphthong_onset_hold_exponent = gn("diphthongOnsetHoldExponent", lp.diphthong_onset_hold_exponent)
+    lp.diphthong_onset_settle_ms = gn("diphthongOnsetSettleMs", lp.diphthong_onset_settle_ms)
+    lp.word_boundary_dip_ms = gn("wordBoundaryDipMs", lp.word_boundary_dip_ms)
+    lp.word_boundary_dip_depth = gn("wordBoundaryDipDepth", lp.word_boundary_dip_depth)
+    lp.coda_noise_taper_pre_gain = gn("codaNoiseTaperPreGain", lp.coda_noise_taper_pre_gain)
+    lp.coda_noise_taper_early_fric_scale = gn("codaNoiseTaperEarlyFricScale", lp.coda_noise_taper_early_fric_scale)
+    lp.coda_noise_taper_early_asp_amp = gn("codaNoiseTaperEarlyAspAmp", lp.coda_noise_taper_early_asp_amp)
+    lp.coda_noise_taper_late_fric_scale = gn("codaNoiseTaperLateFricScale", lp.coda_noise_taper_late_fric_scale)
+    lp.coda_noise_taper_late_asp_amp = gn("codaNoiseTaperLateAspAmp", lp.coda_noise_taper_late_asp_amp)
     lp.hu_short_a_vowel_enabled = gb("huShortAVowelEnabled", lp.hu_short_a_vowel_enabled)
     lp.hu_short_a_vowel_scale = gn("huShortAVowelScale", lp.hu_short_a_vowel_scale)
     lp.english_long_u_shorten_enabled = gb("englishLongUShortenEnabled", lp.english_long_u_shorten_enabled)
@@ -1194,8 +1258,28 @@ def _merge_settings(lp: LanguagePack, s: dict):
         lp.diphthong_collapse_enabled = _gb_from(_dc, "enabled", lp.diphthong_collapse_enabled)
         lp.diphthong_amplitude_dip_factor = _gn_from(_dc, "amplitudeDipFactor", lp.diphthong_amplitude_dip_factor)
         lp.diphthong_micro_frame_interval_ms = _gn_from(_dc, "microFrameIntervalMs", lp.diphthong_micro_frame_interval_ms)
+        lp.diphthong_duration_scale = _gn_from(_dc, "durationScale", lp.diphthong_duration_scale)
         lp.diphthong_duration_floor_ms = _gn_from(_dc, "durationFloorMs", lp.diphthong_duration_floor_ms)
+        lp.diphthong_rate_compensation = _gn_from(_dc, "rateCompensation", lp.diphthong_rate_compensation)
         lp.diphthong_onset_hold_exponent = _gn_from(_dc, "onsetHoldExponent", lp.diphthong_onset_hold_exponent)
+        lp.diphthong_onset_settle_ms = _gn_from(_dc, "onsetSettleMs", lp.diphthong_onset_settle_ms)
+        if "pairScales" in _dc and isinstance(_dc["pairScales"], dict):
+            for pair_str, scale in _dc["pairScales"].items():
+                if isinstance(scale, (int, float)) and " " in pair_str:
+                    lp.diphthong_pair_scales[pair_str] = float(scale)
+
+    if "codaNoiseTaper" in s and isinstance(s["codaNoiseTaper"], dict):
+        _cnt = s["codaNoiseTaper"]
+        lp.coda_noise_taper_pre_gain = _gn_from(_cnt, "preGain", lp.coda_noise_taper_pre_gain)
+        lp.coda_noise_taper_early_fric_scale = _gn_from(_cnt, "earlyFricScale", lp.coda_noise_taper_early_fric_scale)
+        lp.coda_noise_taper_early_asp_amp = _gn_from(_cnt, "earlyAspAmp", lp.coda_noise_taper_early_asp_amp)
+        lp.coda_noise_taper_late_fric_scale = _gn_from(_cnt, "lateFricScale", lp.coda_noise_taper_late_fric_scale)
+        lp.coda_noise_taper_late_asp_amp = _gn_from(_cnt, "lateAspAmp", lp.coda_noise_taper_late_asp_amp)
+
+    if "wordBoundaryDip" in s and isinstance(s["wordBoundaryDip"], dict):
+        _wbd = s["wordBoundaryDip"]
+        lp.word_boundary_dip_ms = _gn_from(_wbd, "ms", lp.word_boundary_dip_ms)
+        lp.word_boundary_dip_depth = _gn_from(_wbd, "depth", lp.word_boundary_dip_depth)
 
     if "allophoneRules" in s and isinstance(s["allophoneRules"], dict):
         _ar = s["allophoneRules"]

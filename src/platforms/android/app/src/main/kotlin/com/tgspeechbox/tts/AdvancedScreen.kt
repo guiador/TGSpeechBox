@@ -9,6 +9,10 @@
 
 package com.tgspeechbox.tts
 
+import android.content.Intent
+import android.net.Uri
+import android.os.PowerManager
+import android.provider.Settings
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -51,6 +55,7 @@ import androidx.compose.ui.semantics.isTraversalGroup
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
@@ -63,6 +68,7 @@ fun AdvancedScreen(
 ) {
     var showLanguageDialog by remember { mutableStateOf(false) }
     var showResetDialog by remember { mutableStateOf(false) }
+    var resetAll by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -70,6 +76,13 @@ fun AdvancedScreen(
             .verticalScroll(rememberScrollState())
             .padding(20.dp)
     ) {
+        // ── Voice selector (per-voice settings, matching iOS) ────────
+        Column(modifier = Modifier.semantics { isTraversalGroup = true }) {
+            EditingVoiceDropdown(viewModel)
+        }
+
+        Spacer(Modifier.height(12.dp))
+
         // ── Reset to Defaults ───────────────────────────────────────
         Column(modifier = Modifier.semantics { isTraversalGroup = true }) {
             Button(
@@ -346,6 +359,29 @@ fun AdvancedScreen(
             )
         }
 
+        Spacer(Modifier.height(16.dp))
+
+        // ── Battery Optimization ────────────────────────────────────
+        // Request exemption so Android doesn't kill the TTS service
+        // in the background (important for screen reader users).
+        val context = LocalContext.current
+        val pm = context.getSystemService(PowerManager::class.java)
+        val isExempt = pm?.isIgnoringBatteryOptimizations(context.packageName) == true
+
+        if (!isExempt) {
+            OutlinedButton(
+                onClick = {
+                    val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                        data = Uri.parse("package:${context.packageName}")
+                    }
+                    context.startActivity(intent)
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(stringResource(R.string.battery_optimization_button))
+            }
+        }
+
         Spacer(Modifier.height(24.dp))
 
         // ── Engine Languages button ─────────────────────────────────
@@ -361,20 +397,59 @@ fun AdvancedScreen(
 
     // ── Reset to Defaults confirmation dialog ──────────────────────
     if (showResetDialog) {
+        val voiceName = viewModel.voices.getOrNull(
+            viewModel.selectedVoiceIndex.collectAsState().value
+        )?.label ?: "Adam"
+        val message = if (resetAll)
+            stringResource(R.string.reset_defaults_message_all)
+        else
+            stringResource(R.string.reset_defaults_message_single, voiceName)
+
         AlertDialog(
-            onDismissRequest = { showResetDialog = false },
+            onDismissRequest = { showResetDialog = false; resetAll = false },
             title = { Text(stringResource(R.string.reset_defaults_title)) },
-            text = { Text(stringResource(R.string.reset_defaults_message)) },
+            text = {
+                Column {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .toggleable(
+                                value = resetAll,
+                                onValueChange = { resetAll = it },
+                                role = androidx.compose.ui.semantics.Role.Switch
+                            )
+                            .padding(vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(
+                            checked = resetAll,
+                            onCheckedChange = null
+                        )
+                        Text(
+                            text = stringResource(R.string.reset_all_toggle),
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier.padding(start = 12.dp)
+                        )
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = message,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
             confirmButton = {
                 TextButton(onClick = {
-                    viewModel.resetToDefaults()
+                    viewModel.resetToDefaults(allVoices = resetAll)
                     showResetDialog = false
+                    resetAll = false
                 }) {
                     Text(stringResource(R.string.reset_button))
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showResetDialog = false }) {
+                TextButton(onClick = { showResetDialog = false; resetAll = false }) {
                     Text(stringResource(R.string.cancel_button))
                 }
             }
@@ -525,6 +600,69 @@ private fun PauseModeDropdown(viewModel: TgsbViewModel) {
                     text = { Text(modeLabel) },
                     onClick = {
                         viewModel.onPauseModeChanged(modeId)
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Voice selector dropdown for per-voice settings — "Editing Voice".
+ * Matches iOS EngineSettingsView segmented picker.
+ * Uses plain Box + DropdownMenu for correct TalkBack traversal order.
+ */
+@Composable
+private fun EditingVoiceDropdown(viewModel: TgsbViewModel) {
+    val voiceIndex by viewModel.selectedVoiceIndex.collectAsState()
+    val currentLabel = viewModel.voices.getOrNull(voiceIndex)?.label ?: "Adam"
+    val label = stringResource(R.string.editing_voice_label)
+
+    var expanded by remember { mutableStateOf(false) }
+
+    Box(modifier = Modifier.fillMaxWidth()) {
+        Surface(
+            onClick = { expanded = true },
+            modifier = Modifier
+                .fillMaxWidth()
+                .semantics {
+                    role = androidx.compose.ui.semantics.Role.DropdownList
+                    contentDescription = "$label: $currentLabel"
+                },
+            shape = MaterialTheme.shapes.small,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.clearAndSetSemantics {}
+                    )
+                    Text(
+                        text = currentLabel,
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.clearAndSetSemantics {}
+                    )
+                }
+            }
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            for ((index, voice) in viewModel.voices.withIndex()) {
+                DropdownMenuItem(
+                    text = { Text(voice.label) },
+                    onClick = {
+                        viewModel.onVoiceSelected(index)
                         expanded = false
                     }
                 )

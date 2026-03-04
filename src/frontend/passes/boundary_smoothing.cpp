@@ -395,6 +395,20 @@ bool runBoundarySmoothing(PassContext& ctx, std::vector<Token>& tokens, std::str
       f3s = std::min(f3s * 1.5, 1.0);
     }
 
+    // ── Minimum effective transition floor ──
+    // When transF*Scale compresses a formant transition into too short
+    // a window, cascade IIR resonators can't track the slew rate and
+    // create interference transients (pops/clicks).  This is especially
+    // audible at higher speech rates where fades are already short.
+    // Floor: effective time (fadeMs * scale) must be >= 10ms.
+    constexpr double kMinEffectiveTransMs = 10.0;
+    if (cur.fadeMs > 0.0) {
+      const double minScale = std::min(kMinEffectiveTransMs / cur.fadeMs, 1.0);
+      if (f1s > 0.0 && f1s < minScale) f1s = minScale;
+      if (f2s > 0.0 && f2s < minScale) f2s = minScale;
+      if (f3s > 0.0 && f3s < minScale) f3s = minScale;
+    }
+
     if (f1s > 0.0) cur.transF1Scale = f1s;
     if (f2s > 0.0) cur.transF2Scale = f2s;
     if (f3s > 0.0) cur.transF3Scale = f3s;

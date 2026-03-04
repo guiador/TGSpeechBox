@@ -1897,7 +1897,15 @@ settings:
 
   diphthongCollapse:
     enabled: true
+    durationScale: 1.0          # global fallback (used when no pairScales match)
+    pairScales:                  # per-pair duration scales (Gay 1968)
+      "ɑ ɪ": 1.20               # PRICE — wide, needs full open onset + glide
+      "ä ʊ": 1.15               # MOUTH — wide
+      "ɔ ɪ": 1.15               # CHOICE — wide
+      "e ɪ": 0.95               # FACE — narrow, fine short
+      "o ʊ": 0.92               # GOAT — narrow
     durationFloorMs: 60         # minimum ms for merged token (prevents crush at high rate)
+    rateCompensation: 0.15      # protect glide identity at high speech rates
     microFrameIntervalMs: 8     # base interval; pitch-scaled down at higher F0
     onsetHoldExponent: 1.4      # >1.0 lingers at onset before sweeping (pow(frac, exp))
     amplitudeDipFactor: 0.03    # midpoint amplitude dip (sin curve, 0 = none)
@@ -1909,7 +1917,10 @@ settings:
 | Setting | Default | What it does |
 |---------|---------|--------------|
 | `enabled` | `true` | Master switch for the pass |
+| `durationScale` | `1.0` | Global fallback scale factor applied to the merged onset+offglide duration when no `pairScales` entry matches. Values < 1.0 compress the glide; values > 1.0 stretch it. Set to 1.0 (neutral) when using `pairScales` for all diphthongs in the language. |
+| `pairScales` | (empty) | Per-diphthong-pair duration scales (Gay 1968). Map of `"onset offset"` phoneme keys to scale factors. Wide diphthongs (/aɪ/, /aʊ/, /ɔɪ/) are intrinsically longer than narrow ones (/eɪ/, /oʊ/) because F2 rate of change is fixed — wider excursion needs proportionally more time. Keys must match the resolved phoneme keys at collapse time (after preReplacements and offglide-to-semivowel conversion). Applied unconditionally — no consonant-context gating. Falls back to `durationScale` for unmatched pairs. Example: `"ɑ ɪ": 1.20` for PRICE (en-us). |
 | `durationFloorMs` | `50.0` | Minimum duration for the merged diphthong token. Prevents the glide from being crushed at high speech rates. This floor is enforced inside the collapse pass itself (not in rate compensation). |
+| `rateCompensation` | `0.0` | Protects diphthong glide duration at high speech rates. After merging, the collapsed duration is multiplied by `speed^exponent`. At exponent 0.0 there is no compensation (default). At 1.0 the glide is fully rate-invariant — its duration stays constant regardless of speech rate. Many formant synthesizers (notably Eloquence) retain diphthong glide identity even at high rates; this setting replicates that behaviour. Without it, diphthongs lose their spectral sweep at high rates and sound thick. en-us uses 0.15 — just enough to preserve identity at fast rates without bloating diphthongs. |
 | `microFrameIntervalMs` | `8.0` | Base interval between micro-frame waypoints. **Pitch-adaptive**: at higher F0 the interval is automatically scaled down (`interval * 100/pitch`, floored at 3ms) because fewer harmonics per formant bandwidth makes crossfade phasing more audible. At 100Hz the value is used as-is; at 200Hz it halves. The frame count is clamped to 3–10. |
 | `onsetHoldExponent` | `1.4` | Exponent applied to the interpolation fraction before cosine smoothing: `pow(frac, exp)`. Values > 1.0 make the glide linger at the onset target before sweeping toward the offset. Audible range is roughly 0.1–2.0. |
 | `amplitudeDipFactor` | `0.03` | Controls a small amplitude dip at the midpoint of the glide (via `sin(pi * frac)`). Mimics the natural slight weakening at the transition between vowel qualities. Set to 0 to disable. |

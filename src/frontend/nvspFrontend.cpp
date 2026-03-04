@@ -525,7 +525,7 @@ NVSP_FRONTEND_API int nvspFrontend_getVoicingTone(
   outTone->voicingPeakPos = 0.91;
   outTone->voicedPreEmphA = 0.92;
   outTone->voicedPreEmphMix = 0.35;
-  outTone->highShelfGainDb = 4.0;
+  outTone->highShelfGainDb = 5.5;
   outTone->highShelfFcHz = 2000.0;
   outTone->highShelfQ = 0.7;
   outTone->voicedTiltDbPerOct = 0.0;

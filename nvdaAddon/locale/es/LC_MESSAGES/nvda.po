@@ -1767,6 +1767,11 @@ msgstr "Colapso de Diptongo Piso de Duración (ms)"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Diphthong Collapse Duration Scale"
+msgstr "Colapso de Diptongo Escala de Duración"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Diphthong Collapse Micro Frame Interval (ms)"
 msgstr "Colapso de Diptongo Intervalo de Micro Cuadro (ms)"
 
@@ -1774,6 +1779,11 @@ msgstr "Colapso de Diptongo Intervalo de Micro Cuadro (ms)"
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Diphthong Collapse Onset Hold Exponent"
 msgstr "Colapso de Diptongo Exponente de Retención de Inicio"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Diphthong Collapse Rate Compensation"
+msgstr "Colapso de Diptongo Compensación de Velocidad"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
@@ -1792,6 +1802,11 @@ msgstr "Colapso de Diptongo: Piso de Duración (ms)"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Diphthong Collapse: Duration Scale"
+msgstr "Colapso de Diptongo: Escala de Duración"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Diphthong Collapse: Micro Frame Interval (ms)"
 msgstr "Colapso de Diptongo: Intervalo de Micro Cuadro (ms)"
 
@@ -1799,6 +1814,11 @@ msgstr "Colapso de Diptongo: Intervalo de Micro Cuadro (ms)"
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Diphthong Collapse: Onset Hold Exponent"
 msgstr "Colapso de Diptongo: Exponente de Retención de Inicio"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Diphthong Collapse: Rate Compensation"
+msgstr "Colapso de Diptongo: Compensación de Velocidad"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py

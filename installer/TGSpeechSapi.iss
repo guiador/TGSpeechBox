@@ -9,7 +9,7 @@
 
 [Setup]
 AppName=TGSpeechBox SAPI Voice
-AppVersion=3.0-beta2
+AppVersion=3.0-beta3
 AppPublisher=Tamas Geczy
 AppPublisherURL=https://github.com/tgeczy/TGSpeechBox
 DefaultDirName={autopf}\TGSpeechSapi

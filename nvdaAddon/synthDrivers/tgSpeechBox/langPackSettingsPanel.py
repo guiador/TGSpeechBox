@@ -335,7 +335,9 @@ def _getPanelClass():
 
                 # --- Diphthong collapse ---
                 "diphthongCollapse.amplitudeDipFactor",
+                "diphthongCollapse.durationScale",
                 "diphthongCollapse.durationFloorMs",
+                "diphthongCollapse.rateCompensation",
                 "diphthongCollapse.enabled",
                 "diphthongCollapse.microFrameIntervalMs",
                 "diphthongCollapse.onsetHoldExponent",
@@ -431,6 +433,7 @@ def _getPanelClass():
                 # ============================================================
 
                 # --- Clause-final ---
+                "clauseFinalHoldMs",
                 "clauseFinalFadeMs",
 
                 # --- Coarticulation ---

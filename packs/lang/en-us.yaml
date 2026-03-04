@@ -15,8 +15,8 @@ settings:
   # Allow gaps after nasals too, so phrases like "column two" don't swallow the /t/.
   stopClosureVowelGapMs: 18
   stopClosureVowelFadeMs: 4
-  stopClosureClusterGapMs: 20
-  stopClosureClusterFadeMs: 10
+  stopClosureClusterGapMs: 26
+  stopClosureClusterFadeMs: 5
   stopClosureWordBoundaryClusterGapMs: 24
   stopClosureWordBoundaryClusterFadeMs: 4
 
@@ -28,6 +28,9 @@ settings:
 
   # US: smoother overall, less breath noise on stop releases.
   postStopAspirationEnabled: true
+  # Lisker & Abramson (1964): English aspirated stops need 40-80ms VOT.
+  # Default 20ms is below the perceptual boundary (~25-35ms).
+  postStopAspirationDurationMs: 35
 
   # Reduce hold time for word-final liquids (R, L) to avoid "pirate R" on
   # words like "star", "car", "far". The retroflex R with its low F3 sounds
@@ -61,7 +64,7 @@ settings:
 
   # Uniform word-boundary dip: every word start gets a brief amplitude
   # reduction so boundaries are audible even at V#V (e.g. "the installer").
-  wordBoundaryDipMs: 3.0
+  wordBoundaryDipMs: 8.0
   wordBoundaryDipDepth: 0.50
 
   # Keep defaults conservative: avoid heavy cross-phoneme shaping here.
@@ -226,7 +229,15 @@ settings:
       dipDurationPct: 0.25
   diphthongCollapse:
     enabled: true
-    durationFloorMs: 60
+    durationScale: 1.0
+    pairScales:
+      "ɑ ɪ": 1.05        # PRICE — wide, needs full open onset + glide
+      "ä ʊ": 1.22         # MOUTH — wide; pre-voiceless ×0.80 → net 0.98
+      "ɔ ɪ": 1.15         # CHOICE — wide
+      "e ɪ": 0.95         # FACE — narrow, fine short
+      "o ʊ": 0.92         # GOAT — narrow
+    durationFloorMs: 50
+    rateCompensation: 0.15
     onsetHoldExponent: 1.3
     microFrameIntervalMs: 8
     onsetSettleMs: 12
@@ -289,7 +300,7 @@ settings:
         replaceTo: ɾ
         replaceDurationMs: 30.0
         replaceRemovesClosure: true
-        replaceClosureScale: 0.5
+        replaceClosureScale: 0
         replaceRemovesAspiration: false
 
     # ── /l/ darkness by position ─────────────────────────────────
@@ -375,6 +386,21 @@ settings:
           pa1: 1.25
           pa2: 1.20
 
+    # ── Pre-stop unreleased (first stop in cluster) ──────────────
+    # In natural speech the first stop in a cluster like /kt/ ("locked"),
+    # /pt/ ("kept"), /gd/ ("bagged") is unreleased — the vocal tract
+    # moves directly from one closure to the next without an audible
+    # burst (Ladefoged & Maddieson 1996).  Only the LAST stop gets
+    # released.  Without this, both stops fire full bursts and merge
+    # into one big click that's hard to parse as two consonants.
+      - name: stop_before_stop_unreleased
+        flags: [stop]
+        beforeFlags: [stop]
+        action: scale
+        fieldScales:
+          fricationAmplitude: 0.12
+          aspirationAmplitude: 0.08
+
     # ── Unreleased word-final stops (softer, airier release) ─────
     # Frication cut hard (×0.55) so burst transient is audible.
     # Aspiration gently reduced (×0.60) — still present, not crushed.
@@ -387,6 +413,7 @@ settings:
       - name: unreleased_word_final
         flags: [stop]
         notFlags: [voiced]
+        notAfterFlags: [stop]
         position: word-final
         action: scale
         fieldScales:
@@ -432,6 +459,22 @@ settings:
           aspirationAmplitude: 1.40
           pa2: 1.35
           pa3: 1.30
+
+    # ── Voiced alveolar word-final softening ─────────────────────────
+    # Word-final /d/ pops too bright with the diffuse-rising burst
+    # shape.  Soften high-frequency burst components so the release
+    # blends into the preceding vowel.  Velars/labials left alone —
+    # their burst energy is in lower bands that don't need taming.
+      - name: voiced_alveolar_word_final_soften
+        flags: [stop, voiced]
+        place: alveolar
+        position: word-final
+        action: scale
+        fieldScales:
+          fricationAmplitude: 0.55
+          pa4: 0.65
+          pa5: 0.50
+          pa6: 0.40
 
       # ── Diphthong offglide sharpening ──────────────────────────────
       # When /ɪ/ is the second element of a tied diphthong (FACE /eɪ/,
@@ -758,8 +801,22 @@ normalization:
     # With tie-insensitive rule matching in the frontend, these match both 'aɪ' and 'a͡ɪ'.
     - from: "a͡ɪ"
       to:   "ɑ͡ɪ"
+    # MOUTH onset: use ä (F1=730, F2=1200) — open, back-of-center per
+    # Hillenbrand (1995) male MOUTH data (F1=768, F2=1192).  Old F2=1430
+    # was only 30 Hz from schwa (1400), making "outside" → "ertside".
+    # Single-char key avoids cascade corruption from later a→æ, o→ᵒ rules.
     - from: "a͡ʊ"
-      to:   "ɑ͡ʊ"
+      to:   "ä͡ʊ"
+
+    # American English is rhotic — NEAR is /ɪr/, not the RP centering
+    # diphthong /ɪə/.  eSpeak's TextToPhonemes API produces i͡ə / ɪ͡ə
+    # with a tie bar for words like "medium", "podium", etc.  Strip the
+    # tie so diphthong_collapse leaves these as separate vowels with a
+    # natural crossfade instead of collapsing into a glide.
+    - from: "i͡ə"
+      to:   "iə"
+    - from: "ɪ͡ə"
+      to:   "ɪə"
 
     # eSpeak produces British GOAT /əʊ/ — normalize to American /oʊ/ so
     # the o→ᵒ fronting rule and diphthong collapse pipeline apply correctly.
@@ -874,6 +931,16 @@ normalization:
     - from: "o"
       to:   "ᵒ"
 
+    # -og/-ogue words: GenAm uses THOUGHT /ɔ/, not LOT /ɑ/.
+    # eSpeak systematically produces ɑːɡ for dog, fog, frog, dialog,
+    # catalogue, epilogue, etc.  All should be /ɔɡ/ in American English
+    # (rounded "aw" quality, not flat "ah").
+    # Must run BEFORE the ɔ→ᴐ rule below so the output gets transformed.
+    - from: "ɑːɡ"
+      to:   "ɔːɡ"
+    - from: "ɑɡ"
+      to:   "ɔɡ"
+
     # US THOUGHT vowel: make /ɔ(ː)/ more open so it doesn't drift toward an "owe" quality.
     - from: "ɔː"
       to:   "ᴐː"
@@ -908,8 +975,6 @@ normalization:
       to:   "ʌɹ"
     - from: "ɑɹ"
       to:   "ʌɹ"
-
-
 
     # Use a dedicated US /r/ variant.
 

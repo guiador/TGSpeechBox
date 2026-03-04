@@ -416,17 +416,19 @@ static void applyReplace(
   const PhonemeDef* newDef = findPhoneme(pack, rule.replaceTo);
   if (!newDef) return;
 
-  // Swap the phoneme definition
+  // Swap the phoneme definition and overwrite ALL fields from the new def.
+  // Replace is a full phoneme swap — the token's original field values came
+  // from the old PhonemeDef and must be replaced wholesale.  If we only
+  // filled gaps (the old logic), fields like pa1-pa6 and fricationAmplitude
+  // would persist from the original phoneme, making e.g. /d/→/ɾ/ flapping
+  // still sound like a full stop.
   t.def = newDef;
-
-  // Copy fields from new def where the token doesn't already have overrides
   for (int k = 0; k < kFrameFieldCount; ++k) {
-    const uint64_t bit = 1ULL << k;
-    if (!(t.setMask & bit) && (newDef->setMask & bit)) {
+    if (newDef->setMask & (1ULL << k)) {
       t.field[k] = newDef->field[k];
-      t.setMask |= bit;
     }
   }
+  t.setMask = newDef->setMask;
 
   // Set duration if specified
   if (rule.replaceDurationMs > 0.0) {

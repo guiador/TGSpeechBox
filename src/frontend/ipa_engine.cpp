@@ -22,6 +22,38 @@ Licensed under the MIT License. See LICENSE for details.
 #include <type_traits>
 #include <sstream>
 
+// Debug logging for IPA normalization / preReplacement investigation.
+// Set to 1 to enable, 0 to disable.
+#define IPA_NORM_DEBUG_LOG 0
+#if IPA_NORM_DEBUG_LOG
+#include <cstdio>
+#include <cstdlib>
+static FILE* ipaNormLogFile() {
+  static FILE* f = nullptr;
+  if (!f) {
+    const char* tmp = std::getenv("TEMP");
+    if (!tmp) tmp = std::getenv("TMP");
+    if (!tmp) tmp = "/tmp";
+    std::string path = std::string(tmp) + "/tgsb_ipa_norm.log";
+    f = std::fopen(path.c_str(), "a");
+  }
+  return f;
+}
+static std::string u32toUtf8(const std::u32string& s) {
+  std::string out;
+  for (char32_t c : s) {
+    if (c < 0x80) out += (char)c;
+    else if (c < 0x800) { out += (char)(0xC0|(c>>6)); out += (char)(0x80|(c&0x3F)); }
+    else if (c < 0x10000) { out += (char)(0xE0|(c>>12)); out += (char)(0x80|((c>>6)&0x3F)); out += (char)(0x80|(c&0x3F)); }
+    else { out += (char)(0xF0|(c>>18)); out += (char)(0x80|((c>>12)&0x3F)); out += (char)(0x80|((c>>6)&0x3F)); out += (char)(0x80|(c&0x3F)); }
+  }
+  return out;
+}
+#define INLOG(...) do { FILE* _f = ipaNormLogFile(); if (_f) { std::fprintf(_f, __VA_ARGS__); std::fflush(_f); } } while(0)
+#else
+#define INLOG(...) ((void)0)
+#endif
+
 namespace nvsp_frontend {
 
 static inline bool hasFlag(const PhonemeDef* def, std::uint32_t bit) {
@@ -376,7 +408,7 @@ static std::u32string chooseReplacementTarget(const PackSet& pack, const std::ve
   return candidates.empty() ? std::u32string{} : candidates.front();
 }
 
-static void applyRules(std::u32string& text, const PackSet& pack, const std::vector<ReplacementRule>& rules) {
+static void applyRules(std::u32string& text, const PackSet& pack, const std::vector<ReplacementRule>& rules, std::vector<bool>* protResult = nullptr) {
   const bool textHasTie = (text.find(U'͡') != std::u32string::npos) || (text.find(U'͜') != std::u32string::npos);
 
   // Track positions produced by earlier replacements so subsequent rules
@@ -391,17 +423,27 @@ static void applyRules(std::u32string& text, const PackSet& pack, const std::vec
   // (e.g. u→ᵾ then ᵾ→ᵿ, or uː→ᵾː then ᵾ→ᵿ).
   std::vector<bool> prot(text.size(), false);
 
+  int ruleIdx = 0;
   for (const auto& rule : rules) {
-    if (rule.from.empty()) continue;
+    if (rule.from.empty()) { ++ruleIdx; continue; }
 
     const bool patHasTie = (rule.from.find(U'͡') != std::u32string::npos) || (rule.from.find(U'͜') != std::u32string::npos);
     const bool useLooseTie = (rule.from.size() > 1) && (textHasTie || patHasTie);
+
+    // Debug: trace rules that contain ɑ
+    bool traceThis = (rule.from.find(U'\u0251') != std::u32string::npos); // ɑ = U+0251
+    if (traceThis) {
+      INLOG("RULE[%d] from='%s' useLooseTie=%d textHasTie=%d text='%s'\n",
+            ruleIdx, u32toUtf8(rule.from).c_str(), useLooseTie, textHasTie,
+            u32toUtf8(text).c_str());
+    }
 
     // Fast skip: only safe when we can rely on direct substring search.
     // If tie bars are involved, a pattern like "a͡ɪ" should also match "aɪ", so
     // we can't skip purely on text.find(rule.from).
     if (!useLooseTie) {
       if (text.find(rule.from) == std::u32string::npos) {
+        if (traceThis) INLOG("  SKIP (not found)\n");
         continue;
       }
     } else if (patHasTie) {
@@ -500,10 +542,13 @@ static void applyRules(std::u32string& text, const PackSet& pack, const std::vec
           ok = false;
         }
 
+        if (traceThis) {
+          INLOG("  MATCH at %zu ok=%d\n", matchStart, ok);
+        }
         if (ok) {
+          if (traceThis) INLOG("  APPLIED: '%s' -> '%s'\n", u32toUtf8(rule.from).c_str(), u32toUtf8(to).c_str());
           out.append(to);
           // Only protect replacement output when it is LONGER than the
-          // matched text.  Longer replacements introduce new character
           // positions that could cause cascade corruption (a→a_es then
           // e→e_es).  Same-length or shorter replacements just swap
           // characters in-place — no new substrings are created, so
@@ -522,6 +567,24 @@ static void applyRules(std::u32string& text, const PackSet& pack, const std::vec
 
     text.swap(out);
     prot.swap(outProt);
+    ++ruleIdx;
+  }
+  if (protResult) *protResult = std::move(prot);
+}
+
+// Escape characters that were protected by a prior applyRules() call into
+// Unicode Supplementary Private Use Area-A (U+F0000–U+FFFFD).  This makes
+// them invisible to subsequent cleanup passes and replacement rules.
+// unescapeProtected() reverses the transformation.
+static void escapeProtected(std::u32string& text, const std::vector<bool>& prot) {
+  for (size_t i = 0; i < text.size() && i < prot.size(); ++i) {
+    if (prot[i]) text[i] += 0xF0000;
+  }
+}
+
+static void unescapeProtected(std::u32string& text) {
+  for (auto& c : text) {
+    if (c >= 0xF0000 && c <= 0xFFFFF) c -= 0xF0000;
   }
 }
 
@@ -554,7 +617,13 @@ static std::u32string normalizeIpaText(const PackSet& pack, const std::string& i
   replaceAll(t, U"_", U" ");
 
   // 1) Pack pre-replacements (lets you preserve info before we strip chars like '-').
-  applyRules(t, pack, pack.lang.preReplacements);
+  // Carry protection forward: escape protected characters into Supplementary
+  // PUA-A so that cleanup passes and the replacements phase cannot mangle them.
+  INLOG("PRE-IN:  %s\n", u32toUtf8(t).c_str());
+  std::vector<bool> preProt;
+  applyRules(t, pack, pack.lang.preReplacements, &preProt);
+  INLOG("PRE-OUT: %s\n", u32toUtf8(t).c_str());
+  escapeProtected(t, preProt);
 
   // 2) Basic cleanup, mirroring ipa_convert.py defaults.
   // Remove ZWJ/ZWNJ.
@@ -618,6 +687,9 @@ static std::u32string normalizeIpaText(const PackSet& pack, const std::string& i
   // 3) Aliases and replacements.
   applyAliases(t, pack);
   applyRules(t, pack, pack.lang.replacements);
+
+  // Restore characters that were protected from the preReplacements phase.
+  unescapeProtected(t);
 
   collapseWhitespace(t);
   return t;
@@ -1495,8 +1567,12 @@ static void autoTieDiphthongs(const PackSet& pack, std::vector<Token>& tokens) {
       // If the current token starts a new syllable (explicit stress, word start,
       // etc.), treat it as hiatus instead.
       if (prevVowelLike && !prevIsRColored && !prevIsNasal && curVowelLike && !cur.wordStart && !cur.syllableStart) {
-        // Skip if the IPA already encoded tying, or the vowel is explicitly long.
-        if (!prev.tiedTo && !prev.tiedFrom && !cur.tiedTo && !cur.tiedFrom && cur.lengthened == 0) {
+        // Skip if the IPA already encoded tying, or either vowel is explicitly long.
+        // A lengthened onset (e.g. oː from GOAT monophthongization) is a monophthong,
+        // not a diphthong candidate — tying it with the next vowel creates a false
+        // glide (e.g. "going" /ɡoːɪŋ/ → /ɡo͡ɪŋ/ sounds like "boing").
+        if (!prev.tiedTo && !prev.tiedFrom && !cur.tiedTo && !cur.tiedFrom &&
+            prev.lengthened == 0 && cur.lengthened == 0) {
           // Only auto-tie when the second vowel is a common offglide candidate.
           if (isAutoDiphthongOffglideCandidate(cur.baseChar)) {
             prev.tiedTo = true;
@@ -1775,6 +1851,28 @@ bool convertIpaToTokens(
         // Avoid a zero-sample fade at extreme speeds.
         if (s.fadeMs < 0.1) s.fadeMs = 0.1;
         outTokens.push_back(s);
+      }
+    }
+  }
+
+  // Clause-final hold: extend the last voiced sonorant in ALL utterances
+  // (multi-word included) so it doesn't sound clipped/swallowed.
+  // For single-word utterances, singleWordFinalHoldMs already handled this.
+  if (!isSingleWordUtterance && pack.lang.clauseFinalHoldMs > 0.0) {
+    int lastReal = -1;
+    for (int i = static_cast<int>(outTokens.size()) - 1; i >= 0; --i) {
+      if (outTokens[i].def && !outTokens[i].silence) { lastReal = i; break; }
+    }
+    if (lastReal >= 0) {
+      const Token& lt = outTokens[static_cast<size_t>(lastReal)];
+      const bool voiced = tokenIsVoiced(lt);
+      const bool tailSensitive = tokenIsVowel(lt) || tokenIsSemivowel(lt) ||
+                                 tokenIsLiquid(lt) || tokenIsTap(lt) ||
+                                 tokenIsTrill(lt) || tokenIsNasal(lt);
+      if (voiced && tailSensitive) {
+        const double sp = (speed > 0.0) ? speed : 1.0;
+        outTokens[static_cast<size_t>(lastReal)].durationMs +=
+            (pack.lang.clauseFinalHoldMs / sp);
       }
     }
   }

@@ -15,6 +15,8 @@
 #include <string.h>
 #include <math.h>
 
+#include <string>
+
 #include <espeak-ng/speak_lib.h>
 #include "speechPlayer.h"
 #include "nvspFrontend.h"
@@ -333,8 +335,16 @@ void tgsb_queue_text(TgsbEngine *engine,
         }
         char clauseStr[2] = { clauseType, 0 };
 
-        nvspFrontend_queueIPA_Ex(
-            engine->frontend, ipa,
+        /* Extract clause text so the text parser can do stress lookup.
+         * eSpeak may over-consume into the next clause, but the parser
+         * handles misalignment gracefully (unmatched words keep eSpeak
+         * stress — safe no-op). */
+        const char *cEnd = textPtr
+            ? (const char *)textPtr : clauseStart + strlen(clauseStart);
+        std::string clauseText(clauseStart, (size_t)(cEnd - clauseStart));
+
+        nvspFrontend_queueIPA_ExWithText(
+            engine->frontend, clauseText.c_str(), ipa,
             speed, pitch, engine->inflection, clauseStr, 0,
             onFrame, &ctx
         );

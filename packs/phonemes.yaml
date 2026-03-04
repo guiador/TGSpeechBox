@@ -591,6 +591,57 @@ phonemes:
     pf5: 3750
     pf6: 4900
     voiceAmplitude: 0.9
+  "ä":
+    # GenAm MOUTH diphthong onset — open central [a].
+    # F1=730 (open, Hillenbrand male MOUTH=768), F2=1450 (central).
+    # History: F2=1430+F1=680 was schwa-like → "ertside".  F2=1300+F1=780
+    # was only 30 Hz from ɑ (1330) → "sauna".  F2=1450 with F1=730 is
+    # 120 Hz from ɑ and 230 Hz F1-gap from schwa — distinct from both.
+    # Gives 580 Hz F2 sweep to ʊ (870) for a wide, satisfying glide.
+    # Bandwidths: Hillenbrand 1995 Table III open vowels B1=150-170,
+    # B2=100-120.  Old eSpeak-inherited B1=116/B2=76 was too narrow,
+    # producing sharp resonance peaks that clipped on mobile speakers.
+    _isVowel: true
+    _isVoiced: true
+    aspirationAmplitude: 0
+    caNP: 0
+    cb1: 170
+    cb2: 120
+    cb3: 170
+    cb4: 250
+    cb5: 200
+    cb6: 1000
+    cbN0: 100
+    cbNP: 100
+    cf1: 730
+    cf2: 1450
+    cf3: 2500
+    cf4: 3300
+    cf5: 3750
+    cf6: 4900
+    cfN0: 250
+    cfNP: 200
+    fricationAmplitude: 0
+    pa1: 0
+    pa2: 0
+    pa3: 0
+    pa4: 0
+    pa5: 0
+    pa6: 0
+    parallelBypass: 0
+    pb1: 170
+    pb2: 120
+    pb3: 170
+    pb4: 250
+    pb5: 200
+    pb6: 1000
+    pf1: 730
+    pf2: 1450
+    pf3: 2600
+    pf4: 3300
+    pf5: 3750
+    pf6: 4900
+    voiceAmplitude: 0.62
   a_es:
     # This is a plain /a/ vowel, tuned on purpose for Spanish.
     _isLiquid: false
@@ -645,7 +696,7 @@ phonemes:
     burstDurationMs: 5
     burstDecayRate: 0.6
     durationScale: 1.1
-    voiceBarAmplitude: 0.3
+    voiceBarAmplitude: 0.50
     voiceBarF1: 150
     _isVowel: false
     aspirationAmplitude: 0
@@ -667,13 +718,13 @@ phonemes:
     cfN0: 250
     cfNP: 200
     fricationAmplitude: 1
-    pa1: 0
-    pa2: 0
-    pa3: 0
-    pa4: 0
-    pa5: 0
-    pa6: 0
-    parallelBypass: 0.9
+    pa1: 0.22
+    pa2: 0.25
+    pa3: 0.14
+    pa4: 0.06
+    pa5: 0.03
+    pa6: 0.01
+    parallelBypass: 0.30
     pb1: 60
     pb2: 100
     pb3: 130
@@ -737,13 +788,16 @@ phonemes:
     voiceAmplitude: 0
   d:
     # Voiced alveolar stop
+    # Burst: diffuse-rising spectrum (Blumstein & Stevens 1979).
+    # Front-cavity resonance ~4000 Hz → pa4/pa5 dominant.
+    # F2 locus ~1700 Hz (Delattre et al. 1955, Sussman et al. 1993).
     _isLiquid: false
     _isNasal: false
     _isStop: true
     _isVoiced: true
-    burstDurationMs: 7
+    burstDurationMs: 9
     burstDecayRate: 0.5
-    voiceBarAmplitude: 0.3
+    voiceBarAmplitude: 0.50
     voiceBarF1: 150
     _isVowel: false
     aspirationAmplitude: 0
@@ -757,20 +811,20 @@ phonemes:
     cbN0: 100
     cbNP: 100
     cf1: 200
-    cf2: 1600
+    cf2: 1700
     cf3: 2600
     cf4: 3300
     cf5: 3750
     cf6: 4900
     cfN0: 250
     cfNP: 200
-    fricationAmplitude: 0.7
-    pa1: 0
-    pa2: 0.3333333333
-    pa3: 0.3333333333
-    pa4: 0
-    pa5: 0
-    pa6: 0.8333333333
+    fricationAmplitude: 0.60
+    pa1: 0.08
+    pa2: 0.15
+    pa3: 0.30
+    pa4: 0.48
+    pa5: 0.48
+    pa6: 0.35
     parallelBypass: 0
     pb1: 60
     pb2: 100
@@ -1171,7 +1225,7 @@ phonemes:
     burstDecayRate: 0.4
     burstSpectralTilt: -0.15
     durationScale: 1.3
-    voiceBarAmplitude: 0.3
+    voiceBarAmplitude: 0.50
     voiceBarF1: 150
     _isVowel: false
     aspirationAmplitude: 0
@@ -1193,12 +1247,12 @@ phonemes:
     cfN0: 250
     cfNP: 200
     fricationAmplitude: 0.50
-    pa1: 0
+    pa1: 0.05
     pa2: 0.55
-    pa3: 0.58
-    pa4: 0.28
-    pa5: 0.20
-    pa6: 0.15
+    pa3: 0.65
+    pa4: 0.20
+    pa5: 0.08
+    pa6: 0.04
     parallelBypass: 0
     pb1: 60
     pb2: 150
@@ -1950,12 +2004,12 @@ phonemes:
     cfN0: 250
     cfNP: 200
     fricationAmplitude: 0.08
-    pa1: 0
-    pa2: 0.3333333333
-    pa3: 0.3333333333
-    pa4: 0
-    pa5: 0
-    pa6: 0.8333333333
+    pa1: 0.10
+    pa2: 0.16
+    pa3: 0.25
+    pa4: 0.33
+    pa5: 0.36
+    pa6: 0.39
     parallelBypass: 0
     pb1: 60
     pb2: 100
@@ -2111,13 +2165,15 @@ phonemes:
     pf6: 5250
     voiceAmplitude: 0
   t:
-    # Alveolar stop
+    # Voiceless alveolar stop
+    # Burst: diffuse-rising spectrum (Blumstein & Stevens 1979).
+    # Same place as /d/ → same pa shape, higher overall amplitude.
     _isLiquid: false
     _isNasal: false
     _isStop: true
-    burstDurationMs: 7
+    burstDurationMs: 9
     burstDecayRate: 0.5
-    burstSpectralTilt: 0.15
+    burstSpectralTilt: 0
     _isVoiced: false
     _isVowel: false
     aspirationAmplitude: 0.40
@@ -2139,12 +2195,12 @@ phonemes:
     cfN0: 250
     cfNP: 200
     fricationAmplitude: 0.80
-    pa1: 0.06
-    pa2: 0.30
-    pa3: 0.35
-    pa4: 0.25
-    pa5: 0.16
-    pa6: 0.15
+    pa1: 0.08
+    pa2: 0.15
+    pa3: 0.30
+    pa4: 0.48
+    pa5: 0.48
+    pa6: 0.35
     parallelBypass: 0
     pb1: 280
     pb2: 110
@@ -3808,7 +3864,7 @@ phonemes:
     pf4: 3300
     pf5: 3750
     pf6: 4900
-    voiceAmplitude: 0.9
+    voiceAmplitude: 0.7
   "ɑ":
     _isLiquid: false
     _isNasal: false
@@ -4061,8 +4117,8 @@ phonemes:
     _isVowel: true
     aspirationAmplitude: 0
     caNP: 0
-    cb1: 115.5
-    cb2: 90
+    cb1: 170
+    cb2: 120
     cb3: 200
     cb4: 250
     cb5: 200
@@ -4085,8 +4141,8 @@ phonemes:
     pa5: 0
     pa6: 0
     parallelBypass: 0
-    pb1: 130
-    pb2: 110
+    pb1: 170
+    pb2: 120
     pb3: 250
     pb4: 250
     pb5: 200
@@ -4097,7 +4153,7 @@ phonemes:
     pf4: 3300
     pf5: 3750
     pf6: 4900
-    voiceAmplitude: 0.9
+    voiceAmplitude: 0.78
   "ɔ":
     _isLiquid: false
     _isNasal: false
@@ -4665,7 +4721,7 @@ phonemes:
     burstDurationMs: 11
     burstDecayRate: 0.4
     burstSpectralTilt: -0.15
-    voiceBarAmplitude: 0.3
+    voiceBarAmplitude: 0.50
     voiceBarF1: 150
     _isVoiced: true
     _isVowel: false
@@ -4688,12 +4744,12 @@ phonemes:
     cfN0: 250
     cfNP: 200
     fricationAmplitude: 0.50
-    pa1: 0
+    pa1: 0.05
     pa2: 0.55
-    pa3: 0.58
-    pa4: 0.28
-    pa5: 0.20
-    pa6: 0.15
+    pa3: 0.65
+    pa4: 0.20
+    pa5: 0.08
+    pa6: 0.04
     parallelBypass: 0.08
     pb1: 65
     pb2: 130
@@ -6743,12 +6799,12 @@ phonemes:
     cfN0: 250
     cfNP: 200
     fricationAmplitude: 0.35
-    pa1: 0
-    pa2: 0.3333333333
-    pa3: 0.3333333333
-    pa4: 0
-    pa5: 0
-    pa6: 0.8333333333
+    pa1: 0.10
+    pa2: 0.16
+    pa3: 0.25
+    pa4: 0.33
+    pa5: 0.36
+    pa6: 0.39
     parallelBypass: 0
     pb1: 60
     pb2: 100
@@ -6789,13 +6845,13 @@ phonemes:
     cf6: 4900
     cfN0: 250
     cfNP: 200
-    fricationAmplitude: 0
-    pa1: 0
-    pa2: 0.20
-    pa3: 0.20
-    pa4: 0
-    pa5: 0
-    pa6: 0.50
+    fricationAmplitude: 0.55
+    pa1: 0.10
+    pa2: 0.22
+    pa3: 0.32
+    pa4: 0.20
+    pa5: 0.12
+    pa6: 0.10
     parallelBypass: 0
     pb1: 55
     pb2: 100
@@ -6809,7 +6865,7 @@ phonemes:
     pf4: 3300
     pf5: 3750
     pf6: 4900
-    voiceAmplitude: 0.95
+    voiceAmplitude: 1.0
   "ɾ_wf":
     # Word-final tap for Spanish. At utterance end the base ɾ is held
     # by singleWordFinalHold and sounds nasal (voiced alveolar closure

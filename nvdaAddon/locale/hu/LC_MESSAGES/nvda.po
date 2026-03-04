@@ -1741,6 +1741,11 @@ msgstr "Kettőshangzó összevonás Időtartam alsó határ (ms)"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Diphthong Collapse Duration Scale"
+msgstr "Kettőshangzó összevonás Időtartam skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Diphthong Collapse Micro Frame Interval (ms)"
 msgstr "Kettőshangzó összevonás Mikrokeret időköz (ms)"
 
@@ -1748,6 +1753,11 @@ msgstr "Kettőshangzó összevonás Mikrokeret időköz (ms)"
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Diphthong Collapse Onset Hold Exponent"
 msgstr "Kettőshangzó összevonás Indulás tartási kitevő"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Diphthong Collapse Rate Compensation"
+msgstr "Kettőshangzó összevonás Sebesség kompenzáció"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
@@ -1766,6 +1776,11 @@ msgstr "Kettőshangzó összevonás: Időtartam alsó határ (ms)"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Diphthong Collapse: Duration Scale"
+msgstr "Kettőshangzó összevonás: Időtartam skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Diphthong Collapse: Micro Frame Interval (ms)"
 msgstr "Kettőshangzó összevonás: Mikrokeret időköz (ms)"
 
@@ -1778,6 +1793,11 @@ msgstr "Kettőshangzó összevonás: Indulás tartási kitevő"
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Diphthong Collapse: Onset Settle Ms"
 msgstr "Kettőshangzó összevonás: Indulási megállapodás (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Diphthong Collapse: Rate Compensation"
+msgstr "Kettőshangzó összevonás: Sebesség kompenzáció"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py

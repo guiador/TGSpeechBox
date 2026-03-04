@@ -564,6 +564,12 @@ struct LanguagePack {
   // to avoid abrupt cutoffs at the end of single-word utterances.
   double singleWordFinalFadeMs = 0.0;
 
+  // Extra hold added to the final voiced vowel/liquid/nasal of ALL utterances
+  // (multi-word included), in ms at speed=1.0.  Prevents the final sonorant
+  // from sounding clipped/swallowed.  singleWordFinalHoldMs takes precedence
+  // for single-word utterances if set.
+  double clauseFinalHoldMs = 0.0;
+
   // If >0, append a final silence frame with this fade time at the end of ALL
   // utterances (multi-word included).  This lets clause-final voiceless stops
   // decay their aspiration through the cascade instead of hitting the crude
@@ -681,9 +687,22 @@ double lengthContrastPreGeminateVowelScale = 0.85;
   bool diphthongCollapseEnabled = true;
   double diphthongAmplitudeDipFactor = 0.03;        // 0.97x at midpoint
   double diphthongMicroFrameIntervalMs = 8.0;       // max(3, dur/interval) capped at 10; pitch-scaled
+  double diphthongDurationScale = 1.0;                // scale factor applied to merged onset+offglide duration
   double diphthongDurationFloorMs = 50.0;            // rate_comp minimum for merged diphthongs
+  double diphthongRateCompensation = 0.0;            // 0=none, 1=fully rate-invariant (Eloquence-style)
   double diphthongOnsetHoldExponent = 1.4;           // pow(frac, exp): >1 = linger at onset
   double diphthongOnsetSettleMs = 0.0;               // extra ms added to first micro-frame for resonator settling
+
+  // Per-diphthong-pair duration scales (Gay 1968: wide diphthongs are
+  // intrinsically longer than narrow ones).  Looked up by onset+offset
+  // phoneme keys at collapse time.  Falls back to diphthongDurationScale
+  // when no pair matches.
+  struct DiphthongPairScale {
+      std::u32string onset;
+      std::u32string offset;
+      double scale;
+  };
+  std::vector<DiphthongPairScale> diphthongPairScales;
 
   double lengthenedScaleHu = 1.3;
   bool applyLengthenedScaleToVowelsOnly = true;
@@ -1082,7 +1101,7 @@ double liquidDynamicsLabialGlideTransitionPct = 0.60;
   double rateCompLiquidFloorMs = 15.0;
   double rateCompAffricateFloorMs = 12.0;
   double rateCompSemivowelFloorMs = 10.0;
-  double rateCompTapFloorMs = 4.0;
+  double rateCompTapFloorMs = 10.0;
   double rateCompTrillFloorMs = 12.0;
   double rateCompVoicedConsonantFloorMs = 10.0;
 

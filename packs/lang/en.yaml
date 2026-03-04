@@ -17,8 +17,8 @@ settings:
   stopClosureMode: vowel-and-cluster
   stopClosureVowelGapMs: 20
   stopClosureVowelFadeMs: 4
-  stopClosureClusterGapMs: 16
-  stopClosureClusterFadeMs: 3
+  stopClosureClusterGapMs: 24
+  stopClosureClusterFadeMs: 5
 
   # English: insert short aspiration after unvoiced stops in the right contexts.
   postStopAspirationEnabled: true
@@ -44,6 +44,8 @@ settings:
   singleWordFinalHoldMs: 45
   # Fade to silence to append after single-word utterances (ms at speed=1.0).
   singleWordFinalFadeMs: 18
+  # Hold for the final voiced sonorant in ALL utterances (multi-word included).
+  clauseFinalHoldMs: 30
   # If the caller uses clauseType ',' for continuation, use a statement contour
   # for isolated words/letters to avoid the odd "comma rise".
   singleWordClauseTypeOverride: "."
