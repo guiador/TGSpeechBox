@@ -38,12 +38,29 @@ This repo has now transitioned to a new **frontend + YAML packs** model that rep
 ## License and copyright
 TGSpeechBox is Copyright (c) 2014 NV Speech Player contributors, Copyright (c) 2025-2026 Tamas Geczy.
 
-TGSpeechBox is covered by the GNU General Public License (Version 2).
+This project uses a dual-license model. The core source code is MIT-licensed, but distributed binaries that link against eSpeak-NG are covered by the GNU General Public License version 3 (GPLv3), since eSpeak-NG is GPLv3.
 
-You are free to share or change this software in any way you like as long as it is accompanied by the license and you make all source code available to anyone who wants it. This applies to both original and modified copies of this software, plus any derivative works.
+### What's MIT
+- **DSP engine** (`src/`) — the formant synthesizer, speech wave generator, and signal processing
+- **Frontend** (`src/frontend/`) — IPA normalization, phoneme engine, pitch models, frame emission
+- **Language packs** (`packs/`) — YAML phoneme definitions, language rules, and dictionaries
+- **NVDA driver** (`addon/synthDrivers/`) — Python driver for NVDA screen reader
+- **Phoneme editor** (`tools/tgsbPhonemeEditorWin32/`) — Win32 pack editing and preview tool
+- **Supporting tools and scripts**
 
-For further details, you can view the license online at:
-http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
+You can use, modify, and redistribute any of these under the MIT license. See the `LICENSE` file in the repository root.
+
+### What's GPLv3
+When the MIT-licensed code is compiled and statically linked with eSpeak-NG (a GPLv3 phonemizer), the resulting combined binary is distributed under GPLv3. This applies to:
+
+- **Android app** (`src/platforms/android/`) — eSpeak-NG linked into the TTS service
+- **iOS and macOS app** (`src/platforms/ios/`) — eSpeak-NG linked into the Audio Unit extension
+- **SAPI5 engine** (`src/sapi/`) — eSpeak-NG linked into the COM wrapper DLL
+- **Linux CLI tools** — prebuilt binaries that include eSpeak-NG
+
+The GPL boundary is at link time, not at the source level. If you build these platforms from source, the combined work must be distributed under GPLv3. If you use only the core engine and frontend libraries (without eSpeak-NG), the MIT license applies.
+
+For the full text of the GPLv3, see: https://www.gnu.org/licenses/gpl-3.0.html
 
 ## Background
 The 70s and 80s saw much research in speech synthesis. One of the most prominent synthesis models that appeared was a formant-frequency synthesis known as Klatt synthesis. Some well-known Klatt synthesizers are Dectalk and Eloquence. They are well suited for use by the blind because they are responsive, predictable, and small in memory footprint.

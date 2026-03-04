@@ -1,0 +1,19 @@
+TGSpeechBox SAPI5 Engine
+Copyright 2025-2026 Tamas Geczy
+
+This binary distribution contains two components under different licenses:
+
+1. TGSpeechBox — MIT License
+   The TGSpeechBox speech synthesis engine source code is licensed under
+   the MIT License. See LICENSE-MIT.txt for the full text.
+   Source: https://github.com/tgeczy/TGSpeechBox
+
+2. espeak-ng — GNU General Public License v3.0
+   This binary links against the espeak-ng library for text-to-phoneme
+   conversion. espeak-ng is licensed under the GNU GPL v3.0 or later.
+   See LICENSE-GPL3.txt for the full text.
+   Source: https://github.com/espeak-ng/espeak-ng
+
+Because this binary links espeak-ng, the combined work is distributed
+under the terms of the GNU GPL v3.0. The TGSpeechBox source code itself
+remains available under the MIT License for use without espeak-ng.
