@@ -64,7 +64,7 @@ settings:
 
   # Uniform word-boundary dip: every word start gets a brief amplitude
   # reduction so boundaries are audible even at V#V (e.g. "the installer").
-  wordBoundaryDipMs: 3.0
+  wordBoundaryDipMs: 8.0
   wordBoundaryDipDepth: 0.50
 
   # Keep defaults conservative: avoid heavy cross-phoneme shaping here.

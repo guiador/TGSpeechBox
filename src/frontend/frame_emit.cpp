@@ -185,6 +185,7 @@ void emitFrames(
   // Used to skip fricative attack ramp in post-stop clusters (/ks/, /ts/, etc.)
   bool prevTokenWasStop = false;
   bool prevTokenWasTap = false;
+  const double wbDipMs = lang.wordBoundaryDipMs;
 
   for (const Token& t : tokens) {
     // ============================================
@@ -589,6 +590,24 @@ void emitFrames(
       if ((isStop || isAffricate) && !t.silence && !t.preStopGap &&
           !t.postStopAspiration && !t.voicedClosure && t.durationMs > 1.0) {
 
+        // Word-boundary silence gap before word-initial stops (same as Ex path)
+        double stopMainDur = t.durationMs;
+        double stopMainFade = t.fadeMs;
+        if (wbDipMs > 0.0 && t.wordStart && hadPrevFrame) {
+          double dip[kFrameFieldCount];
+          std::memcpy(dip, base, sizeof(dip));
+          dip[va] = 0.0;
+          dip[fa] = 0.0;
+          dip[static_cast<int>(FieldId::aspirationAmplitude)] = 0.0;
+          dip[static_cast<int>(FieldId::preFormantGain)] = 0.0;
+
+          nvspFrontend_Frame dipFrame;
+          std::memcpy(&dipFrame, dip, sizeof(dipFrame));
+          cb(userData, &dipFrame, wbDipMs, 1.0, userIndexBase);
+          hadPrevFrame = true;
+          stopMainFade = 1.0;
+        }
+
         Place place = getPlace(t.def->key);
 
         // Place-based defaults (from Cho & Ladefoged 1999, Stevens 1998)
@@ -612,20 +631,20 @@ void emitFrames(
         // Coda blend: the burst continues the taper, not a fresh onset.
         // Use longer burst for smoother decay — the taper already did the attack.
         if (t.codaFricStopBlend && !isAffricate) {
-          burstMs = std::max(burstMs, t.durationMs * 0.6);
+          burstMs = std::max(burstMs, stopMainDur * 0.6);
           decayRate = 0.7;  // faster frication decay (taper is doing the work)
         }
 
         // Clamp burst to 75% of token duration so it always fires,
         // even at high speech rates. Preserves place differentiation.
-        double maxBurst = t.durationMs * 0.75;
+        double maxBurst = stopMainDur * 0.75;
         if (burstMs > maxBurst) burstMs = maxBurst;
 
         {
           // Pitch interpolation: slice the token's pitch ramp proportionally
           const double startPitch = base[vp];
           const double pitchDelta = base[evp] - startPitch;
-          const double totalDur = t.durationMs;
+          const double totalDur = stopMainDur;
           const double burstFrac = burstMs / totalDur;
 
           // --- Burst micro-frame ---
@@ -649,7 +668,7 @@ void emitFrames(
 
           nvspFrontend_Frame burstFrame;
           std::memcpy(&burstFrame, seg1, sizeof(burstFrame));
-          cb(userData, &burstFrame, burstMs, t.fadeMs, userIndexBase);
+          cb(userData, &burstFrame, burstMs, stopMainFade, userIndexBase);
           hadPrevFrame = true;
 
           // --- Decay micro-frame ---
@@ -668,7 +687,7 @@ void emitFrames(
 
           nvspFrontend_Frame decayFrame;
           std::memcpy(&decayFrame, seg2, sizeof(decayFrame));
-          double decayDur = t.durationMs - burstMs;
+          double decayDur = stopMainDur - burstMs;
           double decayFade = std::min(burstMs * 0.5, decayDur);
           cb(userData, &decayFrame, decayDur, decayFade, userIndexBase);
 
@@ -920,12 +939,18 @@ void emitFrames(
     // Uniform cue: V#V, C#V, V#C all get the same subtle boundary marker.
     // For C#C the consonant's own closure already provides the cue, but the
     // extra dip just reinforces it harmlessly.
-    const double wbDipMs = lang.wordBoundaryDipMs;
     double mainDur = t.durationMs;
     double mainFade = t.fadeMs;
 
     if (wbDipMs > 0.0 && t.wordStart && hadPrevFrame && mainDur > wbDipMs + 1.0) {
-      const double dipDepth = lang.wordBoundaryDipDepth;
+      double dipDepth = lang.wordBoundaryDipDepth;
+
+      // After a stop, deepen the dip — the stop's release can smear into
+      // the next word's onset, especially at high rates.
+      if (prevTokenWasStop) {
+        dipDepth *= 0.5;
+      }
+
       const double dipDur = wbDipMs;
 
       double dip[kFrameFieldCount];
@@ -1011,6 +1036,7 @@ void emitFramesEx(
   bool hadPrevFrame = false;
   bool prevTokenWasStop = false;
   bool prevTokenWasTap = false;
+  const double wbDipMs = lang.wordBoundaryDipMs;
 
   for (const Token& t : tokens) {
     // ============================================
@@ -1570,6 +1596,33 @@ void emitFramesEx(
       if ((isStop || isAffricate) && !t.silence && !t.preStopGap &&
           !t.postStopAspiration && !t.voicedClosure && t.durationMs > 1.0) {
 
+        // Word-boundary silence gap before word-initial stops.
+        // Stops at high rate can be as short as 4ms — can't steal duration.
+        // Instead, INSERT an extra near-silent micro-frame (additive).
+        // This gives the ear a boundary cue without shrinking the burst.
+        double stopMainDur = t.durationMs;
+        double stopMainFade = t.fadeMs;
+        if (wbDipMs > 0.0 && t.wordStart && hadPrevFrame) {
+          double dip[kFrameFieldCount];
+          std::memcpy(dip, base, sizeof(dip));
+          dip[va] = 0.0;
+          dip[fa] = 0.0;
+          dip[static_cast<int>(FieldId::aspirationAmplitude)] = 0.0;
+          dip[static_cast<int>(FieldId::preFormantGain)] = 0.0;
+
+          nvspFrontend_Frame dipFrame;
+          std::memcpy(&dipFrame, dip, sizeof(dipFrame));
+          cb(userData, &dipFrame, &frameEx, wbDipMs, 1.0, userIndexBase);
+          hadPrevFrame = true;
+          stopMainFade = 1.0; // short crossfade into burst
+
+          FELOG("WB-GAP-STOP wordStart=%d prevWasStop=%d gapMs=%.1f dur=%.1f\n",
+                (int)t.wordStart, (int)prevTokenWasStop, wbDipMs, stopMainDur);
+        } else if (isStop || isAffricate) {
+          FELOG("NO-WB-GAP-STOP wordStart=%d hadPrev=%d wbDipMs=%.1f dur=%.1f\n",
+                (int)t.wordStart, (int)hadPrevFrame, wbDipMs, stopMainDur);
+        }
+
         Place place = getPlace(t.def->key);
 
         double burstMs = 7.0;
@@ -1590,19 +1643,19 @@ void emitFramesEx(
 
         // Coda blend: longer burst, faster decay (same as emitFrames path)
         if (t.codaFricStopBlend && !isAffricate) {
-          burstMs = std::max(burstMs, t.durationMs * 0.6);
+          burstMs = std::max(burstMs, stopMainDur * 0.6);
           decayRate = 0.7;
         }
 
         // Clamp burst to 75% of token duration so it always fires
-        double maxBurst = t.durationMs * 0.75;
+        double maxBurst = stopMainDur * 0.75;
         if (burstMs > maxBurst) burstMs = maxBurst;
 
         {
           // Pitch interpolation across 2 micro-frames
           const double startPitch = base[vp];
           const double pitchDelta = base[evp] - startPitch;
-          const double totalDur = t.durationMs;
+          const double totalDur = stopMainDur;
           const double burstFrac = burstMs / totalDur;
 
           double seg1[kFrameFieldCount];
@@ -1625,7 +1678,7 @@ void emitFramesEx(
 
           nvspFrontend_Frame burstFrame;
           std::memcpy(&burstFrame, seg1, sizeof(burstFrame));
-          cb(userData, &burstFrame, &frameEx, burstMs, t.fadeMs, userIndexBase);
+          cb(userData, &burstFrame, &frameEx, burstMs, stopMainFade, userIndexBase);
           hadPrevFrame = true;
 
           double seg2[kFrameFieldCount];
@@ -1640,7 +1693,7 @@ void emitFramesEx(
 
           nvspFrontend_Frame decayFrame;
           std::memcpy(&decayFrame, seg2, sizeof(decayFrame));
-          double decayDur = t.durationMs - burstMs;
+          double decayDur = stopMainDur - burstMs;
           double decayFade = std::min(burstMs * 0.5, decayDur);
           cb(userData, &decayFrame, &frameEx, decayDur, decayFade, userIndexBase);
 
@@ -1896,6 +1949,46 @@ void emitFramesEx(
       continue;
     }
 
+    // ============================================
+    // WORD-BOUNDARY AMPLITUDE DIP — Ex path
+    // ============================================
+    // Mirror of the emitFrames word-boundary dip.
+    // Emit a brief reduced-amplitude micro-frame at word starts so the
+    // listener can parse word boundaries, especially at high speech rates.
+    // Context-aware: deeper dip after stops (e.g. "dialog type") where
+    // the stop's own release blends into the next word's onset.
+    double mainDur = t.durationMs;
+    double mainFade = t.fadeMs;
+
+    if (wbDipMs > 0.0 && t.wordStart && hadPrevFrame && mainDur > wbDipMs + 1.0) {
+      double dipDepth = lang.wordBoundaryDipDepth;
+
+      // After a stop, deepen the dip — the stop's release can smear into
+      // the next word's onset, especially at high rates.
+      if (prevTokenWasStop) {
+        dipDepth *= 0.5; // e.g. 0.50 * 0.5 = 0.25 → 75% amplitude cut
+      }
+
+      FELOG("WB-DIP-NORM wordStart=%d prevWasStop=%d dipDepth=%.2f dipMs=%.1f dur=%.1f\n",
+            (int)t.wordStart, (int)prevTokenWasStop, dipDepth, wbDipMs, mainDur);
+
+      const double dipDur = wbDipMs;
+
+      double dip[kFrameFieldCount];
+      std::memcpy(dip, base, sizeof(dip));
+      dip[va] *= dipDepth;
+      dip[fa] *= dipDepth;
+      dip[static_cast<int>(FieldId::aspirationAmplitude)] *= dipDepth;
+
+      nvspFrontend_Frame dipFrame;
+      std::memcpy(&dipFrame, dip, sizeof(dipFrame));
+      cb(userData, &dipFrame, &frameEx, dipDur, mainFade, userIndexBase);
+      hadPrevFrame = true;
+
+      mainDur -= dipDur;
+      mainFade = dipDur; // crossfade from dip back to full amplitude
+    }
+
     // Normal frame emission
     nvspFrontend_Frame frame;
     std::memcpy(&frame, base, sizeof(frame));
@@ -1910,12 +2003,12 @@ void emitFramesEx(
 
     // Post-tap: cap fade on the token after a tap so the tap's amplitude
     // notch rings briefly before the next sound smears it away.
-    double emitFade = t.fadeMs;
-    if (prevTokenWasTap && t.durationMs > 0.0) {
-      emitFade = std::min(emitFade, t.durationMs * 0.50);
+    double emitFade = mainFade;
+    if (prevTokenWasTap && mainDur > 0.0) {
+      emitFade = std::min(emitFade, mainDur * 0.50);
     }
 
-    cb(userData, &frame, &frameEx, t.durationMs, emitFade, userIndexBase);
+    cb(userData, &frame, &frameEx, mainDur, emitFade, userIndexBase);
     hadPrevFrame = true;
 
     prevTokenWasTap = false;
