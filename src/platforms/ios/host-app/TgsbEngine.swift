@@ -18,6 +18,7 @@ struct TgsbLanguage: Identifiable, Hashable {
 let kLanguages: [TgsbLanguage] = [
     TgsbLanguage(id: "en-us", displayName: "English (US)",      espeakTag: "en-us", tgsbTag: "en-us"),
     TgsbLanguage(id: "en-gb", displayName: "English (GB)",      espeakTag: "en-gb", tgsbTag: "en-gb"),
+    TgsbLanguage(id: "en-au", displayName: "English (AU)",      espeakTag: "en",    tgsbTag: "en-au"),
     TgsbLanguage(id: "en-ca", displayName: "English (CA)",      espeakTag: "en-us", tgsbTag: "en-us"),
     TgsbLanguage(id: "fr",    displayName: "French",            espeakTag: "fr",    tgsbTag: "fr"),
     TgsbLanguage(id: "es",    displayName: "Spanish",           espeakTag: "es",    tgsbTag: "es"),
