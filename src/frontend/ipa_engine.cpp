@@ -548,13 +548,16 @@ static void applyRules(std::u32string& text, const PackSet& pack, const std::vec
         if (ok) {
           if (traceThis) INLOG("  APPLIED: '%s' -> '%s'\n", u32toUtf8(rule.from).c_str(), u32toUtf8(to).c_str());
           out.append(to);
-          // Only protect replacement output when it is LONGER than the
-          // positions that could cause cascade corruption (a→a_es then
-          // e→e_es).  Same-length or shorter replacements just swap
-          // characters in-place — no new substrings are created, so
-          // intentional chaining remains safe (u→ᵾ then ᵾ→ᵿ).
-          const bool shouldProtect = (to.size() > matchLen);
-          for (size_t p = 0; p < to.size(); ++p) outProt.push_back(shouldProtect);
+          // Protect replacement output from cascade corruption (a→a_es
+          // then e→e_es), but ONLY the genuinely new positions — those
+          // beyond the original match length.  Inherited positions (0
+          // through matchLen-1) stay unprotected so that subsequent
+          // rules and the replacement phase can still process them
+          // (e.g. preReplacement fɔːɹ→fɔːᵊɹ must leave ɔ visible for
+          // the ɔ→ᴐ allophone replacement).
+          const bool grew = (to.size() > matchLen);
+          for (size_t p = 0; p < to.size(); ++p)
+            outProt.push_back(grew && p >= matchLen);
           i = matchEnd;
           continue;
         }
