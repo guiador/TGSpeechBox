@@ -30,6 +30,7 @@ class TgsbTtsService : TextToSpeechService() {
         const val PREFS_NAME = "tgsb_settings"
         const val PREF_VOICE_PRESET = "voice_preset"
         const val PREF_SUPPORTED_LANGUAGES = "tgsb_supported_languages"
+        private const val PREF_LAST_LANG = "tgsb_last_lang"
         const val DEFAULT_PRESET = "adam"
 
         init {
@@ -224,8 +225,22 @@ class TgsbTtsService : TextToSpeechService() {
         } else {
             Log.i(TAG, "Native engine created (handle=$nativeHandle)")
             nativeSetVoice(nativeHandle, currentPreset)
-            // nativeCreate already sets en-us internally
-            confirmedNativeLang = currentLang
+
+            // Restore the last language from prefs (survives process kills).
+            // nativeCreate initializes en-us, so if the saved language is
+            // different, we need to explicitly set it now.
+            val savedLang = prefs.getString(PREF_LAST_LANG, null)
+            val restoredLd = if (savedLang != null) {
+                LANGUAGES.find { it.tgsbLang == savedLang }
+            } else null
+
+            if (restoredLd != null && restoredLd.tgsbLang != "en-us") {
+                currentLang = restoredLd
+                setNativeLanguage(restoredLd)
+                Log.i(TAG, "Restored language from prefs: ${restoredLd.tgsbLang}")
+            } else {
+                confirmedNativeLang = currentLang
+            }
         }
     }
 
@@ -235,6 +250,7 @@ class TgsbTtsService : TextToSpeechService() {
         val result = nativeSetLanguage(nativeHandle, ld.espeakLang, ld.tgsbLang)
         return if (result == 0) {
             confirmedNativeLang = ld
+            prefs.edit().putString(PREF_LAST_LANG, ld.tgsbLang).apply()
             true
         } else {
             confirmedNativeLang = null
