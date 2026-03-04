@@ -9,6 +9,10 @@
 
 package com.tgspeechbox.tts
 
+import android.content.Intent
+import android.net.Uri
+import android.os.PowerManager
+import android.provider.Settings
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -51,6 +55,7 @@ import androidx.compose.ui.semantics.isTraversalGroup
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
@@ -352,6 +357,29 @@ fun AdvancedScreen(
                         stateDescription = "$currentRate Hz"
                     }
             )
+        }
+
+        Spacer(Modifier.height(16.dp))
+
+        // ── Battery Optimization ────────────────────────────────────
+        // Request exemption so Android doesn't kill the TTS service
+        // in the background (important for screen reader users).
+        val context = LocalContext.current
+        val pm = context.getSystemService(PowerManager::class.java)
+        val isExempt = pm?.isIgnoringBatteryOptimizations(context.packageName) == true
+
+        if (!isExempt) {
+            OutlinedButton(
+                onClick = {
+                    val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                        data = Uri.parse("package:${context.packageName}")
+                    }
+                    context.startActivity(intent)
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(stringResource(R.string.battery_optimization_button))
+            }
         }
 
         Spacer(Modifier.height(24.dp))

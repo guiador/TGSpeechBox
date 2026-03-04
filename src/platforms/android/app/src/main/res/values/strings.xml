@@ -77,6 +77,9 @@
     <string name="reset_button">Reset</string>
     <string name="cancel_button">Cancel</string>
 
+    <!-- Advanced tab: Battery optimization -->
+    <string name="battery_optimization_button">Disable Battery Optimization</string>
+
     <!-- Advanced tab: Language filter -->
     <string name="choose_languages_button">Choose Available Engine Languages\u2026</string>
     <string name="supported_languages_title">Supported Languages</string>
