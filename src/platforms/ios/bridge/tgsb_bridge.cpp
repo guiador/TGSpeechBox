@@ -311,7 +311,12 @@ void tgsb_queue_text(TgsbEngine *engine,
     ctx.engine = engine;
     ctx.frameCount = 0;
 
-    const void *textPtr = text;
+    /* Pre-eSpeak compound splitting: "dogfood" → "dog food" so each
+     * half is phonemized independently with correct vowel quality. */
+    char *splitText = nvspFrontend_splitCompounds(engine->frontend, text);
+    const char *useText = splitText ? splitText : text;
+
+    const void *textPtr = useText;
     while (textPtr && *(const char *)textPtr && !engine->stopRequested) {
         const char *clauseStart = (const char *)textPtr;
         const char *ipa = espeak_TextToPhonemes(
@@ -371,6 +376,7 @@ void tgsb_queue_text(TgsbEngine *engine,
         }
     }
 
+    if (splitText) nvspFrontend_freeString(splitText);
 }
 
 int tgsb_pull_audio(TgsbEngine *engine,

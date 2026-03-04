@@ -255,6 +255,14 @@ static void synthesizeClauses(TgsbEngine *engine,
         memcpy(clause, clauseStart, len);
         clause[len] = '\0';
 
+        /* Pre-eSpeak compound splitting: "dogfood" → "dog food" so each
+         * half is phonemized independently with correct vowel quality. */
+        char *splitClause = nvspFrontend_splitCompounds(engine->frontend, clause);
+        if (splitClause) {
+            free(clause);
+            clause = splitClause;
+        }
+
         /* eSpeak → IPA for this clause.
          * Accumulate all IPA chunks into one string so the text parser
          * can align the full clause text against the full IPA output
