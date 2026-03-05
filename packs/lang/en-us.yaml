@@ -45,8 +45,10 @@ settings:
   applyLengthenedScaleToVowelsOnly: false
   # Make length marks more effective.
   # 1.05 was too subtle, 1.10 still left GOOSE /uː/ sounding like short /ʊ/.
-  # 1.20 gives long vowels (food, see, door) noticeable presence.
-  lengthenedScale: 1.35
+  # 1.35 overdid diphthong glides ("window" GOAT too long sentence-final).
+  # 1.20 starved compound monophthongs ("dogfood" GOOSE too short).
+  # 1.28 compromises — tense vowels get presence, glides stay natural.
+  lengthenedScale: 1.28
 
   # Use the US/CA GOOSE vowel variant.
   englishLongUShortenEnabled: true
