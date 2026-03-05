@@ -1353,16 +1353,12 @@ void emitFramesEx(
       const double endParB3 = t.hasEndPb3 ? t.endPb3 : startPb3;
 
       // Number of micro-frames scales with duration.
-      // Minimum 5: with N=3, onset hold concentrates waypoints near the
-      // onset, leaving only one big jump to the offset — losing the glide.
-      // N=5 guarantees enough interior points for a smooth sweep curve.
-      // The DSP's per-sample exponential smoothing (via endCf/endPf)
-      // handles formant interpolation within each frame, so many
-      // waypoints aren't needed — resonator settling time is the
-      // binding constraint, not formant step size.
-      int N = (intervalMs > 0.0)
-            ? std::max(5, std::min(10, static_cast<int>(totalDur / intervalMs)))
-            : 3;
+      // MacinTalk staircase: use fewer, coarser steps so each jump
+      // skips past harmonic-formant crossings rather than lingering
+      // near them (which causes diphthong shimmer in smooth sweeps).
+      // With N=3-4 and no per-sample endCf smoothing, formants snap
+      // to each waypoint and hold steady until the next step.
+      int N = 5;
 
       const double startPitch = base[vp];
       const double endPitch = base[evp];
@@ -1463,29 +1459,23 @@ void emitFramesEx(
         nvspFrontend_Frame frame;
         std::memcpy(&frame, mf, sizeof(frame));
 
-        // FrameEx: endCf/endPf point to the NEXT waypoint so DSP sweeps
-        // smoothly between nearby targets.  Last frame gets NAN (hold).
+        // MacinTalk staircase: ALL micro-frames hold at their waypoint
+        // (endCf=NAN disables per-sample exponential smoothing).
+        // Formants snap during the brief crossfade then stay put,
+        // minimizing time spent near harmonic-formant crossings.
         nvspFrontend_FrameEx mfEx = frameEx;
-        if (seg < N - 1) {
-          mfEx.endCf1 = wpCf1[seg + 1];
-          mfEx.endCf2 = wpCf2[seg + 1];
-          mfEx.endCf3 = wpCf3[seg + 1];
-          mfEx.endPf1 = wpPf1[seg + 1];
-          mfEx.endPf2 = wpPf2[seg + 1];
-          mfEx.endPf3 = wpPf3[seg + 1];
-        } else {
-          // Last micro-frame: hold at offset target, no further sweep.
-          mfEx.endCf1 = NAN;
-          mfEx.endCf2 = NAN;
-          mfEx.endCf3 = NAN;
-          mfEx.endPf1 = NAN;
-          mfEx.endPf2 = NAN;
-          mfEx.endPf3 = NAN;
-        }
+        mfEx.endCf1 = NAN;
+        mfEx.endCf2 = NAN;
+        mfEx.endCf3 = NAN;
+        mfEx.endPf1 = NAN;
+        mfEx.endPf2 = NAN;
+        mfEx.endPf3 = NAN;
 
-        // Fade: first micro-frame uses token's entry fade, rest use thisDur.
+        // Fade: first micro-frame uses token's entry fade.
+        // Internal micro-frames use a short snap fade (3ms) so formants
+        // jump quickly to the new waypoint then hold — staircase style.
         const double thisDur = (seg == 0) ? seg0Dur : otherSegDur;
-        double fadeIn = (seg == 0) ? t.fadeMs : thisDur;
+        double fadeIn = (seg == 0) ? t.fadeMs : 3.0;
         if (fadeIn > thisDur) fadeIn = thisDur;
 
         // Don't re-fire Fujisaki commands on internal micro-frames.
