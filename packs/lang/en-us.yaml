@@ -237,7 +237,7 @@ settings:
       "ä ʊ": 1.22         # MOUTH — wide; pre-voiceless ×0.80 → net 0.98
       "ɔ ɪ": 1.15         # CHOICE — wide
       "e ɪ": 0.95         # FACE — narrow, fine short
-      "o ʊ": 0.92         # GOAT — narrow
+      "o ʊ": 0.85         # GOAT — narrow; keep short for "social", "combobox"
     durationFloorMs: 50
     rateCompensation: 0.15
     onsetHoldExponent: 1.3
@@ -880,13 +880,9 @@ normalization:
     # but the collapse pass now merges tied vowel pairs into cosine-smoothed
     # micro-frames — no workaround needed.
 
-    # GOAT (oʊ): monophthongize to oː. The diphthong collapse glide from
-    # ᵒ→ʊ created a perceptible "ow" sweep that made words like "combobox"
-    # and "social" sound too long and drawn-out. A clean monophthong "oh"
-    # matches Eloquence-style GOAT and sounds more natural at all rates.
-    # The o→ᵒ fronting rule below still fires, giving final result ᵒː.
-    - from: "oʊ"
-      to:   "oː"
+    # GOAT (oʊ): keep as diphthong for audible glide on "no", "go", "home".
+    # Previously monophthongized to oː but that killed the glide entirely.
+    # pairScale 0.85 keeps polysyllabic GOAT ("social", "combobox") short.
 
     # Keep TRAP normalization consistent with the old Python behavior.
     - from: "a"
