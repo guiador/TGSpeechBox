@@ -176,7 +176,7 @@ settings:
     durationScale: 1.0
     pairScales:
       "a j": 1.20         # PRICE — wide (offglide is semivowel in RP)
-      "a w": 1.15          # MOUTH — wide
+      "å w": 1.15          # MOUTH — wide (å = RP open back onset)
       "ɔ j": 1.15          # CHOICE — wide
       "e j": 0.95          # FACE — narrow
       "ə w": 1.05          # GOAT — needs audible rounding glide to stay distinct from NURSE
@@ -620,6 +620,13 @@ normalization:
       when:
         afterClass: VOWELISH
         beforeClass: CONSONANTS
+
+    # RP MOUTH onset: å (F1=770, F2=1230) — fully open, back-of-center.
+    # Hawkins & Midgley (2005): modern RP MOUTH F1≈770, F2≈1200-1300.
+    # Default 'a' (F1=600, F2=1430) is too closed and fronted — sounds
+    # like lips aren't fully open ("haou" instead of "how").
+    - from: "a͡ʊ"
+      to:   "å͡ʊ"
 
   classes:
     BATH_FOLLOW: ["s", "f", "θ"]
