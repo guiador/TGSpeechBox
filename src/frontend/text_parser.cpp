@@ -741,6 +741,53 @@ std::string runTextParser(
     splitMultiStressChunks(ipaChunks);
   }
 
+  // ── Compound IPA merge ──────────────────────────────────────────────
+  // Phase 2 compound splitting fed "pop corn" to eSpeak for correct vowel
+  // quality, but now the IPA has a word boundary between the halves.
+  // Merge them back: if adjacent text words concatenate to a compound map
+  // key, join their IPA into one word so downstream passes see a single
+  // connected word (no word-boundary gap, no word-final allophone rules).
+  if (!compoundMap.empty() && textWords.size() == ipaChunks.size()) {
+    std::vector<std::string> newText;
+    std::vector<std::string> newIpa;
+    newText.reserve(textWords.size());
+    newIpa.reserve(ipaChunks.size());
+
+    size_t i = 0;
+    while (i < textWords.size()) {
+      bool merged = false;
+      // Try longest span first (3→2) to catch multi-part compounds.
+      size_t maxSpan = std::min(static_cast<size_t>(4), textWords.size() - i);
+      for (size_t span = maxSpan; span >= 2; --span) {
+        std::string combined;
+        for (size_t j = 0; j < span; ++j) {
+          combined += asciiLower(stripPunct(textWords[i + j]));
+        }
+        if (compoundMap.find(combined) != compoundMap.end()) {
+          // Merge text and IPA — no space between IPA chunks.
+          newText.push_back(combined);
+          std::string ipaJoined;
+          for (size_t j = 0; j < span; ++j) {
+            ipaJoined += ipaChunks[i + j];
+          }
+          newIpa.push_back(ipaJoined);
+          TPLOG("  compoundMerge: [%s] = %zu chunks -> \"%s\"\n",
+                combined.c_str(), span, ipaJoined.c_str());
+          i += span;
+          merged = true;
+          break;
+        }
+      }
+      if (!merged) {
+        newText.push_back(textWords[i]);
+        newIpa.push_back(ipaChunks[i]);
+        ++i;
+      }
+    }
+    textWords = std::move(newText);
+    ipaChunks = std::move(newIpa);
+  }
+
   if (textWords.empty() || ipaChunks.empty()) return ipa;
 
   TPLOG("--- runTextParser ---\n");

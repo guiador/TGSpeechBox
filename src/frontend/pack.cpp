@@ -1988,13 +1988,14 @@ bool loadPackSet(
 
   // Load compound word map (if one exists for this language).
   {
-    const fs::path compoundPath = packsRoot / "dict" / (langTag + "-compounds.tsv");
+    const auto& tag = out.lang.langTag;  // use normalized tag (matches stress dict)
+    const fs::path compoundPath = packsRoot / "dict" / (tag + "-compounds.tsv");
     loadCompoundMap(compoundPath.string(), out.compoundMap);
     // Fallback to base language (e.g., "en" for "en-us").
     if (out.compoundMap.empty()) {
-      const auto dash = langTag.find('-');
+      const auto dash = tag.find('-');
       if (dash != std::string::npos) {
-        const fs::path basePath = packsRoot / "dict" / (langTag.substr(0, dash) + "-compounds.tsv");
+        const fs::path basePath = packsRoot / "dict" / (tag.substr(0, dash) + "-compounds.tsv");
         loadCompoundMap(basePath.string(), out.compoundMap);
       }
     }

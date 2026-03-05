@@ -44,9 +44,9 @@ settings:
   # Allow length marks to apply to consonants too (for word-final R lengthening)
   applyLengthenedScaleToVowelsOnly: false
   # Make length marks more effective.
-  # 1.05 was too subtle - FORCE vowels (for, door, snore) need more presence before R.
-  # With 1.10, a double length mark (ːː) gives ~32% more length.
-  lengthenedScale: 1.10
+  # 1.05 was too subtle, 1.10 still left GOOSE /uː/ sounding like short /ʊ/.
+  # 1.20 gives long vowels (food, see, door) noticeable presence.
+  lengthenedScale: 1.35
 
   # Use the US/CA GOOSE vowel variant.
   englishLongUShortenEnabled: true

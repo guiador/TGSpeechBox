@@ -17,6 +17,9 @@ settings:
   primaryStressDiv: 1.5
   secondaryStressDiv: 1.2
 
+  # Long vowels need proper duration — default 1.05 is too subtle for RP.
+  lengthenedScale: 1.20
+
   # Keep word-final long /uː/ (do/two/you) from sounding too clipped.
   englishLongUWordFinalScale: 1.00
 
