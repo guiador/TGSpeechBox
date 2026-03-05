@@ -79,6 +79,18 @@ normalization:
     NASAL:
       - m
       - n
+    # Let's define stop consonants, to fix Espeak diphthong mistakes in Spanish.
+    # Patria is transcribed phonetically to "pˈatɾia".
+    STOPS:
+      - "β"
+      - "ð"
+      - k
+      - d
+      - f
+      - "ɣ"
+      - p
+      - t
+
   replacements:
     # Pronounciation-level normalization rules:
     # Palatal nasal: some tables emit ñ as nʲ (or n͡ʲ). Map it to /ɲ/ so it doesn't collapse to plain /n/.
@@ -133,11 +145,38 @@ normalization:
       to: "ɾ_wfᵊɾ_wf"
       when:
         atWordEnd: true
-    # Fix espeak's pronounciation mistakes like 'prueba', when 'u' is preceded by a stressed vowel. That always should be 'w', diphthong.
+    # ===== Espeak =====
+    # Section 1: fix espeak's pronounciation mistakes like 'prueba', when 'u' is preceded by a stressed vowel. That always should be 'w', diphthong.
     - from: "uˈ"
       to: "wˈ"
       when:
         beforeClass: VOWELS
+    # Section 2: i > j. 
+    # stop + L, r, current replacement, then a vowel.
+    # We can replace "amplia" (p+l = cluster, i>j = fixed diphthong, a = needed), but not "amplificar". After the "pl" cluster, there is not a diphthong, so we'll need to be careful here.
+    # L: Amplia:
+    - from: "li"
+      to: "lj"
+      when:
+        afterClass: STOPS
+        beforeClass: VOWELS
+    - from: "lu"
+      to: "lw"
+      when:
+        afterClass: STOPS
+        beforeClass: VOWELS
+    # r: Patria:
+    - from: "ɾi"
+      to: "ɾj"
+      when:
+        afterClass: STOPS
+        beforeClass: VOWELS
+    - from: "ɾu"
+      to: "ɾw"
+      when:
+        afterClass: STOPS
+        beforeClass: VOWELS
+    # ===== End Espeak =====
     # Separate consonant clusters so they don't blend together.
     # Insert a micro-schwa to give each consonant space.
     # ɾ+approximant clusters (e.g. "verde" = ɾð, "largo" = ɾɣ)
@@ -155,6 +194,8 @@ normalization:
       to: "ɾᵊx"
     - from: "ɾk"
       to: "ɾᵊk"
+    - from: "ɾl"
+      to: "ɾᵊl"
     - from: "ɾm"
       to: "ɾᵊm"
     - from: "ɾn"
@@ -169,10 +210,14 @@ normalization:
     - from: "ɾt"
       to: "ɾᵊt"
     # Approximant/stop + ɾ clusters (e.g. "madre" = ðɾ, "abrir" = βɾ)
+    - from: "bɾ"
+      to: "bᵊɾ"
     - from: "βɾ"
       to: "βᵊɾ"
     - from: "ðɾ"
       to: "ðᵊɾ"
+    - from: "fɾ"
+      to: "fᵊɾ"
     - from: "ɡɾ"
       to: "ɡᵊɾ"
     - from: "ɣɾ"
