@@ -42,7 +42,7 @@ settings:
   # (which is stricter) and GenAm (which compresses length more).
   lengthenedVowelFinalCodaScale: 0.80
   applyLengthenedScaleToVowelsOnly: false
-  lengthenedScale: 1.08
+  lengthenedScale: 1.20
 
   # ── GOOSE fronting ─────────────────────────────────────────────
   # Australian GOOSE is heavily fronted [ʉː].

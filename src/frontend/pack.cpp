@@ -1884,6 +1884,38 @@ static void loadStressDict(
   }
 }
 
+// Load a compound word TSV file (word<TAB>half1 half2 ...).
+// Silent on failure — empty map just means no compound stress fallback.
+static void loadCompoundMap(
+    const std::string& path,
+    std::unordered_map<std::string, std::vector<std::string>>& map)
+{
+  std::ifstream f(path);
+  if (!f.is_open()) return;
+
+  std::string line;
+  while (std::getline(f, line)) {
+    if (line.empty() || line[0] == '#') continue;
+    if (!line.empty() && line.back() == '\r') line.pop_back();
+
+    const auto tab = line.find('\t');
+    if (tab == std::string::npos) continue;
+
+    std::string word = line.substr(0, tab);
+    if (word.empty()) continue;
+
+    std::vector<std::string> halves;
+    std::istringstream ss(line.substr(tab + 1));
+    std::string part;
+    while (ss >> part) {
+      halves.push_back(std::move(part));
+    }
+    if (halves.size() < 2) continue;
+
+    map.emplace(std::move(word), std::move(halves));
+  }
+}
+
 bool loadPackSet(
   const std::string& packDir,
   const std::string& langTag,
@@ -1952,6 +1984,21 @@ bool loadPackSet(
   {
     const fs::path dictPath = packsRoot / "dict" / (out.lang.langTag + "-stress.tsv");
     loadStressDict(dictPath.string(), out.stressDict);
+  }
+
+  // Load compound word map (if one exists for this language).
+  {
+    const auto& tag = out.lang.langTag;  // use normalized tag (matches stress dict)
+    const fs::path compoundPath = packsRoot / "dict" / (tag + "-compounds.tsv");
+    loadCompoundMap(compoundPath.string(), out.compoundMap);
+    // Fallback to base language (e.g., "en" for "en-us").
+    if (out.compoundMap.empty()) {
+      const auto dash = tag.find('-');
+      if (dash != std::string::npos) {
+        const fs::path basePath = packsRoot / "dict" / (tag.substr(0, dash) + "-compounds.tsv");
+        loadCompoundMap(basePath.string(), out.compoundMap);
+      }
+    }
   }
 
   // Ensure headSteps exists for each clause.

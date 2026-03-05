@@ -149,6 +149,11 @@ private:
     double sgCouplingSmooth;   // smoothed coupling strength (glottal-gated)
     double sgCouplingAlpha;    // per-sample smoothing coefficient
 
+    // Output gain: platform-specific amplification applied before the limiter
+    // so that clipping/limiting behavior is consistent across all platforms.
+    // Default 1.0 (NVDA). Android=3.0, iOS=1.7.
+    double outputGain;
+
     void initHighShelf(double fc, double gainDb, double Q) {
         // Clamp inputs to prevent NaNs and weird filter behavior from bad UI values
         double nyq = 0.5 * (double)sampleRate;
@@ -186,7 +191,7 @@ private:
     }
 
 public:
-    SpeechWaveGeneratorImpl(int sr): sampleRate(sr), voiceGenerator(sr), fricGenerator(), cascade(sr), parallel(sr), frameManager(NULL), lastInput(0.0), lastOutput(0.0), wasSilence(true), smoothPreGain(0.0), preGainAttackAlpha(0.0), preGainReleaseAlpha(0.0), smoothFricAmp(0.0), fricAttackAlpha(0.0), fricReleaseAlpha(0.0), hsIn1(0), hsIn2(0), hsOut1(0), hsOut2(0), fricBurstLp1(sr), fricBurstLp2(sr), fricSustainLp1(sr), fricSustainLp2(sr), lastTargetFricAmp(0.0), lastTargetAspAmp(0.0), fricBurstFc(0.0), fricSustainFc(0.0), burstEnv(0.0), burstEnvDecayMul(1.0), aspLp1(sr), aspLp2(sr), aspBurstFc(0.0), shelfMix(1.0), shelfMixAlpha(0.0), lastBrightOut(0.0), stopFadeRemaining(0), stopFadeTotal(0), startFadeRemaining(0), startFadeTotal(0), limiterGain(1.0), limiterAttackAlpha(0.0), limiterReleaseAlpha(0.0), limiterThreshold(0.0), smoothCascadeDuck(1.0), cascadeDuckAlpha(0.0), stcTiltState(0.0), stcSmoothPole(0.0), stcSmoothBwOff(0.0), stcAlpha(0.0), sgPole(sr), sgZero(sr, true), sgCouplingSmooth(0.0), sgCouplingAlpha(0.0) {
+    SpeechWaveGeneratorImpl(int sr): sampleRate(sr), voiceGenerator(sr), fricGenerator(), cascade(sr), parallel(sr), frameManager(NULL), lastInput(0.0), lastOutput(0.0), wasSilence(true), smoothPreGain(0.0), preGainAttackAlpha(0.0), preGainReleaseAlpha(0.0), smoothFricAmp(0.0), fricAttackAlpha(0.0), fricReleaseAlpha(0.0), hsIn1(0), hsIn2(0), hsOut1(0), hsOut2(0), fricBurstLp1(sr), fricBurstLp2(sr), fricSustainLp1(sr), fricSustainLp2(sr), lastTargetFricAmp(0.0), lastTargetAspAmp(0.0), fricBurstFc(0.0), fricSustainFc(0.0), burstEnv(0.0), burstEnvDecayMul(1.0), aspLp1(sr), aspLp2(sr), aspBurstFc(0.0), shelfMix(1.0), shelfMixAlpha(0.0), lastBrightOut(0.0), stopFadeRemaining(0), stopFadeTotal(0), startFadeRemaining(0), startFadeTotal(0), limiterGain(1.0), limiterAttackAlpha(0.0), limiterReleaseAlpha(0.0), limiterThreshold(0.0), smoothCascadeDuck(1.0), cascadeDuckAlpha(0.0), stcTiltState(0.0), stcSmoothPole(0.0), stcSmoothBwOff(0.0), stcAlpha(0.0), sgPole(sr), sgZero(sr, true), sgCouplingSmooth(0.0), sgCouplingAlpha(0.0), outputGain(1.0) {
         const double attackMs = 1.0;
         const double releaseMs = 0.5;
         preGainAttackAlpha = 1.0 - exp(-1.0 / (sampleRate * (attackMs * 0.001)));
@@ -623,6 +628,10 @@ public:
                     startFadeRemaining--;
                 }
 
+                // Platform output gain: applied before limiter so that
+                // clipping behavior is identical across NVDA/Android/iOS.
+                bright *= outputGain;
+
                 // Peak limiter: prevent amplitude spikes from triggering OS
                 // volume ducking.  Fast attack grabs transients, slow release
                 // recovers smoothly so normal speech is unaffected.
@@ -812,6 +821,12 @@ public:
             writeSize = (size_t)tone->structSize;
         }
         memcpy(tone, &tmp, writeSize);
+    }
+
+    void setOutputGain(double gain) {
+        if (gain < 0.0) gain = 0.0;
+        if (gain > 10.0) gain = 10.0;
+        outputGain = gain;
     }
 };
 

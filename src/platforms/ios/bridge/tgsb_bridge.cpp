@@ -234,6 +234,9 @@ TgsbEngine *tgsb_create(const char *espeakDataPath,
     speechPlayer_voicingTone_t tone = speechPlayer_getDefaultVoicingTone();
     speechPlayer_setVoicingTone(player, &tone);
 
+    /* Platform output gain: iOS/macOS AU path needs modest boost. */
+    speechPlayer_setOutputGain(player, 1.7);
+
     TgsbEngine *engine = (TgsbEngine *)calloc(1, sizeof(TgsbEngine));
     engine->player = player;
     engine->frontend = fe;
@@ -311,7 +314,12 @@ void tgsb_queue_text(TgsbEngine *engine,
     ctx.engine = engine;
     ctx.frameCount = 0;
 
-    const void *textPtr = text;
+    /* Pre-eSpeak compound splitting: "dogfood" → "dog food" so each
+     * half is phonemized independently with correct vowel quality. */
+    char *splitText = nvspFrontend_splitCompounds(engine->frontend, text);
+    const char *useText = splitText ? splitText : text;
+
+    const void *textPtr = useText;
     while (textPtr && *(const char *)textPtr && !engine->stopRequested) {
         const char *clauseStart = (const char *)textPtr;
         const char *ipa = espeak_TextToPhonemes(
@@ -371,6 +379,7 @@ void tgsb_queue_text(TgsbEngine *engine,
         }
     }
 
+    if (splitText) nvspFrontend_freeString(splitText);
 }
 
 int tgsb_pull_audio(TgsbEngine *engine,
@@ -386,11 +395,10 @@ int tgsb_pull_audio(TgsbEngine *engine,
                                     (unsigned int)maxSamples, buf);
     if (n <= 0) return 0;
 
-    /* Apply volume gain with hard clipping.
-     * macOS system TTS path is louder than standalone; keep modest. */
-    static const double kGain = 1.7;
+    /* Base gain is inside the DSP (speechPlayer_setOutputGain).
+     * Just copy samples — hard clip is already handled by the DSP limiter. */
     for (int i = 0; i < n; i++) {
-        double s = buf[i].value * kGain;
+        double s = buf[i].value;
         if (s > 32767.0) s = 32767.0;
         if (s < -32767.0) s = -32767.0;
         outBuffer[i] = (int16_t)s;
@@ -503,6 +511,7 @@ void tgsb_set_sample_rate(TgsbEngine *engine, int sampleRate)
     }
     engine->player = speechPlayer_initialize(sampleRate);
     engine->sampleRate = sampleRate;
+    speechPlayer_setOutputGain(engine->player, 1.7);
 
     /* Re-apply voicing tone settings */
     if (engine->hasUserTone) {

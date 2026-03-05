@@ -239,12 +239,17 @@ bool runBoundarySmoothing(PassContext& ctx, std::vector<Token>& tokens, std::str
       targetFade = f2v;  // treat like fricative->vowel
     }
 
-    // Aspiration-aware bypass: don't stretch the fade for tokens whose
-    // onset is aspiration-dominant (e.g. /h/, voiceless fricatives).
-    // Aspiration needs a crisp onset — a gradual fade-in sounds mushy.
+    // Noise-onset bypass: don't stretch the fade for tokens whose onset
+    // is aspiration- or frication-dominant (e.g. /h/, /s/, /f/, /ʃ/).
+    // Noise needs a crisp onset — a gradual fade-in sounds mushy and
+    // at high speech rates can eat most of a short fricative's duration.
     const bool curAspirationDominant =
         cur.field[static_cast<int>(FieldId::aspirationAmplitude)] > 0.08 &&
         cur.field[static_cast<int>(FieldId::voiceAmplitude)] < 0.1;
+    const bool curFricationDominant =
+        cur.field[static_cast<int>(FieldId::fricationAmplitude)] > 0.05 &&
+        cur.field[static_cast<int>(FieldId::voiceAmplitude)] < 0.1 &&
+        !curStop;
 
     // Voicing flip guard: don't stretch fade across voiced↔voiceless
     // consonant boundaries (buzz/pop from overlapping voicing+aspiration).
@@ -265,7 +270,7 @@ bool runBoundarySmoothing(PassContext& ctx, std::vector<Token>& tokens, std::str
 
     // Stretch the amplitude fade at this boundary.
     if (targetFade > 0.0 && targetFade > cur.fadeMs &&
-        !voicingFlip && !curAspirationDominant) {
+        !voicingFlip && !curAspirationDominant && !curFricationDominant) {
       // Cap fade to fraction of duration to preserve steady-state.
       // Tied offglides (tiedFrom) are part of a diphthong — use the full
       // baseline ratio so the glide transition isn't starved at high speed.

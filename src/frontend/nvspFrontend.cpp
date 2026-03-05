@@ -8,6 +8,8 @@ Licensed under the MIT License. See LICENSE for details.
 
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <fstream>
 #include <mutex>
 #include <new>
@@ -383,6 +385,7 @@ static int queueIPA_ExImpl(
   const char* finalIpa = ipaUtf8;
   if (textUtf8 && textUtf8[0] && !h->pack.stressDict.empty()) {
     parsedIpa = runTextParser(textUtf8, ipaUtf8, h->pack.stressDict,
+                               h->pack.compoundMap,
                                h->pack.lang.legalOnsets,
                                h->pack.lang.numberExpansion);
     finalIpa = parsedIpa.c_str();
@@ -936,6 +939,32 @@ NVSP_FRONTEND_API void nvspFrontend_setLegacyPitchInflectionScale(
     return;
   }
   h->pack.lang.legacyPitchInflectionScale = scale;
+}
+
+NVSP_FRONTEND_API char* nvspFrontend_splitCompounds(
+  nvspFrontend_handle_t handle,
+  const char* textUtf8
+) {
+  using namespace nvsp_frontend;
+  Handle* h = asHandle(handle);
+  if (!h || !textUtf8 || !textUtf8[0]) return nullptr;
+
+  std::lock_guard<std::mutex> lock(h->mu);
+  if (!h->packLoaded || h->pack.compoundMap.empty()) return nullptr;
+
+  std::string input(textUtf8);
+  std::string result = splitCompoundsInText(input, h->pack.compoundMap);
+
+  if (result == input) return nullptr;  // no changes
+
+  char* out = static_cast<char*>(std::malloc(result.size() + 1));
+  if (!out) return nullptr;
+  std::memcpy(out, result.c_str(), result.size() + 1);
+  return out;
+}
+
+NVSP_FRONTEND_API void nvspFrontend_freeString(char* str) {
+  std::free(str);
 }
 
 } // extern "C"

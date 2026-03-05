@@ -252,6 +252,10 @@ class SpeechPipelineMixin:
 
                     punctPauseMs = _punctuationPauseMs(punctToken)
 
+                    # Phase 2 compound splitting: split compound words before eSpeak
+                    # so each half is phonemized independently with correct vowels.
+                    chunk = self._frontend.splitCompounds(chunk)
+
                     ipaText = self._espeakTextToIPA_scriptAware(chunk)
                     if not ipaText:
                         # Nothing speakable, but don't drop indexes (they are queued after the block).

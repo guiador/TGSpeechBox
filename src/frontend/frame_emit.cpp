@@ -1301,18 +1301,22 @@ void emitFramesEx(
       // crossfade phasing more audible — tighten the interval.
       double intervalMs = lang.diphthongMicroFrameIntervalMs;
       const double pitch0 = base[vp];
-      if (pitch0 > 0.0) {
+      const double pitchEnd = base[evp];
+      // Use the LOWEST pitch across the diphthong for interval floor.
+      // Sentence-final declination can drop pitch from 109→76 Hz;
+      // onset pitch alone would allow frames too short for the
+      // resonator to settle at the offglide's lower pitch.
+      double pitchForFloor = pitch0;
+      if (pitchEnd > 0.0 && pitchEnd < pitchForFloor)
+        pitchForFloor = pitchEnd;
+      if (pitchForFloor > 0.0) {
         // Scale interval proportionally to pitch period (see non-Ex path).
-        intervalMs *= (100.0 / pitch0);
+        intervalMs *= (100.0 / pitchForFloor);
         // Floor: at least 2 pitch periods per micro-frame for resonator settling.
-        double minInterval = 2000.0 / pitch0;
+        double minInterval = 2000.0 / pitchForFloor;
         if (intervalMs < minInterval) intervalMs = minInterval;
         if (intervalMs < 3.0) intervalMs = 3.0;
       }
-      int N = (intervalMs > 0.0)
-            ? std::max(5, std::min(10, static_cast<int>(totalDur / intervalMs)))
-            : 3;
-
       // Start and end formant targets (Hz).
       const double startCf1 = base[static_cast<int>(FieldId::cf1)];
       const double startCf2 = base[static_cast<int>(FieldId::cf2)];
@@ -1347,6 +1351,18 @@ void emitFramesEx(
       const double endParB1 = t.hasEndPb1 ? t.endPb1 : startPb1;
       const double endParB2 = t.hasEndPb2 ? t.endPb2 : startPb2;
       const double endParB3 = t.hasEndPb3 ? t.endPb3 : startPb3;
+
+      // Number of micro-frames scales with duration.
+      // Minimum 5: with N=3, onset hold concentrates waypoints near the
+      // onset, leaving only one big jump to the offset — losing the glide.
+      // N=5 guarantees enough interior points for a smooth sweep curve.
+      // The DSP's per-sample exponential smoothing (via endCf/endPf)
+      // handles formant interpolation within each frame, so many
+      // waypoints aren't needed — resonator settling time is the
+      // binding constraint, not formant step size.
+      int N = (intervalMs > 0.0)
+            ? std::max(5, std::min(10, static_cast<int>(totalDur / intervalMs)))
+            : 3;
 
       const double startPitch = base[vp];
       const double endPitch = base[evp];

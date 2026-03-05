@@ -70,6 +70,13 @@ void speechPlayer_getVoicingTone(speechPlayer_handle_t playerHandle, speechPlaye
 	}
 }
 
+void speechPlayer_setOutputGain(speechPlayer_handle_t playerHandle, double gain) {
+	speechPlayer_handleInfo_t* playerHandleInfo=(speechPlayer_handleInfo_t*)playerHandle;
+	if (playerHandleInfo && playerHandleInfo->waveGenerator) {
+		playerHandleInfo->waveGenerator->setOutputGain(gain);
+	}
+}
+
 unsigned int speechPlayer_getDspVersion(void) {
 	return SPEECHPLAYER_DSP_VERSION;
 }

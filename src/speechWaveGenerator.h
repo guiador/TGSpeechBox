@@ -31,6 +31,16 @@ class SpeechWaveGenerator: public WaveGenerator {
 	 * @param tone  Output pointer to receive current parameters.
 	 */
 	virtual void getVoicingTone(speechPlayer_voicingTone_t* tone)=0;
+
+	/**
+	 * Set output gain applied before the limiter.
+	 *
+	 * Each platform's audio output chain has different amplification.
+	 * By applying gain inside the DSP (before the limiter), all platforms
+	 * get identical clipping and limiting behavior for the same phoneme
+	 * data.  Default is 1.0 (no gain).
+	 */
+	virtual void setOutputGain(double gain)=0;
 };
 
 #endif

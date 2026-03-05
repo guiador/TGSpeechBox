@@ -58,6 +58,19 @@ void speechPlayer_setVoicingTone(speechPlayer_handle_t playerHandle, const speec
 void speechPlayer_getVoicingTone(speechPlayer_handle_t playerHandle, speechPlayer_voicingTone_t* tone);
 
 /**
+ * Set output gain applied before the limiter.
+ *
+ * Each platform's audio output chain has different amplification levels.
+ * By applying gain inside the DSP (before the limiter), all platforms
+ * get identical clipping and limiting behavior for the same phoneme data.
+ * Default is 1.0 (no gain).  Typical values: NVDA=1.0, iOS=1.7, Android=3.0.
+ *
+ * @param playerHandle  Handle returned by speechPlayer_initialize()
+ * @param gain          Output gain multiplier (clamped to 0.0–10.0)
+ */
+void speechPlayer_setOutputGain(speechPlayer_handle_t playerHandle, double gain);
+
+/**
  * Get the DSP version implemented by this DLL.
  *
  * This is intended for frontends/drivers that want to detect whether a newer

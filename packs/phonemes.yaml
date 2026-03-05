@@ -642,6 +642,56 @@ phonemes:
     pf5: 3750
     pf6: 4900
     voiceAmplitude: 0.62
+  "å":
+    # RP MOUTH diphthong onset — open back-of-central [a̠].
+    # Hawkins & Midgley (2005, JIPA 35/2): modern RP MOUTH onset
+    # F1≈770 Hz, F2≈1200-1300 Hz — distinctly backer than PRICE.
+    # Deterding (1997, JIPA 27): RP MOUTH onset F1≈750, F2≈1200.
+    # Cruttenden (2014, Gimson's 8th ed.): RP MOUTH [a]~[ɑ], open.
+    # Target: F1=780 (fully open), F2=1300 (back-of-center but not
+    # too dark — preserves RP "twang").  Gives 430 Hz F2 sweep to
+    # ʊ (870) — wide enough for a clear rounding glide.
+    _isVowel: true
+    _isVoiced: true
+    aspirationAmplitude: 0
+    caNP: 0
+    cb1: 160
+    cb2: 110
+    cb3: 170
+    cb4: 250
+    cb5: 200
+    cb6: 1000
+    cbN0: 100
+    cbNP: 100
+    cf1: 830
+    cf2: 1350
+    cf3: 2500
+    cf4: 3300
+    cf5: 3750
+    cf6: 4900
+    cfN0: 250
+    cfNP: 200
+    fricationAmplitude: 0
+    pa1: 0
+    pa2: 0
+    pa3: 0
+    pa4: 0
+    pa5: 0
+    pa6: 0
+    parallelBypass: 0
+    pb1: 160
+    pb2: 110
+    pb3: 170
+    pb4: 250
+    pb5: 200
+    pb6: 1000
+    pf1: 830
+    pf2: 1350
+    pf3: 2600
+    pf4: 3300
+    pf5: 3750
+    pf6: 4900
+    voiceAmplitude: 0.75
   a_es:
     # This is a plain /a/ vowel, tuned on purpose for Spanish.
     _isLiquid: false
