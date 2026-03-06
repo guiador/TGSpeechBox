@@ -55,6 +55,11 @@ settings:
   # Keep length scaling close to the global default.
   # Over-lengthening can make clusters (like "-dcast") sound overly separated.
 
+  # Word-boundary amplitude dip: brief reduced-amplitude micro-frame at word
+  # onsets so the listener can parse word boundaries, especially at higher rates.
+  wordBoundaryDipMs: 6.0
+  wordBoundaryDipDepth: 0.55
+
   spellingDiphthongMode: none
   liquidDynamicsEnabled: false
   lengthContrastEnabled: false
