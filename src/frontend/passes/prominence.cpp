@@ -279,48 +279,6 @@ bool runProminence(PassContext& ctx, std::vector<Token>& tokens, std::string& ou
     }
   }
 
-  // ── Pass 1d: Compound noun phrase prominence ──
-  //
-  // English compound stress rule: in compound noun phrases, the nuclear
-  // accent falls on the compound word, not the following word.
-  //   "LIGHThouse keeper" vs "light HOUSEkeeper"
-  // Detect compound words (primary stress before secondary in the same
-  // word) and reduce the following word's prominence so all pitch modes
-  // naturally shift the accent onto the compound.
-
-  const double compoundFollowerScale = lang.prominenceCompoundFollowerScale;
-  if (compoundFollowerScale < 1.0) {
-    for (size_t w = 0; w < words.size(); ++w) {
-      const size_t wStart = words[w].start;
-      const size_t wEnd = (w + 1 < words.size()) ? words[w + 1].start : tokens.size();
-
-      // Check if this word has primary stress (1) before secondary (2).
-      // Compounds: "lighthouse" 1-2, "butterfly" 1-0-2, "housekeeper" 1-2-0.
-      // Non-compounds: "thirteen" 2-1, "understand" 2-0-1.
-      bool hadPrimary = false;
-      bool isCompound = false;
-      for (size_t i = wStart; i < wEnd; ++i) {
-        if (isSilenceOrMissing(tokens[i])) continue;
-        if (tokens[i].stress == 1) hadPrimary = true;
-        else if (tokens[i].stress == 2 && hadPrimary) {
-          isCompound = true;
-          break;
-        }
-      }
-
-      if (isCompound && w + 1 < words.size()) {
-        const size_t nextStart = words[w + 1].start;
-        const size_t nextEnd = (w + 2 < words.size()) ? words[w + 2].start : tokens.size();
-        for (size_t i = nextStart; i < nextEnd; ++i) {
-          if (isSilenceOrMissing(tokens[i])) continue;
-          if (!isVowel(tokens[i])) continue;
-          if (tokens[i].prominence < 0.0) continue;
-          tokens[i].prominence *= compoundFollowerScale;
-        }
-      }
-    }
-  }
-
   // ── Pass 2: Duration realization ──
   //
   // Continuous prominence-to-duration scaling (lerp):

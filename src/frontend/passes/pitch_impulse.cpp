@@ -175,27 +175,6 @@ void applyPitchImpulse(
     }
   }
 
-  // 1f. Compound word detection for follower reduction.
-  // Same primary-before-secondary heuristic as the prominence pass.
-  const double compoundFollowerScale = lang.prominenceCompoundFollowerScale;
-  std::vector<bool> wordIsCompound(static_cast<size_t>(numWords), false);
-  if (compoundFollowerScale < 1.0) {
-    for (int w = 0; w < numWords; ++w) {
-      const size_t wStart = static_cast<size_t>(wordStartIndices[static_cast<size_t>(w)]);
-      const size_t wEnd = (w + 1 < numWords)
-        ? static_cast<size_t>(wordStartIndices[static_cast<size_t>(w + 1)]) : n;
-      bool hadPri = false;
-      for (size_t j = wStart; j < wEnd; ++j) {
-        if (tokens[j].silence || !tokens[j].def) continue;
-        if (tokens[j].stress == 1) hadPri = true;
-        else if (tokens[j].stress == 2 && hadPri) {
-          wordIsCompound[static_cast<size_t>(w)] = true;
-          break;
-        }
-      }
-    }
-  }
-
   // =========================================================================
   // Phase 2: Build per-token pitch from 4 layers
   // =========================================================================
@@ -297,12 +276,6 @@ void applyPitchImpulse(
     double stressPeak = 0.0;
     bool isVowel = tokenIsVowel(t);
 
-    // Compound follower: reduce stress boosts on the word after a compound.
-    bool inCompoundFollower = (compoundFollowerScale < 1.0 &&
-                               currentWordIdx > 0 &&
-                               currentWordIdx < numWords &&
-                               wordIsCompound[static_cast<size_t>(currentWordIdx - 1)]);
-
     if (isVowel && (pendingStress == 1 || pendingStress == 2)) {
       bool isPrimary = (pendingStress == 1);
       bool isTerminal = (static_cast<int>(i) == lastPrimaryVowelIdx &&
@@ -320,7 +293,6 @@ void applyPitchImpulse(
 
         boost *= stressGain * inflection * clauseStressScale;
         if (clauseType == '?') boost *= questionReduction;
-        if (inCompoundFollower) boost *= compoundFollowerScale;
 
         stressPeak = boost;
         stressCount++;
@@ -333,7 +305,6 @@ void applyPitchImpulse(
 
         boost *= stressGain * secStressScale * inflection * clauseStressScale;
         if (clauseType == '?') boost *= questionReduction;
-        if (inCompoundFollower) boost *= compoundFollowerScale;
 
         stressPeak = boost;
         // Don't increment stressCount for secondary.

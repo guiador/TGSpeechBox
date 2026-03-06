@@ -218,10 +218,6 @@ settings:
     amplitudeBoostDb: 0.3
     amplitudeReductionDb: 0.0
 
-    # Compound noun phrase: reduce the word after a compound so nuclear
-    # accent shifts onto the compound head ("LIGHThouse keeper").
-    compoundFollowerScale: 0.6
-
     # Let prominence drive Fujisaki accents
     pitchFromProminence: true
   liquidDynamics:
