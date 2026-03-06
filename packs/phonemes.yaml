@@ -642,6 +642,59 @@ phonemes:
     pf5: 3750
     pf6: 4900
     voiceAmplitude: 0.62
+  "å":
+    # RP MOUTH diphthong onset — open back-of-central [a̠].
+    # Hawkins & Midgley (2005, JIPA 35/2): modern RP MOUTH onset
+    # F1≈770 Hz, F2≈1200-1300 Hz — distinctly backer than PRICE.
+    # Deterding (1997, JIPA 27): RP MOUTH onset F1≈750, F2≈1200.
+    # Cruttenden (2014, Gimson's 8th ed.): RP MOUTH [a]~[ɑ], open.
+    # Target: F1=780 (open), F2=1650 (fronted — palatal quality),
+    # F3=2100 (low for lip rounding cue).  eSpeak produces identical
+    # /aʊ/ for both en-gb and en — no MOUTH distinction at all.
+    # F2=1650 compensates: 200 Hz above GenAm ä (1450), giving RP its
+    # characteristic fronted-but-rounded onset quality.  Wide cb1
+    # prevents the open F1 from clipping.
+    _isVowel: true
+    _isVoiced: true
+    aspirationAmplitude: 0
+    caNP: 0
+    cb1: 200
+    cb2: 180
+    cb3: 170
+    cb4: 250
+    cb5: 200
+    cb6: 1000
+    cbN0: 100
+    cbNP: 100
+    cf1: 780
+    cf2: 1650
+    cf3: 2100
+    cf4: 3300
+    cf5: 3750
+    cf6: 4900
+    cfN0: 250
+    cfNP: 200
+    fricationAmplitude: 0
+    pa1: 0
+    pa2: 0
+    pa3: 0
+    pa4: 0
+    pa5: 0
+    pa6: 0
+    parallelBypass: 0
+    pb1: 200
+    pb2: 180
+    pb3: 170
+    pb4: 250
+    pb5: 200
+    pb6: 1000
+    pf1: 780
+    pf2: 1650
+    pf3: 2150
+    pf4: 3300
+    pf5: 3750
+    pf6: 4900
+    voiceAmplitude: 0.68
   a_es:
     # This is a plain /a/ vowel, tuned on purpose for Spanish.
     _isLiquid: false
@@ -4574,6 +4627,103 @@ phonemes:
     pf5: 3750
     pf6: 4900
     voiceAmplitude: 0.9
+  # ɛ̃: Nasalized open-mid front vowel (Polish ę in word-final and pre-fricative position).
+  # Oral formants match ɛ. Nasal coupling from Styler 2017 / Chen 1997: P0≈400 Hz,
+  # moderate velopharyngeal coupling (caNP=0.40), widened F1 bandwidth.
+  # Polish ɛ formants from Klesta 1998 (male): F1≈474, F2≈1750.
+  "ɛ̃":
+    _isLiquid: false
+    _isNasal: false
+    _isStop: false
+    _isVoiced: true
+    _isVowel: true
+    aspirationAmplitude: 0
+    caNP: 0.40
+    cb1: 130
+    cb2: 110
+    cb3: 170
+    cb4: 250
+    cb5: 200
+    cb6: 1000
+    cbN0: 80
+    cbNP: 100
+    cf1: 474
+    cf2: 1750
+    cf3: 2500
+    cf4: 3300
+    cf5: 3750
+    cf6: 4900
+    cfN0: 400
+    cfNP: 250
+    fricationAmplitude: 0
+    pa1: 0
+    pa2: 0
+    pa3: 0
+    pa4: 0
+    pa5: 0
+    pa6: 0
+    parallelBypass: 0
+    pb1: 130
+    pb2: 110
+    pb3: 170
+    pb4: 250
+    pb5: 200
+    pb6: 1000
+    pf1: 474
+    pf2: 1750
+    pf3: 2500
+    pf4: 3300
+    pf5: 3750
+    pf6: 4900
+    voiceAmplitude: 0.88
+  # ɔ̃: Nasalized open-mid back vowel (Polish ą in word-final position).
+  # Oral formants match ɔ. Same nasal coupling approach as ɛ̃.
+  # Polish ɔ formants from Klesta 1998 (male): F1≈491, F2≈1025.
+  "ɔ̃":
+    _isLiquid: false
+    _isNasal: false
+    _isStop: false
+    _isVoiced: true
+    _isVowel: true
+    aspirationAmplitude: 0
+    caNP: 0.40
+    cb1: 130
+    cb2: 90
+    cb3: 180
+    cb4: 250
+    cb5: 200
+    cb6: 1000
+    cbN0: 80
+    cbNP: 100
+    cf1: 491
+    cf2: 1025
+    cf3: 2400
+    cf4: 3300
+    cf5: 3750
+    cf6: 4900
+    cfN0: 380
+    cfNP: 250
+    fricationAmplitude: 0
+    pa1: 0
+    pa2: 0
+    pa3: 0
+    pa4: 0
+    pa5: 0
+    pa6: 0
+    parallelBypass: 0
+    pb1: 130
+    pb2: 100
+    pb3: 200
+    pb4: 250
+    pb5: 200
+    pb6: 1000
+    pf1: 491
+    pf2: 1025
+    pf3: 2400
+    pf4: 3300
+    pf5: 3750
+    pf6: 4900
+    voiceAmplitude: 0.88
   "ɜ":
     _isLiquid: false
     _isNasal: false
@@ -5155,6 +5305,9 @@ phonemes:
     pf5: 3750
     pf6: 4900
     voiceAmplitude: 0
+  # ɨ: Close central unrounded vowel (Polish "y", also Turkish, Russian).
+  # Formants tuned from Klesta 1998 (male Polish speakers): F1≈388, F2≈1742, F3≈2424.
+  # Previous F2=1300 was too back, sounding "oo"-like instead of central.
   "ɨ":
     _isLiquid: false
     _isNasal: false
@@ -5171,9 +5324,9 @@ phonemes:
     cb6: 1100
     cbN0: 100
     cbNP: 100
-    cf1: 320
-    cf2: 1300
-    cf3: 2300
+    cf1: 388
+    cf2: 1740
+    cf3: 2424
     cf4: 3200
     cf5: 3600
     cf6: 4800
@@ -5193,9 +5346,9 @@ phonemes:
     pb4: 260
     pb5: 220
     pb6: 1100
-    pf1: 320
-    pf2: 1200
-    pf3: 2300
+    pf1: 388
+    pf2: 1620
+    pf3: 2424
     pf4: 3200
     pf5: 3600
     pf6: 4800
@@ -8699,12 +8852,12 @@ voiceProfiles:
       ɜ: {cf1: 568, cf2: 1630, cf3: 2539, pf1: 568, pf2: 1630, pf3: 2539}
       ɝ: {cf1: 524, cf2: 1518, cf3: 1897, pf1: 524, pf2: 1518, pf3: 1897}
       ɤ: {cf1: 698, cf2: 1429, cf3: 2802, pf1: 698, pf2: 1429, pf3: 2802}
-      ɨ: {cf1: 368, cf2: 1518, cf3: 2539, pf1: 368, pf2: 1406, pf3: 2539}
+      ɨ: {cf1: 388, cf2: 1740, cf3: 2424, pf1: 388, pf2: 1620, pf3: 2424}
       ɪ: {cf1: 413, cf2: 2066, cf3: 2823, pf1: 458, pf2: 2066, pf3: 2823, cb1: 55, cb2: 50, cb3: 120}
       ɯ: {cf1: 379, cf2: 1350, cf3: 2645, pf1: 379, pf2: 1350, pf3: 2645}
       ɵ: {cf1: 513, cf2: 1630, cf3: 2750, pf1: 513, pf2: 1630, pf3: 2750}
       ʉ: {cf1: 368, cf2: 1740, cf3: 2539, pf1: 402, pf2: 1740, pf3: 2539}
-      ʊ: {cf1: 463, cf2: 1066, cf3: 2666, pf1: 513, pf2: 1294, pf3: 2592, cb1: 65, cb2: 80, cb3: 130}
+      ʊ: {cf1: 463, cf2: 1066, cf3: 2666, pf1: 513, pf2: 1294, pf3: 2592, cb1: 100, cb2: 100, cb3: 180}
       ʌ: {cf1: 698, cf2: 1429, cf3: 2600, pf1: 698, pf2: 1429, pf3: 2600}
       ʏ: {cf1: 402, cf2: 1904, cf3: 2539, pf1: 402, pf2: 1904, pf3: 2539}
       ᴀ: {cf1: 890, cf2: 1462, cf3: 2855, pf1: 402, pf2: 1574, pf3: 2855}
@@ -8845,7 +8998,7 @@ voiceProfiles:
       ɜ: {cf1: 648, cf2: 1856, cf3: 2820, pf1: 648, pf2: 1856, pf3: 2820}
       ɝ: {cf1: 598, cf2: 1732, cf3: 2115, pf1: 598, pf2: 1732, pf3: 2115}
       ɤ: {cf1: 795, cf2: 1631, cf3: 3107, pf1: 795, pf2: 1631, pf3: 3107}
-      ɨ: {cf1: 420, cf2: 1732, cf3: 2820, pf1: 420, pf2: 1606, pf3: 2820}
+      ɨ: {cf1: 442, cf2: 1980, cf3: 2760, pf1: 442, pf2: 1845, pf3: 2760}
       ɪ: {cf1: 471, cf2: 2344, cf3: 3130, pf1: 522, pf2: 2344, pf3: 3130, cb1: 55, cb2: 50, cb3: 120}
       ɯ: {cf1: 433, cf2: 1542, cf3: 2935, pf1: 433, pf2: 1542, pf3: 2935}
       ɵ: {cf1: 585, cf2: 1856, cf3: 3050, pf1: 585, pf2: 1856, pf3: 3050}

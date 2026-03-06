@@ -85,26 +85,6 @@ class PhonemeDef:
     end_pf2: float = float('nan')
     end_pf3: float = float('nan')
 
-    # Micro-event shaping fields (top-level phoneme keys, not frame fields)
-    has_burst_duration_ms: bool = False
-    has_burst_decay_rate: bool = False
-    has_burst_spectral_tilt: bool = False
-    has_voice_bar_amplitude: bool = False
-    has_voice_bar_f1: bool = False
-    has_release_spread_ms: bool = False
-    has_fric_attack_ms: bool = False
-    has_fric_decay_ms: bool = False
-    has_duration_scale: bool = False
-    burst_duration_ms: float = 0.0
-    burst_decay_rate: float = 0.0
-    burst_spectral_tilt: float = 0.0
-    voice_bar_amplitude: float = 0.0
-    voice_bar_f1: float = 0.0
-    release_spread_ms: float = 0.0
-    fric_attack_ms: float = 0.0
-    fric_decay_ms: float = 0.0
-    duration_scale: float = 1.0
-
     @property
     def is_vowel(self) -> bool: return bool(self.flags & PHONEME_FLAGS["_isVowel"])
     @property
@@ -242,25 +222,40 @@ class LanguagePack:
     fujisaki_declination_scale: float = 25.0
     fujisaki_declination_max: float = 1.25
     fujisaki_declination_post_floor: float = 0.15
-    # Fujisaki clause-type overrides
-    fujisaki_question_phrase_amp_scale: float = 0.3
-    fujisaki_question_accent_boost: float = 1.3
-    fujisaki_question_declination_scale: float = 0.15
-    fujisaki_question_base_pitch_scale: float = 1.18
-    fujisaki_question_final_rise_scale: float = 2.5
-    fujisaki_question_final_drop_scale: float = 0.0
-    fujisaki_exclamation_phrase_amp_scale: float = 2.5
-    fujisaki_exclamation_accent_boost: float = 1.8
-    fujisaki_exclamation_declination_scale: float = 2.5
-    fujisaki_exclamation_base_pitch_scale: float = 1.15
-    fujisaki_exclamation_final_rise_scale: float = 0.0
-    fujisaki_exclamation_final_drop_scale: float = 0.12
-    fujisaki_comma_phrase_amp_scale: float = 0.5
-    fujisaki_comma_accent_boost: float = 1.0
-    fujisaki_comma_declination_scale: float = 0.4
-    fujisaki_comma_base_pitch_scale: float = 1.04
-    fujisaki_comma_final_rise_scale: float = 0.0
-    fujisaki_comma_final_drop_scale: float = 0.0
+    phrase_amp_scale: float = 1.0
+    accent_boost: float = 1.0
+    declination_scale: float = 1.0
+    base_pitch_scale: float = 1.0
+    final_rise_scale: float = 0.0
+    final_drop_scale: float = 0.0
+    impulse_declination_range_hz: float = 36.0
+    impulse_declination_hz_per_sec: float = 12.0
+    impulse_rise_hz: float = 10.0
+    impulse_hat_fall_scale: float = 2.0
+    impulse_first_stress_boost_hz: float = 24.0
+    impulse_second_stress_boost_hz: float = 23.0
+    impulse_third_stress_boost_hz: float = 20.0
+    impulse_fourth_stress_boost_hz: float = 18.0
+    impulse_stress_gain: float = 0.6
+    impulse_secondary_stress_scale: float = 0.5
+    impulse_terminal_stress_hz: float = -4.0
+    impulse_question_reduction: float = 0.5
+    impulse_terminal_fall_hz: float = 20.0
+    impulse_continuation_rise_hz: float = 12.0
+    impulse_question_rise_hz: float = 25.0
+    impulse_assertiveness: float = 1.0
+    impulse_smooth_alpha: float = 0.55
+    klatt_hat_rise_hz: float = 30.0
+    klatt_stress1_hz: float = 28.0
+    klatt_stress2_hz: float = 16.0
+    klatt_stress3_hz: float = 13.0
+    klatt_stress4_hz: float = 11.0
+    klatt_declination_hz_per_sec: float = 10.0
+    klatt_final_fall_below_base_hz: float = 21.0
+    klatt_question_rise_hz: float = 35.0
+    klatt_continuation_rise_hz: float = 15.0
+    klatt_glottal_lower_hz: float = 15.0
+    klatt_smooth_alpha: float = 0.4
     post_stop_aspiration_enabled: bool = False
     post_stop_aspiration_phoneme: str = 'h'
     stop_closure_mode: str = 'vowel-and-cluster'
@@ -291,6 +286,8 @@ class LanguagePack:
     trill_modulation_fade_ms: float = 0.0
     stressed_vowel_hiatus_gap_ms: float = 0.0
     stressed_vowel_hiatus_fade_ms: float = 0.0
+    word_boundary_dip_ms: float = 0.0
+    word_boundary_dip_depth: float = 0.70
     spelling_diphthong_mode: str = 'none'
     lengthened_scale: float = 1.05
     length_contrast_enabled: bool = False
@@ -301,25 +298,20 @@ class LanguagePack:
     length_contrast_pre_geminate_vowel_scale: float = 0.85
     diphthong_collapse_enabled: bool = True
     diphthong_amplitude_dip_factor: float = 0.03
-    diphthong_micro_frame_interval_ms: float = 6.0
+    diphthong_micro_frame_interval_ms: float = 8.0
     diphthong_duration_scale: float = 1.0
     diphthong_duration_floor_ms: float = 50.0
     diphthong_rate_compensation: float = 0.0
     diphthong_onset_hold_exponent: float = 1.4
     diphthong_onset_settle_ms: float = 0.0
-    diphthong_pair_scales: Dict[str, float] = field(default_factory=dict)  # {"onset offset": scale}
-    word_boundary_dip_ms: float = 0.0
-    word_boundary_dip_depth: float = 0.70
-    coda_noise_taper_pre_gain: float = 0.40
-    coda_noise_taper_early_fric_scale: float = 0.45
-    coda_noise_taper_early_asp_amp: float = 0.04
-    coda_noise_taper_late_fric_scale: float = 0.08
-    coda_noise_taper_late_asp_amp: float = 0.22
     lengthened_scale_hu: float = 1.3
     apply_lengthened_scale_to_vowels_only: bool = True
     lengthened_vowel_final_coda_scale: float = 1.0
     coarticulation_enabled: bool = True
     coarticulation_strength: float = 0.25
+    high_rate_threshold: float = 2.0
+    high_rate_coarticulation_floor: float = 0.35
+    high_rate_bandwidth_widening_factor: float = 1.0
     coarticulation_word_initial_fade_scale: float = 1.0
     coarticulation_graduated: bool = True
     coarticulation_adjacency_max_consonants: float = 2.0
@@ -343,9 +335,6 @@ class LanguagePack:
     coarticulation_velar_pinch_f2_scale: float = 0.9
     coarticulation_velar_pinch_f3: float = 2400.0
     coarticulation_cross_syllable_scale: float = 0.70
-    high_rate_threshold: float = 2.0
-    high_rate_bandwidth_widening_factor: float = 1.0
-    high_rate_coarticulation_floor: float = 0.35
     special_coarticulation_enabled: bool = False
     special_coartic_max_delta_hz: float = 400.0
     cluster_timing_enabled: bool = False
@@ -394,7 +383,6 @@ class LanguagePack:
     boundary_smoothing_velar_f3_scale: float = 0.60
     boundary_smoothing_within_syllable_scale: float = 1.5
     boundary_smoothing_within_syllable_fade_scale: float = 1.3
-    boundary_smoothing_high_rate_fade_ratio_floor: float = 0.40
     boundary_smoothing_vowel_to_stop_ms: float = 22.0
     boundary_smoothing_stop_to_vowel_ms: float = 20.0
     boundary_smoothing_vowel_to_fric_ms: float = 18.0
@@ -411,6 +399,13 @@ class LanguagePack:
     boundary_smoothing_plosive_spans_phone: bool = True
     boundary_smoothing_nasal_f1_instant: bool = True
     boundary_smoothing_nasal_f2_f3_spans_phone: bool = True
+    boundary_smoothing_high_rate_fade_ratio_floor: float = 0.40
+    coda_noise_taper_enabled: bool = True
+    coda_noise_taper_pre_gain: float = 0.40
+    coda_noise_taper_early_fric_scale: float = 0.45
+    coda_noise_taper_early_asp_amp: float = 0.04
+    coda_noise_taper_late_fric_scale: float = 0.08
+    coda_noise_taper_late_asp_amp: float = 0.22
     trajectory_limit_enabled: bool = False
     trajectory_limit_apply_mask: int = (1 << 8) | (1 << 9)  # cf2 | cf3
     trajectory_limit_window_ms: float = 25.0
@@ -485,7 +480,7 @@ class LanguagePack:
     rate_comp_liquid_floor_ms: float = 15.0
     rate_comp_affricate_floor_ms: float = 12.0
     rate_comp_semivowel_floor_ms: float = 10.0
-    rate_comp_tap_floor_ms: float = 4.0
+    rate_comp_tap_floor_ms: float = 10.0
     rate_comp_trill_floor_ms: float = 12.0
     rate_comp_voiced_consonant_floor_ms: float = 10.0
     rate_comp_word_final_bonus_ms: float = 5.0
@@ -589,27 +584,6 @@ def _parse_phoneme(key: str, data: dict) -> PhonemeDef:
                         setattr(pdef, val_attr, float(val[fx_key]))
                     except (ValueError, TypeError):
                         pass
-            continue
-
-        # Micro-event shaping fields (top-level phoneme keys)
-        _MICRO_EVENT_MAP = {
-            "burstDurationMs": ("has_burst_duration_ms", "burst_duration_ms"),
-            "burstDecayRate": ("has_burst_decay_rate", "burst_decay_rate"),
-            "burstSpectralTilt": ("has_burst_spectral_tilt", "burst_spectral_tilt"),
-            "voiceBarAmplitude": ("has_voice_bar_amplitude", "voice_bar_amplitude"),
-            "voiceBarF1": ("has_voice_bar_f1", "voice_bar_f1"),
-            "releaseSpreadMs": ("has_release_spread_ms", "release_spread_ms"),
-            "fricAttackMs": ("has_fric_attack_ms", "fric_attack_ms"),
-            "fricDecayMs": ("has_fric_decay_ms", "fric_decay_ms"),
-            "durationScale": ("has_duration_scale", "duration_scale"),
-        }
-        if field_name in _MICRO_EVENT_MAP:
-            has_attr, val_attr = _MICRO_EVENT_MAP[field_name]
-            try:
-                setattr(pdef, has_attr, True)
-                setattr(pdef, val_attr, float(val))
-            except (ValueError, TypeError):
-                pass
             continue
 
         # Frame fields
@@ -794,25 +768,34 @@ def _merge_settings(lp: LanguagePack, s: dict):
     lp.fujisaki_declination_scale = gn("fujisakiDeclinationScale", lp.fujisaki_declination_scale)
     lp.fujisaki_declination_max = gn("fujisakiDeclinationMax", lp.fujisaki_declination_max)
     lp.fujisaki_declination_post_floor = gn("fujisakiDeclinationPostFloor", lp.fujisaki_declination_post_floor)
-    # Fujisaki clause-type overrides
-    lp.fujisaki_question_phrase_amp_scale = gn("fujisakiQuestionPhraseAmpScale", lp.fujisaki_question_phrase_amp_scale)
-    lp.fujisaki_question_accent_boost = gn("fujisakiQuestionAccentBoost", lp.fujisaki_question_accent_boost)
-    lp.fujisaki_question_declination_scale = gn("fujisakiQuestionDeclinationScale", lp.fujisaki_question_declination_scale)
-    lp.fujisaki_question_base_pitch_scale = gn("fujisakiQuestionBasePitchScale", lp.fujisaki_question_base_pitch_scale)
-    lp.fujisaki_question_final_rise_scale = gn("fujisakiQuestionFinalRiseScale", lp.fujisaki_question_final_rise_scale)
-    lp.fujisaki_question_final_drop_scale = gn("fujisakiQuestionFinalDropScale", lp.fujisaki_question_final_drop_scale)
-    lp.fujisaki_exclamation_phrase_amp_scale = gn("fujisakiExclamationPhraseAmpScale", lp.fujisaki_exclamation_phrase_amp_scale)
-    lp.fujisaki_exclamation_accent_boost = gn("fujisakiExclamationAccentBoost", lp.fujisaki_exclamation_accent_boost)
-    lp.fujisaki_exclamation_declination_scale = gn("fujisakiExclamationDeclinationScale", lp.fujisaki_exclamation_declination_scale)
-    lp.fujisaki_exclamation_base_pitch_scale = gn("fujisakiExclamationBasePitchScale", lp.fujisaki_exclamation_base_pitch_scale)
-    lp.fujisaki_exclamation_final_rise_scale = gn("fujisakiExclamationFinalRiseScale", lp.fujisaki_exclamation_final_rise_scale)
-    lp.fujisaki_exclamation_final_drop_scale = gn("fujisakiExclamationFinalDropScale", lp.fujisaki_exclamation_final_drop_scale)
-    lp.fujisaki_comma_phrase_amp_scale = gn("fujisakiCommaPhraseAmpScale", lp.fujisaki_comma_phrase_amp_scale)
-    lp.fujisaki_comma_accent_boost = gn("fujisakiCommaAccentBoost", lp.fujisaki_comma_accent_boost)
-    lp.fujisaki_comma_declination_scale = gn("fujisakiCommaDeclinationScale", lp.fujisaki_comma_declination_scale)
-    lp.fujisaki_comma_base_pitch_scale = gn("fujisakiCommaBasePitchScale", lp.fujisaki_comma_base_pitch_scale)
-    lp.fujisaki_comma_final_rise_scale = gn("fujisakiCommaFinalRiseScale", lp.fujisaki_comma_final_rise_scale)
-    lp.fujisaki_comma_final_drop_scale = gn("fujisakiCommaFinalDropScale", lp.fujisaki_comma_final_drop_scale)
+    lp.impulse_declination_range_hz = gn("impulseDeclinationRangeHz", lp.impulse_declination_range_hz)
+    lp.impulse_declination_hz_per_sec = gn("impulseDeclinationHzPerSec", lp.impulse_declination_hz_per_sec)
+    lp.impulse_rise_hz = gn("impulseRiseHz", lp.impulse_rise_hz)
+    lp.impulse_hat_fall_scale = gn("impulseHatFallScale", lp.impulse_hat_fall_scale)
+    lp.impulse_first_stress_boost_hz = gn("impulseFirstStressBoostHz", lp.impulse_first_stress_boost_hz)
+    lp.impulse_second_stress_boost_hz = gn("impulseSecondStressBoostHz", lp.impulse_second_stress_boost_hz)
+    lp.impulse_third_stress_boost_hz = gn("impulseThirdStressBoostHz", lp.impulse_third_stress_boost_hz)
+    lp.impulse_fourth_stress_boost_hz = gn("impulseFourthStressBoostHz", lp.impulse_fourth_stress_boost_hz)
+    lp.impulse_stress_gain = gn("impulseStressGain", lp.impulse_stress_gain)
+    lp.impulse_secondary_stress_scale = gn("impulseSecondaryStressScale", lp.impulse_secondary_stress_scale)
+    lp.impulse_terminal_stress_hz = gn("impulseTerminalStressHz", lp.impulse_terminal_stress_hz)
+    lp.impulse_question_reduction = gn("impulseQuestionReduction", lp.impulse_question_reduction)
+    lp.impulse_terminal_fall_hz = gn("impulseTerminalFallHz", lp.impulse_terminal_fall_hz)
+    lp.impulse_continuation_rise_hz = gn("impulseContinuationRiseHz", lp.impulse_continuation_rise_hz)
+    lp.impulse_question_rise_hz = gn("impulseQuestionRiseHz", lp.impulse_question_rise_hz)
+    lp.impulse_assertiveness = gn("impulseAssertiveness", lp.impulse_assertiveness)
+    lp.impulse_smooth_alpha = gn("impulseSmoothAlpha", lp.impulse_smooth_alpha)
+    lp.klatt_hat_rise_hz = gn("klattHatRiseHz", lp.klatt_hat_rise_hz)
+    lp.klatt_stress1_hz = gn("klattStress1Hz", lp.klatt_stress1_hz)
+    lp.klatt_stress2_hz = gn("klattStress2Hz", lp.klatt_stress2_hz)
+    lp.klatt_stress3_hz = gn("klattStress3Hz", lp.klatt_stress3_hz)
+    lp.klatt_stress4_hz = gn("klattStress4Hz", lp.klatt_stress4_hz)
+    lp.klatt_declination_hz_per_sec = gn("klattDeclinationHzPerSec", lp.klatt_declination_hz_per_sec)
+    lp.klatt_final_fall_below_base_hz = gn("klattFinalFallBelowBaseHz", lp.klatt_final_fall_below_base_hz)
+    lp.klatt_question_rise_hz = gn("klattQuestionRiseHz", lp.klatt_question_rise_hz)
+    lp.klatt_continuation_rise_hz = gn("klattContinuationRiseHz", lp.klatt_continuation_rise_hz)
+    lp.klatt_glottal_lower_hz = gn("klattGlottalLowerHz", lp.klatt_glottal_lower_hz)
+    lp.klatt_smooth_alpha = gn("klattSmoothAlpha", lp.klatt_smooth_alpha)
     lp.post_stop_aspiration_enabled = gb("postStopAspirationEnabled", lp.post_stop_aspiration_enabled)
     lp.stop_closure_mode = gs("stopClosureMode", lp.stop_closure_mode)
     lp.stop_closure_cluster_gaps_enabled = gb("stopClosureClusterGapsEnabled", lp.stop_closure_cluster_gaps_enabled)
@@ -841,12 +824,17 @@ def _merge_settings(lp: LanguagePack, s: dict):
     lp.trill_modulation_fade_ms = gn("trillModulationFadeMs", lp.trill_modulation_fade_ms)
     lp.stressed_vowel_hiatus_gap_ms = gn("stressedVowelHiatusGapMs", lp.stressed_vowel_hiatus_gap_ms)
     lp.stressed_vowel_hiatus_fade_ms = gn("stressedVowelHiatusFadeMs", lp.stressed_vowel_hiatus_fade_ms)
+    lp.word_boundary_dip_ms = gn("wordBoundaryDipMs", lp.word_boundary_dip_ms)
+    lp.word_boundary_dip_depth = gn("wordBoundaryDipDepth", lp.word_boundary_dip_depth)
     lp.lengthened_scale = gn("lengthenedScale", lp.lengthened_scale)
     lp.lengthened_scale_hu = gn("lengthenedScaleHu", lp.lengthened_scale_hu)
     lp.apply_lengthened_scale_to_vowels_only = gb("applyLengthenedScaleToVowelsOnly", lp.apply_lengthened_scale_to_vowels_only)
     lp.lengthened_vowel_final_coda_scale = gn("lengthenedVowelFinalCodaScale", lp.lengthened_vowel_final_coda_scale)
     lp.coarticulation_enabled = gb("coarticulationEnabled", lp.coarticulation_enabled)
     lp.coarticulation_strength = gn("coarticulationStrength", lp.coarticulation_strength)
+    lp.high_rate_threshold = gn("highRateThreshold", lp.high_rate_threshold)
+    lp.high_rate_coarticulation_floor = gn("highRateCoarticulationFloor", lp.high_rate_coarticulation_floor)
+    lp.high_rate_bandwidth_widening_factor = gn("highRateBandwidthWideningFactor", lp.high_rate_bandwidth_widening_factor)
     lp.coarticulation_word_initial_fade_scale = gn("coarticulationWordInitialFadeScale", lp.coarticulation_word_initial_fade_scale)
     lp.coarticulation_graduated = gb("coarticulationGraduated", lp.coarticulation_graduated)
     lp.coarticulation_adjacency_max_consonants = gn("coarticulationAdjacencyMaxConsonants", lp.coarticulation_adjacency_max_consonants)
@@ -870,9 +858,6 @@ def _merge_settings(lp: LanguagePack, s: dict):
     lp.coarticulation_velar_pinch_f2_scale = gn("coarticulationVelarPinchF2Scale", lp.coarticulation_velar_pinch_f2_scale)
     lp.coarticulation_velar_pinch_f3 = gn("coarticulationVelarPinchF3", lp.coarticulation_velar_pinch_f3)
     lp.coarticulation_cross_syllable_scale = gn("coarticulationCrossSyllableScale", lp.coarticulation_cross_syllable_scale)
-    lp.high_rate_threshold = gn("highRateThreshold", lp.high_rate_threshold)
-    lp.high_rate_bandwidth_widening_factor = gn("highRateBandwidthWideningFactor", lp.high_rate_bandwidth_widening_factor)
-    lp.high_rate_coarticulation_floor = gn("highRateCoarticulationFloor", lp.high_rate_coarticulation_floor)
     lp.special_coarticulation_enabled = gb("specialCoarticulationEnabled", lp.special_coarticulation_enabled)
     lp.special_coartic_max_delta_hz = gn("specialCoarticMaxDeltaHz", lp.special_coartic_max_delta_hz)
     lp.cluster_timing_enabled = gb("clusterTimingEnabled", lp.cluster_timing_enabled)
@@ -938,6 +923,12 @@ def _merge_settings(lp: LanguagePack, s: dict):
     lp.boundary_smoothing_within_syllable_scale = gn("boundarySmoothingWithinSyllableScale", lp.boundary_smoothing_within_syllable_scale)
     lp.boundary_smoothing_within_syllable_fade_scale = gn("boundarySmoothingWithinSyllableFadeScale", lp.boundary_smoothing_within_syllable_fade_scale)
     lp.boundary_smoothing_high_rate_fade_ratio_floor = gn("boundarySmoothingHighRateFadeRatioFloor", lp.boundary_smoothing_high_rate_fade_ratio_floor)
+    lp.coda_noise_taper_enabled = gb("codaNoiseTaperEnabled", lp.coda_noise_taper_enabled)
+    lp.coda_noise_taper_pre_gain = gn("codaNoiseTaperPreGain", lp.coda_noise_taper_pre_gain)
+    lp.coda_noise_taper_early_fric_scale = gn("codaNoiseTaperEarlyFricScale", lp.coda_noise_taper_early_fric_scale)
+    lp.coda_noise_taper_early_asp_amp = gn("codaNoiseTaperEarlyAspAmp", lp.coda_noise_taper_early_asp_amp)
+    lp.coda_noise_taper_late_fric_scale = gn("codaNoiseTaperLateFricScale", lp.coda_noise_taper_late_fric_scale)
+    lp.coda_noise_taper_late_asp_amp = gn("codaNoiseTaperLateAspAmp", lp.coda_noise_taper_late_asp_amp)
     lp.trajectory_limit_enabled = gb("trajectoryLimitEnabled", lp.trajectory_limit_enabled)
     lp.trajectory_limit_window_ms = gn("trajectoryLimitWindowMs", lp.trajectory_limit_window_ms)
     lp.trajectory_limit_apply_across_word_boundary = gb("trajectoryLimitApplyAcrossWordBoundary", lp.trajectory_limit_apply_across_word_boundary)
@@ -1043,13 +1034,6 @@ def _merge_settings(lp: LanguagePack, s: dict):
     lp.diphthong_rate_compensation = gn("diphthongRateCompensation", lp.diphthong_rate_compensation)
     lp.diphthong_onset_hold_exponent = gn("diphthongOnsetHoldExponent", lp.diphthong_onset_hold_exponent)
     lp.diphthong_onset_settle_ms = gn("diphthongOnsetSettleMs", lp.diphthong_onset_settle_ms)
-    lp.word_boundary_dip_ms = gn("wordBoundaryDipMs", lp.word_boundary_dip_ms)
-    lp.word_boundary_dip_depth = gn("wordBoundaryDipDepth", lp.word_boundary_dip_depth)
-    lp.coda_noise_taper_pre_gain = gn("codaNoiseTaperPreGain", lp.coda_noise_taper_pre_gain)
-    lp.coda_noise_taper_early_fric_scale = gn("codaNoiseTaperEarlyFricScale", lp.coda_noise_taper_early_fric_scale)
-    lp.coda_noise_taper_early_asp_amp = gn("codaNoiseTaperEarlyAspAmp", lp.coda_noise_taper_early_asp_amp)
-    lp.coda_noise_taper_late_fric_scale = gn("codaNoiseTaperLateFricScale", lp.coda_noise_taper_late_fric_scale)
-    lp.coda_noise_taper_late_asp_amp = gn("codaNoiseTaperLateAspAmp", lp.coda_noise_taper_late_asp_amp)
     lp.hu_short_a_vowel_enabled = gb("huShortAVowelEnabled", lp.hu_short_a_vowel_enabled)
     lp.hu_short_a_vowel_scale = gn("huShortAVowelScale", lp.hu_short_a_vowel_scale)
     lp.english_long_u_shorten_enabled = gb("englishLongUShortenEnabled", lp.english_long_u_shorten_enabled)
@@ -1215,6 +1199,9 @@ def _merge_settings(lp: LanguagePack, s: dict):
     if "syllableStructure" in s and isinstance(s["syllableStructure"], dict):
         _ss = s["syllableStructure"]
 
+    if "numberExpansion" in s and isinstance(s["numberExpansion"], dict):
+        _ne = s["numberExpansion"]
+
     if "trajectoryLimit" in s and isinstance(s["trajectoryLimit"], dict):
         _tl = s["trajectoryLimit"]
         lp.trajectory_limit_enabled = _gb_from(_tl, "enabled", lp.trajectory_limit_enabled)
@@ -1264,22 +1251,16 @@ def _merge_settings(lp: LanguagePack, s: dict):
         lp.diphthong_onset_hold_exponent = _gn_from(_dc, "onsetHoldExponent", lp.diphthong_onset_hold_exponent)
         lp.diphthong_onset_settle_ms = _gn_from(_dc, "onsetSettleMs", lp.diphthong_onset_settle_ms)
         if "pairScales" in _dc and isinstance(_dc["pairScales"], dict):
-            for pair_str, scale in _dc["pairScales"].items():
-                if isinstance(scale, (int, float)) and " " in pair_str:
-                    lp.diphthong_pair_scales[pair_str] = float(scale)
+            _ps = _dc["pairScales"]
 
-    if "codaNoiseTaper" in s and isinstance(s["codaNoiseTaper"], dict):
-        _cnt = s["codaNoiseTaper"]
-        lp.coda_noise_taper_pre_gain = _gn_from(_cnt, "preGain", lp.coda_noise_taper_pre_gain)
-        lp.coda_noise_taper_early_fric_scale = _gn_from(_cnt, "earlyFricScale", lp.coda_noise_taper_early_fric_scale)
-        lp.coda_noise_taper_early_asp_amp = _gn_from(_cnt, "earlyAspAmp", lp.coda_noise_taper_early_asp_amp)
-        lp.coda_noise_taper_late_fric_scale = _gn_from(_cnt, "lateFricScale", lp.coda_noise_taper_late_fric_scale)
-        lp.coda_noise_taper_late_asp_amp = _gn_from(_cnt, "lateAspAmp", lp.coda_noise_taper_late_asp_amp)
-
-    if "wordBoundaryDip" in s and isinstance(s["wordBoundaryDip"], dict):
-        _wbd = s["wordBoundaryDip"]
-        lp.word_boundary_dip_ms = _gn_from(_wbd, "ms", lp.word_boundary_dip_ms)
-        lp.word_boundary_dip_depth = _gn_from(_wbd, "depth", lp.word_boundary_dip_depth)
+    if "fujisakiClauseType" in s and isinstance(s["fujisakiClauseType"], dict):
+        _fct = s["fujisakiClauseType"]
+        if "question" in _fct and isinstance(_fct["question"], dict):
+            _q = _fct["question"]
+        if "exclamation" in _fct and isinstance(_fct["exclamation"], dict):
+            _e = _fct["exclamation"]
+        if "comma" in _fct and isinstance(_fct["comma"], dict):
+            _c = _fct["comma"]
 
     if "allophoneRules" in s and isinstance(s["allophoneRules"], dict):
         _ar = s["allophoneRules"]

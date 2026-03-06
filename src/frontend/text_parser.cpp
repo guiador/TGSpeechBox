@@ -22,6 +22,7 @@ Licensed under the MIT License. See LICENSE for details.
 #include <algorithm>
 #include <cstdint>
 #include <sstream>
+#include <unordered_set>
 
 // Temporary debug logging for text parser investigation.
 // Set to 1 to enable, 0 to disable.
@@ -141,6 +142,115 @@ static bool isExpandedSymbol(char c) {
     default:
       return false;
   }
+}
+
+// ── Number expansion ──────────────────────────────────────────────────────
+//
+// Expand a numeric text word into its spoken-word components using
+// language-pack YAML rules.  Returns empty vector if rules are disabled,
+// the string isn't a pure integer, or the word lists are too short.
+// Commas are stripped ("1,000" → 1000).
+// Leading zeros trigger digit-by-digit reading ("07" → "zero seven").
+
+static std::vector<std::string> expandNumber(
+    const std::string& numStr,
+    const NumberExpansionRules& rules)
+{
+  if (!rules.enabled) return {};
+  if (rules.digits.size() < 10 || rules.teens.size() < 10 || rules.tens.size() < 10)
+    return {};
+
+  // Strip commas.
+  std::string cleaned;
+  cleaned.reserve(numStr.size());
+  for (char c : numStr) {
+    if (c != ',') cleaned.push_back(c);
+  }
+
+  // Reject non-pure-digit strings (decimals, negatives → Phase 2).
+  if (cleaned.empty()) return {};
+  for (unsigned char c : cleaned) {
+    if (!std::isdigit(c)) return {};
+  }
+
+  // Leading zeros → digit-by-digit (eSpeak behavior: "07" → "zero seven").
+  if (cleaned.size() > 1 && cleaned[0] == '0') {
+    std::vector<std::string> result;
+    for (char c : cleaned) {
+      result.push_back(rules.digits[c - '0']);
+    }
+    return result;
+  }
+
+  // Parse as uint64.
+  unsigned long long val = 0;
+  try {
+    val = std::stoull(cleaned);
+  } catch (...) {
+    return {};  // overflow or parse failure
+  }
+
+  if (val == 0) return { rules.digits[0] };  // "zero"
+
+  // Two-digit expansion (1-99).
+  auto expandTwoDigit = [&](unsigned int n, std::vector<std::string>& out) {
+    if (n < 10) {
+      out.push_back(rules.digits[n]);
+    } else if (n < 20) {
+      out.push_back(rules.teens[n - 10]);
+    } else {
+      out.push_back(rules.tens[n / 10]);
+      if (n % 10 != 0) {
+        out.push_back(rules.digits[n % 10]);
+      }
+    }
+  };
+
+  // Group expansion (1-999).
+  auto expandGroup = [&](unsigned int n, std::vector<std::string>& out) {
+    if (n >= 100) {
+      out.push_back(rules.digits[n / 100]);
+      out.push_back(rules.hundred);
+      unsigned int rem = n % 100;
+      if (rem > 0) {
+        if (!rules.conjunction.empty())
+          out.push_back(rules.conjunction);
+        expandTwoDigit(rem, out);
+      }
+    } else {
+      expandTwoDigit(n, out);
+    }
+  };
+
+  // Beyond billions (trillions+), we don't have YAML words — return empty
+  // so the caller falls back to eSpeak's alignment heuristics.
+  // eSpeak handles up to septillion natively, so let it do the work.
+  if (val > 999999999999ULL) return {};
+
+  std::vector<std::string> result;
+
+  struct Scale { unsigned long long divisor; const std::string* word; };
+  Scale scales[] = {
+    { 1000000000ULL, &rules.billion  },
+    { 1000000ULL,    &rules.million  },
+    { 1000ULL,       &rules.thousand },
+  };
+
+  for (const auto& s : scales) {
+    if (val >= s.divisor && !s.word->empty()) {
+      expandGroup(static_cast<unsigned int>(val / s.divisor), result);
+      result.push_back(*s.word);
+      val %= s.divisor;
+    }
+  }
+  if (val > 0) {
+    // British "and" between thousands+ and a sub-100 remainder.
+    if (!result.empty() && val < 100 && !rules.conjunction.empty())
+      result.push_back(rules.conjunction);
+    expandGroup(static_cast<unsigned int>(val), result);
+  }
+
+  return result;
 }
 
 // Further split text words at digit→alpha boundaries and around symbols
@@ -484,6 +594,7 @@ static std::string correctStress(
     const std::string& textWord,
     const std::string& ipaChunk,
     const std::unordered_map<std::string, std::vector<int>>& dict,
+    const std::unordered_map<std::string, std::vector<std::string>>& compoundMap,
     const std::vector<std::u32string>& legalOnsets)
 {
   // Lowercase and strip punctuation from text word.
@@ -492,7 +603,46 @@ static std::string correctStress(
 
   // Lookup.
   auto it = dict.find(key);
-  if (it == dict.end()) return ipaChunk;
+  if (it == dict.end()) {
+    // Compound fallback: default stress for words in compound map.
+    // Primary on first nucleus, secondary on last, rest unstressed.
+    TPLOG("  correctStress: \"%s\" not in stressDict, checking compoundMap (size=%zu)\n",
+          key.c_str(), compoundMap.size());
+    auto compIt = compoundMap.find(key);
+    if (compIt == compoundMap.end()) { TPLOG("    not in compoundMap\n"); return ipaChunk; }
+    TPLOG("    compound hit!\n");
+
+    std::u32string u32 = utf8ToU32(ipaChunk);
+    std::u32string stripped = stripStress(u32);
+    auto nuclei = findNuclei(stripped);
+    TPLOG("    nuclei=%zu\n", nuclei.size());
+    if (nuclei.size() < 2) return ipaChunk;
+
+    // Default compound stress: primary on first nucleus, secondary on last.
+    // This is a safety net — Phase 2 pre-eSpeak splitting handles the common
+    // case with correct vowel quality.  This fallback only fires if a compound
+    // word somehow wasn't split before eSpeak.
+    std::vector<int> pattern(nuclei.size(), 0);
+    pattern[0] = 1;
+    pattern[nuclei.size() - 1] = 2;
+
+    // Same safety checks as normal path.
+    for (size_t n = 0; n < nuclei.size() && n < pattern.size(); ++n) {
+      if (pattern[n] == 1 && isReducedVowel(stripped[nuclei[n].start]))
+        return ipaChunk;
+    }
+
+    if (!legalOnsets.empty() && nuclei.size() >= 2) {
+      std::u32string dotted = applySyllableBoundaries(stripped, nuclei, legalOnsets);
+      auto dottedNuclei = findNuclei(dotted);
+      std::string result = u32ToUtf8(applyStressPattern(dotted, dottedNuclei, pattern));
+      TPLOG("    compound result: \"%s\" (was \"%s\")\n", result.c_str(), ipaChunk.c_str());
+      return result;
+    }
+    std::string result = u32ToUtf8(applyStressPattern(stripped, nuclei, pattern));
+    TPLOG("    compound result: \"%s\" (was \"%s\")\n", result.c_str(), ipaChunk.c_str());
+    return result;
+  }
 
   const std::vector<int>& pattern = it->second;
 
@@ -548,19 +698,166 @@ std::string runTextParser(
     const std::string& text,
     const std::string& ipa,
     const std::unordered_map<std::string, std::vector<int>>& stressDict,
-    const std::vector<std::u32string>& legalOnsets)
+    const std::unordered_map<std::string, std::vector<std::string>>& compoundMap,
+    const std::vector<std::u32string>& legalOnsets,
+    const NumberExpansionRules& numberRules)
 {
-  if (text.empty() || stressDict.empty()) return ipa;
+  if (text.empty()) return ipa;
 
-  auto textWords = splitOnWhitespace(text);
+  // ── Compound split boundary tracking ──────────────────────────────────
+  // splitCompoundsInText() uses \x1F (Unit Separator) between compound
+  // halves instead of space.  Scan for these markers and record which
+  // adjacent word pairs came from our compound splitting (vs. the user
+  // writing separate words).  Replace \x1F with space for normal parsing.
+  std::unordered_set<std::string> compoundSplitPairs;
+  std::string cleanText;
+  {
+    cleanText.reserve(text.size());
+    std::string prevWord, curWord;
+    bool prevSepWasUS = false;
+
+    for (size_t p = 0; p <= text.size(); ++p) {
+      char c = (p < text.size()) ? text[p] : ' ';
+      bool isSep = (c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\x1F');
+      if (isSep) {
+        if (!curWord.empty()) {
+          if (prevSepWasUS && !prevWord.empty()) {
+            compoundSplitPairs.insert(
+                asciiLower(stripPunct(prevWord)) + "\x1F" +
+                asciiLower(stripPunct(curWord)));
+          }
+          prevWord = curWord;
+          curWord.clear();
+        }
+        prevSepWasUS = (c == '\x1F');
+        cleanText.push_back(prevSepWasUS ? ' ' : c);
+      } else {
+        curWord.push_back(c);
+        cleanText.push_back(c);
+      }
+    }
+    TPLOG("  compoundSplitPairs: %zu\n", compoundSplitPairs.size());
+  }
+
+  auto textWords = splitOnWhitespace(cleanText);
   splitMixedTokens(textWords);
+
+  // ── Number expansion ──────────────────────────────────────────────────
+  // Expand numeric text words using YAML rules so "24" becomes
+  // ["twenty", "four"], matching eSpeak's 2 IPA words.  Languages
+  // without numberExpansion rules fall through to existing heuristics.
+  if (numberRules.enabled) {
+    std::vector<std::string> expanded;
+    expanded.reserve(textWords.size());
+    for (const auto& tw : textWords) {
+      bool isNum = !tw.empty();
+      for (unsigned char ch : tw) {
+        if (!std::isdigit(ch) && ch != ',') { isNum = false; break; }
+      }
+      if (isNum) {
+        auto words = expandNumber(tw, numberRules);
+        if (!words.empty()) {
+          for (auto& w : words) expanded.push_back(std::move(w));
+          continue;
+        }
+      }
+      expanded.push_back(tw);
+    }
+    textWords = std::move(expanded);
+  }
+
   auto ipaChunks = splitIpaWords(ipa);
-  // NOTE: splitMultiStressChunks is applied AFTER alignment (at reassembly),
-  // not here.  Splitting before alignment creates extra chunks from number
-  // expansions (e.g. "wˈʌnhˈʌndɹɪd" → "wˈʌ"+"nhˈʌndɹɪd") that misalign
-  // the text↔IPA mapping.
+
+  // When number expansion made textWords longer than ipaChunks, eSpeak
+  // merged some number sub-words (e.g. "wˈʌnhˈʌndɹɪd" = one+hundred).
+  // Split multi-stress IPA chunks to recover them.  Safe here because the
+  // excess text words are known to be from number expansion.
+  // Without expansion, splitting is deferred to reassembly as before.
+  if (numberRules.enabled && textWords.size() > ipaChunks.size()) {
+    splitMultiStressChunks(ipaChunks);
+  }
+
+  // ── Compound IPA merge ──────────────────────────────────────────────
+  // Phase 2 compound splitting fed "pop corn" to eSpeak for correct vowel
+  // quality, but now the IPA has a word boundary between the halves.
+  // Merge them back: if adjacent text words concatenate to a compound map
+  // key, join their IPA into one word so downstream passes see a single
+  // connected word (no word-boundary gap, no word-final allophone rules).
+  if (!compoundMap.empty() && textWords.size() == ipaChunks.size()) {
+    std::vector<std::string> newText;
+    std::vector<std::string> newIpa;
+    newText.reserve(textWords.size());
+    newIpa.reserve(ipaChunks.size());
+
+    size_t i = 0;
+    while (i < textWords.size()) {
+      bool merged = false;
+      // Try longest span first (3→2) to catch multi-part compounds.
+      size_t maxSpan = std::min(static_cast<size_t>(4), textWords.size() - i);
+      for (size_t span = maxSpan; span >= 2; --span) {
+        std::string combined;
+        for (size_t j = 0; j < span; ++j) {
+          combined += asciiLower(stripPunct(textWords[i + j]));
+        }
+        if (compoundMap.find(combined) != compoundMap.end()) {
+          // Only merge if WE split this compound (\x1F boundaries).
+          // User-written separate words (regular spaces) keep their boundary.
+          bool allSplit = true;
+          if (!compoundSplitPairs.empty()) {
+            for (size_t j = 0; j < span - 1; ++j) {
+              std::string pairKey = asciiLower(stripPunct(textWords[i + j])) + "\x1F"
+                                  + asciiLower(stripPunct(textWords[i + j + 1]));
+              if (compoundSplitPairs.find(pairKey) == compoundSplitPairs.end()) {
+                allSplit = false;
+                break;
+              }
+            }
+          } else {
+            allSplit = false;  // no \x1F markers at all → nothing to merge
+          }
+          if (!allSplit) {
+            TPLOG("  compoundMerge: [%s] skipped (user-written separate words)\n",
+                  combined.c_str());
+            continue;
+          }
+          // Merge text and IPA — no space between IPA chunks.
+          newText.push_back(combined);
+          std::string ipaJoined;
+          for (size_t j = 0; j < span; ++j) {
+            ipaJoined += ipaChunks[i + j];
+          }
+          newIpa.push_back(ipaJoined);
+          TPLOG("  compoundMerge: [%s] = %zu chunks -> \"%s\"\n",
+                combined.c_str(), span, ipaJoined.c_str());
+          i += span;
+          merged = true;
+          break;
+        }
+      }
+      if (!merged) {
+        newText.push_back(textWords[i]);
+        newIpa.push_back(ipaChunks[i]);
+        ++i;
+      }
+    }
+    textWords = std::move(newText);
+    ipaChunks = std::move(newIpa);
+  }
 
   if (textWords.empty() || ipaChunks.empty()) return ipa;
+
+  // If there's no stress dict (e.g. en-gb), compound merge was still useful
+  // but stress correction can't run.  Reassemble and return.
+  if (stressDict.empty()) {
+    std::string result;
+    for (const auto& c : ipaChunks) {
+      if (c.empty()) continue;
+      if (!result.empty()) result.push_back(' ');
+      result += c;
+    }
+    TPLOG("  -> no stressDict, returning after compound merge: \"%s\"\n", result.c_str());
+    return result;
+  }
 
   TPLOG("--- runTextParser ---\n");
   TPLOG("  text: \"%s\"\n", text.c_str());
@@ -630,7 +927,7 @@ std::string runTextParser(
             }
             TPLOG("    merged=\"%s\"\n", merged.c_str());
 
-            std::string corrected = correctStress(textWords[tw], merged, stressDict, legalOnsets);
+            std::string corrected = correctStress(textWords[tw], merged, stressDict, compoundMap, legalOnsets);
             // Always merge the chunks into one, even if stress didn't change.
             // The merge itself is the fix — it reunites split compound IPA.
             ipaChunks[ipaIdx] = (corrected != merged) ? std::move(corrected) : std::move(merged);
@@ -697,6 +994,20 @@ std::string runTextParser(
                 }
               }
               break;  // only use the first anchoring word
+            }
+          }
+          // Numeric words (e.g. "24") often expand to multiple IPA words
+          // ("twenty four") but the look-ahead anchor may fail when the
+          // next text word is monosyllabic and doesn't qualify as an anchor.
+          // Use remaining word/chunk counts to estimate the correct skip.
+          if (isNumeric && skip == 1) {
+            size_t remainingText = textWords.size() - tw - 1;
+            size_t remainingIpa = 0;
+            for (size_t k = ipaIdx; k < ipaChunks.size(); ++k) {
+              if (!ipaChunks[k].empty()) ++remainingIpa;
+            }
+            if (remainingIpa > remainingText + 1) {
+              skip = remainingIpa - remainingText;
             }
           }
           TPLOG("    no-dict skip=%zu (numeric=%d) -> ipaIdx=%zu\n", skip, (int)isNumeric, ipaIdx + skip);
@@ -789,7 +1100,7 @@ std::string runTextParser(
   bool anyChange = false;
 
   for (size_t i = 0; i < textWords.size(); ++i) {
-    std::string corrected = correctStress(textWords[i], ipaChunks[i], stressDict, legalOnsets);
+    std::string corrected = correctStress(textWords[i], ipaChunks[i], stressDict, compoundMap, legalOnsets);
     if (corrected != ipaChunks[i]) {
       ipaChunks[i] = std::move(corrected);
       anyChange = true;
@@ -806,6 +1117,76 @@ std::string runTextParser(
     if (!result.empty()) result.push_back(' ');
     result += ipaChunks[i];
   }
+  return result;
+}
+
+std::string splitCompoundsInText(
+    const std::string& text,
+    const std::unordered_map<std::string, std::vector<std::string>>& compoundMap)
+{
+  if (text.empty() || compoundMap.empty()) return text;
+
+  std::string result;
+  result.reserve(text.size() + 32);
+
+  size_t i = 0;
+  while (i < text.size()) {
+    // Skip whitespace — copy as-is.
+    if (text[i] == ' ' || text[i] == '\t' || text[i] == '\n' || text[i] == '\r') {
+      result.push_back(text[i]);
+      ++i;
+      continue;
+    }
+
+    // Find the end of this word token.
+    size_t wordStart = i;
+    while (i < text.size() && text[i] != ' ' && text[i] != '\t' &&
+           text[i] != '\n' && text[i] != '\r') {
+      ++i;
+    }
+    std::string token = text.substr(wordStart, i - wordStart);
+
+    // Strip leading and trailing punctuation for lookup.
+    size_t lo = 0;
+    while (lo < token.size() && std::ispunct(static_cast<unsigned char>(token[lo])))
+      ++lo;
+    size_t hi = token.size();
+    while (hi > lo && std::ispunct(static_cast<unsigned char>(token[hi - 1])))
+      --hi;
+
+    if (lo >= hi) {
+      // All punctuation — just emit.
+      result += token;
+      continue;
+    }
+
+    std::string core = token.substr(lo, hi - lo);
+    std::string key = core;
+    for (auto& c : key) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+
+    auto it = compoundMap.find(key);
+    if (it == compoundMap.end()) {
+      result += token;
+      continue;
+    }
+
+    // Found compound.  Replace core with halves joined by spaces.
+    // Preserve leading/trailing punctuation.
+    const auto& halves = it->second;
+
+    // Preserve original casing of first letter if the source was capitalized.
+    // For simplicity, just emit the halves as lowercase (eSpeak is case-insensitive
+    // for phonemization purposes).
+    result += token.substr(0, lo);  // leading punctuation
+    for (size_t h = 0; h < halves.size(); ++h) {
+      if (h > 0) result.push_back('\x1F');  // Unit Separator — not space
+      result += halves[h];
+    }
+    result += token.substr(hi);  // trailing punctuation
+
+    TPLOG("  splitCompound: \"%s\" -> halves[%zu]\n", token.c_str(), halves.size());
+  }
+
   return result;
 }
 

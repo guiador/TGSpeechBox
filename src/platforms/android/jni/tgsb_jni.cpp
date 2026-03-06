@@ -226,7 +226,22 @@ static void synthesizeClauses(TgsbEngine *engine,
         char clauseType = '.';   /* default if no punctuation found */
         while (*p) {
             char c = *p;
-            if (c == '.' || c == '?' || c == '!' || c == ',') {
+            if (c == '?' || c == '!') {
+                clauseType = c;
+                p++;
+                break;
+            }
+            /* comma/period between digits is a thousands separator or decimal
+             * (e.g. "26,655" or "3.14"), not a clause boundary */
+            if (c == ',' || c == '.') {
+                bool prevDigit = (p > clauseStart) &&
+                    (unsigned char)(*(p - 1) - '0') <= 9;
+                bool nextDigit = *(p + 1) &&
+                    (unsigned char)(*(p + 1) - '0') <= 9;
+                if (prevDigit && nextDigit) {
+                    p++;
+                    continue;
+                }
                 clauseType = c;
                 p++;
                 break;
@@ -254,6 +269,14 @@ static void synthesizeClauses(TgsbEngine *engine,
         if (!clause) continue;
         memcpy(clause, clauseStart, len);
         clause[len] = '\0';
+
+        /* Pre-eSpeak compound splitting: "dogfood" → "dog food" so each
+         * half is phonemized independently with correct vowel quality. */
+        char *splitClause = nvspFrontend_splitCompounds(engine->frontend, clause);
+        if (splitClause) {
+            free(clause);
+            clause = splitClause;
+        }
 
         /* eSpeak → IPA for this clause.
          * Accumulate all IPA chunks into one string so the text parser
@@ -351,6 +374,11 @@ Java_com_tgspeechbox_tts_TgsbTtsService_nativeCreate(
     /* Set default voicing tone */
     speechPlayer_voicingTone_t tone = speechPlayer_getDefaultVoicingTone();
     speechPlayer_setVoicingTone(player, &tone);
+
+    /* Platform output gain: Android TTS stream is attenuated by the system,
+     * so we apply 3x gain inside the DSP (before the limiter) to match
+     * normal accessibility volume levels. */
+    speechPlayer_setOutputGain(player, 3.0);
 
     TgsbEngine *engine = (TgsbEngine *)calloc(1, sizeof(TgsbEngine));
     engine->player = player;
@@ -471,15 +499,13 @@ Java_com_tgspeechbox_tts_TgsbTtsService_nativePullAudio(
                                     (unsigned int)maxSamples, buf);
     if (n <= 0) return 0;
 
-    /* Convert sample structs to raw s16le bytes with volume boost.
-     * TGSpeechBox output is conservative (~60% headroom); scale up
-     * so the engine sits at a normal volume without the user having
-     * to crank accessibility volume. */
-    static const double kBaseGain = 3.0;
-    double gain = kBaseGain * engine->volume;
+    /* Convert sample structs to raw s16le bytes.
+     * Base gain is now inside the DSP (speechPlayer_setOutputGain).
+     * Only volume scaling (0.0–1.0) is applied here. */
+    double vol = engine->volume;
     int16_t pcm[4096];
     for (int i = 0; i < n; i++) {
-        double s = buf[i].value * gain;
+        double s = buf[i].value * vol;
         if (s > 32767.0) s = 32767.0;
         if (s < -32767.0) s = -32767.0;
         pcm[i] = (int16_t)s;
@@ -649,6 +675,7 @@ Java_com_tgspeechbox_tts_TgsbTtsService_nativeSetSampleRate(
     }
     engine->player = speechPlayer_initialize(sampleRate);
     engine->sampleRate = sampleRate;
+    speechPlayer_setOutputGain(engine->player, 3.0);
 
     /* Re-apply voicing tone settings */
     if (engine->hasUserTone) {
@@ -795,11 +822,12 @@ Java_com_tgspeechbox_tts_TgsbSpeakEngine_nativePullAudio(
                                      (unsigned int)count, buf);
     if (n <= 0) return 0;
 
-    static const double kBaseGain = 3.0;
-    double gain = kBaseGain * engine->volume;
+    /* Base gain is inside the DSP (speechPlayer_setOutputGain).
+     * Only volume scaling here. */
+    double vol = engine->volume;
     int16_t pcm[4096];
     for (int i = 0; i < n; i++) {
-        double s = buf[i].value * gain;
+        double s = buf[i].value * vol;
         if (s > 32767.0) s = 32767.0;
         if (s < -32767.0) s = -32767.0;
         pcm[i] = (int16_t)s;

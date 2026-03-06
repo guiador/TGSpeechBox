@@ -83,6 +83,12 @@ void applyPitchImpulse(
   const double smoothAlpha        = std::max(0.01, std::min(1.0,
                                      lang.impulseSmoothAlpha));
 
+  // Exclamation register boost: raise baseline pitch for exclamatory speech.
+  // Natural exclamations have a higher mean F0, not just bigger peaks.
+  if (clauseType == '!') {
+    basePitch *= 1.10;
+  }
+
   const size_t n = tokens.size();
 
   // =========================================================================
@@ -161,6 +167,20 @@ void applyPitchImpulse(
     }
   }
 
+  // 1e. Terminal word duration (for progressive terminal gesture).
+  double terminalWordDurMs = 0.0;
+  int terminalWordStartIdx = 0;
+  if (terminalWordIdx >= 0 && terminalWordIdx < numWords) {
+    terminalWordStartIdx = wordStartIndices[static_cast<size_t>(terminalWordIdx)];
+    const size_t wEnd = (terminalWordIdx + 1 < numWords)
+      ? static_cast<size_t>(wordStartIndices[static_cast<size_t>(terminalWordIdx + 1)])
+      : n;
+    for (size_t i = static_cast<size_t>(terminalWordStartIdx); i < wEnd; ++i) {
+      if (!tokens[i].silence && tokens[i].def)
+        terminalWordDurMs += tokens[i].durationMs;
+    }
+  }
+
   // =========================================================================
   // Phase 2: Build per-token pitch from 4 layers
   // =========================================================================
@@ -170,6 +190,7 @@ void applyPitchImpulse(
   std::vector<bool>   isPhonetic(n, false);
 
   double elapsedMs = 0.0;
+  double terminalWordElapsedMs = 0.0;  // elapsed phonetic time within terminal word
   int stressCount = 0;
   double hatOffset = 0.0;         // accumulated rise/fall offset
   int currentWordIdx = 0;         // which word we're in
@@ -219,18 +240,36 @@ void applyPitchImpulse(
     isPhonetic[i] = true;
 
     // ---- Layer 1: Proportional declination ----
+    // Clause-type scaling: questions need much less declination (pitch
+    // stays elevated for the terminal rise), commas less than statements.
+    // Matches the spirit of Fujisaki clause-type overrides.
+    double clauseDeclinScale = 1.0;
+    double clauseStressScale = 1.0;   // multiplier on stress boosts
+    double clauseTerminalScale = 1.0; // multiplier on terminal fall
+    if (clauseType == '?') {
+      clauseDeclinScale = 0.25;
+    } else if (clauseType == ',') {
+      clauseDeclinScale = 0.5;
+    } else if (clauseType == '!') {
+      clauseDeclinScale = 1.5;   // stronger decline — more emphatic
+      clauseStressScale = 1.4;   // bigger stress peaks — exclamatory emphasis
+      clauseTerminalScale = 1.5; // stronger final drop
+    }
+
     double declinStart, declinEnd;
-    if (declinRangeHz > 0.0 && totalPhoneticMs > 0.0) {
+    double effectiveRange = declinRangeHz * clauseDeclinScale;
+    if (effectiveRange > 0.0 && totalPhoneticMs > 0.0) {
       // Proportional: distribute range across clause.
-      double halfRange = (declinRangeHz * inflection) / 2.0;
+      double halfRange = (effectiveRange * inflection) / 2.0;
       double progressStart = elapsedMs / totalPhoneticMs;
       double progressEnd = (elapsedMs + t.durationMs) / totalPhoneticMs;
-      declinStart = halfRange - (progressStart * declinRangeHz * inflection);
-      declinEnd   = halfRange - (progressEnd   * declinRangeHz * inflection);
+      declinStart = halfRange - (progressStart * effectiveRange * inflection);
+      declinEnd   = halfRange - (progressEnd   * effectiveRange * inflection);
     } else {
       // Legacy fixed Hz/sec mode.
-      declinStart = -(declinHzPerSec * elapsedMs / 1000.0 * inflection * speed);
-      declinEnd   = -(declinHzPerSec * (elapsedMs + t.durationMs) / 1000.0
+      double effectiveHzPerSec = declinHzPerSec * clauseDeclinScale;
+      declinStart = -(effectiveHzPerSec * elapsedMs / 1000.0 * inflection * speed);
+      declinEnd   = -(effectiveHzPerSec * (elapsedMs + t.durationMs) / 1000.0
                        * inflection * speed);
     }
 
@@ -248,8 +287,10 @@ void applyPitchImpulse(
       bool isTerminal = (static_cast<int>(i) == lastPrimaryVowelIdx &&
                          (clauseType == '.' || clauseType == '!'));
 
-      if (isTerminal && isPrimary) {
+      if (isTerminal && isPrimary && stressCount > 0) {
         // Terminal primary stress DROPS pitch instead of boosting.
+        // Only when prior stresses established a higher register —
+        // single-word utterances ("hi.", "b") still get a real peak.
         stressPeak = termStressHz * inflection * assertiveness;
       } else if (isPrimary) {
         // Count-dependent boost.
@@ -258,7 +299,7 @@ void applyPitchImpulse(
         else if (stressCount == 1) boost = secondBoost;
         else if (stressCount == 2) boost = thirdBoost;
 
-        boost *= stressGain * inflection;
+        boost *= stressGain * inflection * clauseStressScale;
         if (clauseType == '?') boost *= questionReduction;
 
         stressPeak = boost;
@@ -270,7 +311,7 @@ void applyPitchImpulse(
         else if (stressCount == 1) boost = secondBoost;
         else if (stressCount == 2) boost = thirdBoost;
 
-        boost *= stressGain * secStressScale * inflection;
+        boost *= stressGain * secStressScale * inflection * clauseStressScale;
         if (clauseType == '?') boost *= questionReduction;
 
         stressPeak = boost;
@@ -281,18 +322,30 @@ void applyPitchImpulse(
     }
 
     // ---- Layer 4: Terminal gesture ----
+    // Progressive: spread the terminal fall/rise across the entire final
+    // word so every phoneme in "button" slopes down naturally, not just
+    // the last vowel.  This mirrors WinTalker's per-frame down ramp.
     double terminalOffset = 0.0;
     double terminalEndOffset = 0.0;
-    if (static_cast<int>(i) == finalVowelIdx) {
+    if (currentWordIdx == terminalWordIdx && terminalWordDurMs > 0.0) {
+      double progressStart = terminalWordElapsedMs / terminalWordDurMs;
+      double progressEnd = (terminalWordElapsedMs + t.durationMs) / terminalWordDurMs;
+
       if (clauseType == '.' || clauseType == '!') {
-        terminalEndOffset = -(terminalFallHz * assertiveness * inflection);
+        terminalOffset    = -(terminalFallHz * clauseTerminalScale * assertiveness * inflection * progressStart);
+        terminalEndOffset = -(terminalFallHz * clauseTerminalScale * assertiveness * inflection * progressEnd);
       } else if (clauseType == '?') {
-        // Question: two-stage rise for natural upturn.
-        terminalOffset = questionRiseHz * 0.4 * inflection;
-        terminalEndOffset = questionRiseHz * inflection;
+        terminalOffset    = questionRiseHz * inflection * progressStart;
+        terminalEndOffset = questionRiseHz * inflection * progressEnd;
       } else if (clauseType == ',') {
-        terminalEndOffset = continuationRiseHz * inflection;
+        terminalOffset    = continuationRiseHz * inflection * progressStart;
+        terminalEndOffset = continuationRiseHz * inflection * progressEnd;
       }
+    }
+
+    // Track elapsed time within terminal word (after using it for progress).
+    if (currentWordIdx == terminalWordIdx) {
+      terminalWordElapsedMs += t.durationMs;
     }
 
     // ---- Combine all layers ----

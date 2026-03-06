@@ -266,6 +266,18 @@ settings:
         position: intervocalic
         action: replace
         replaceTo: "ɦ"
+
+      # Hungarian word-final /t/ is a clean, crisp dental stop — no extended
+      # frication. The base /t/ (tuned for English) has fricationAmplitude 0.80
+      # which sounds affricate-like ("cs") in Hungarian. Scale it down.
+      - name: clean_word_final_t
+        phonemes: [t]
+        position: word-final
+        action: scale
+        fieldScales:
+          fricationAmplitude: 0.55
+          pa5: 0.50
+          pa6: 0.40
   # === NASALIZATION ===
   # Hungarian doesn't have phonemic nasalization.
   nasalizationAnticipatoryEnabled: false

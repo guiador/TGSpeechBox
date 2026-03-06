@@ -44,9 +44,11 @@ settings:
   # Allow length marks to apply to consonants too (for word-final R lengthening)
   applyLengthenedScaleToVowelsOnly: false
   # Make length marks more effective.
-  # 1.05 was too subtle - FORCE vowels (for, door, snore) need more presence before R.
-  # With 1.10, a double length mark (ːː) gives ~32% more length.
-  lengthenedScale: 1.10
+  # 1.05 was too subtle, 1.10 still left GOOSE /uː/ sounding like short /ʊ/.
+  # 1.35 overdid diphthong glides ("window" GOAT too long sentence-final).
+  # 1.20 starved compound monophthongs ("dogfood" GOOSE too short).
+  # 1.28 compromises — tense vowels get presence, glides stay natural.
+  lengthenedScale: 1.28
 
   # Use the US/CA GOOSE vowel variant.
   englishLongUShortenEnabled: true
@@ -235,7 +237,7 @@ settings:
       "ä ʊ": 1.22         # MOUTH — wide; pre-voiceless ×0.80 → net 0.98
       "ɔ ɪ": 1.15         # CHOICE — wide
       "e ɪ": 0.95         # FACE — narrow, fine short
-      "o ʊ": 0.92         # GOAT — narrow
+      "o ʊ": 0.85         # GOAT — narrow; keep short for "social", "combobox"
     durationFloorMs: 50
     rateCompensation: 0.15
     onsetHoldExponent: 1.3
@@ -782,7 +784,9 @@ settings:
   # Compound words: secondary syllable steps down from primary (log-F0 units).
   fujisakiCompoundDeclinStep: 0.05
 
-  singleWordClauseTypeOverrideCommaOnly: false
+  # singleWordClauseTypeOverrideCommaOnly defaults to true from en.yaml.
+  # false was too aggressive: it killed question/exclamation intonation
+  # on single-word utterances ("hi?" sounded like "hi.").
 normalization:
   preReplacements:
     # FORCE vowels: Shorten the vowel when followed by a consonant (short, sport, report).
@@ -878,13 +882,9 @@ normalization:
     # but the collapse pass now merges tied vowel pairs into cosine-smoothed
     # micro-frames — no workaround needed.
 
-    # GOAT (oʊ): monophthongize to oː. The diphthong collapse glide from
-    # ᵒ→ʊ created a perceptible "ow" sweep that made words like "combobox"
-    # and "social" sound too long and drawn-out. A clean monophthong "oh"
-    # matches Eloquence-style GOAT and sounds more natural at all rates.
-    # The o→ᵒ fronting rule below still fires, giving final result ᵒː.
-    - from: "oʊ"
-      to:   "oː"
+    # GOAT (oʊ): keep as diphthong for audible glide on "no", "go", "home".
+    # Previously monophthongized to oː but that killed the glide entirely.
+    # pairScale 0.85 keeps polysyllabic GOAT ("social", "combobox") short.
 
     # Keep TRAP normalization consistent with the old Python behavior.
     - from: "a"

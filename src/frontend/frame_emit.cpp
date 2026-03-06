@@ -1301,18 +1301,22 @@ void emitFramesEx(
       // crossfade phasing more audible — tighten the interval.
       double intervalMs = lang.diphthongMicroFrameIntervalMs;
       const double pitch0 = base[vp];
-      if (pitch0 > 0.0) {
+      const double pitchEnd = base[evp];
+      // Use the LOWEST pitch across the diphthong for interval floor.
+      // Sentence-final declination can drop pitch from 109→76 Hz;
+      // onset pitch alone would allow frames too short for the
+      // resonator to settle at the offglide's lower pitch.
+      double pitchForFloor = pitch0;
+      if (pitchEnd > 0.0 && pitchEnd < pitchForFloor)
+        pitchForFloor = pitchEnd;
+      if (pitchForFloor > 0.0) {
         // Scale interval proportionally to pitch period (see non-Ex path).
-        intervalMs *= (100.0 / pitch0);
+        intervalMs *= (100.0 / pitchForFloor);
         // Floor: at least 2 pitch periods per micro-frame for resonator settling.
-        double minInterval = 2000.0 / pitch0;
+        double minInterval = 2000.0 / pitchForFloor;
         if (intervalMs < minInterval) intervalMs = minInterval;
         if (intervalMs < 3.0) intervalMs = 3.0;
       }
-      int N = (intervalMs > 0.0)
-            ? std::max(5, std::min(10, static_cast<int>(totalDur / intervalMs)))
-            : 3;
-
       // Start and end formant targets (Hz).
       const double startCf1 = base[static_cast<int>(FieldId::cf1)];
       const double startCf2 = base[static_cast<int>(FieldId::cf2)];
@@ -1347,6 +1351,14 @@ void emitFramesEx(
       const double endParB1 = t.hasEndPb1 ? t.endPb1 : startPb1;
       const double endParB2 = t.hasEndPb2 ? t.endPb2 : startPb2;
       const double endParB3 = t.hasEndPb3 ? t.endPb3 : startPb3;
+
+      // Number of micro-frames scales with duration.
+      // MacinTalk staircase: use fewer, coarser steps so each jump
+      // skips past harmonic-formant crossings rather than lingering
+      // near them (which causes diphthong shimmer in smooth sweeps).
+      // With N=3-4 and no per-sample endCf smoothing, formants snap
+      // to each waypoint and hold steady until the next step.
+      int N = 5;
 
       const double startPitch = base[vp];
       const double endPitch = base[evp];
@@ -1447,29 +1459,23 @@ void emitFramesEx(
         nvspFrontend_Frame frame;
         std::memcpy(&frame, mf, sizeof(frame));
 
-        // FrameEx: endCf/endPf point to the NEXT waypoint so DSP sweeps
-        // smoothly between nearby targets.  Last frame gets NAN (hold).
+        // MacinTalk staircase: ALL micro-frames hold at their waypoint
+        // (endCf=NAN disables per-sample exponential smoothing).
+        // Formants snap during the brief crossfade then stay put,
+        // minimizing time spent near harmonic-formant crossings.
         nvspFrontend_FrameEx mfEx = frameEx;
-        if (seg < N - 1) {
-          mfEx.endCf1 = wpCf1[seg + 1];
-          mfEx.endCf2 = wpCf2[seg + 1];
-          mfEx.endCf3 = wpCf3[seg + 1];
-          mfEx.endPf1 = wpPf1[seg + 1];
-          mfEx.endPf2 = wpPf2[seg + 1];
-          mfEx.endPf3 = wpPf3[seg + 1];
-        } else {
-          // Last micro-frame: hold at offset target, no further sweep.
-          mfEx.endCf1 = NAN;
-          mfEx.endCf2 = NAN;
-          mfEx.endCf3 = NAN;
-          mfEx.endPf1 = NAN;
-          mfEx.endPf2 = NAN;
-          mfEx.endPf3 = NAN;
-        }
+        mfEx.endCf1 = NAN;
+        mfEx.endCf2 = NAN;
+        mfEx.endCf3 = NAN;
+        mfEx.endPf1 = NAN;
+        mfEx.endPf2 = NAN;
+        mfEx.endPf3 = NAN;
 
-        // Fade: first micro-frame uses token's entry fade, rest use thisDur.
+        // Fade: first micro-frame uses token's entry fade.
+        // Internal micro-frames use a short snap fade (3ms) so formants
+        // jump quickly to the new waypoint then hold — staircase style.
         const double thisDur = (seg == 0) ? seg0Dur : otherSegDur;
-        double fadeIn = (seg == 0) ? t.fadeMs : thisDur;
+        double fadeIn = (seg == 0) ? t.fadeMs : 3.0;
         if (fadeIn > thisDur) fadeIn = thisDur;
 
         // Don't re-fire Fujisaki commands on internal micro-frames.

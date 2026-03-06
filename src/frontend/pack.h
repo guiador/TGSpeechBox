@@ -302,6 +302,22 @@ struct AllophoneRule {
     std::vector<std::string> insertContexts;
 };
 
+// Number expansion rules for text parser alignment.
+// When enabled, numeric text words are expanded to word sequences
+// ("24" → "twenty four") before alignment, eliminating fragile skip heuristics.
+// Loaded from the numberExpansion: YAML block in language packs.
+struct NumberExpansionRules {
+  bool enabled = false;
+  std::vector<std::string> digits;      // [0..9]: "zero".."nine"
+  std::vector<std::string> teens;       // [0..9]: "ten".."nineteen"
+  std::vector<std::string> tens;        // [0..9]: tens[2]="twenty"..tens[9]="ninety"
+  std::string hundred;                  // "hundred"
+  std::string thousand;                 // "thousand"
+  std::string million;                  // "million"
+  std::string billion;                  // "billion"
+  std::string conjunction;              // "" (en-us) or "and" (en-gb)
+};
+
 struct LanguagePack {
   std::string langTag; // normalized (lowercase, '-')
 
@@ -817,6 +833,9 @@ double lengthContrastPreGeminateVowelScale = 0.85;
   // Empty = onset maximization disabled for this language.
   std::vector<std::u32string> legalOnsets;
 
+  // Number expansion rules for text parser alignment.
+  NumberExpansionRules numberExpansion;
+
   // Special coarticulation rules (language-specific Hz deltas).
   bool specialCoarticulationEnabled = false;
   std::vector<SpecialCoarticRule> specialCoarticRules;
@@ -1211,6 +1230,12 @@ struct PackSet {
   // Loaded from packs/dict/{langTag}-stress.tsv at pack load time.
   // Empty if no dict file exists for this language (= no-op).
   std::unordered_map<std::string, std::vector<int>> stressDict;
+
+  // Compound word map: word → split halves (e.g., "lockbox" → ["lock", "box"]).
+  // Loaded from packs/dict/{langTag}-compounds.tsv at pack load time.
+  // Phase 1: stress fallback when stressDict misses.
+  // Phase 2: pre-eSpeak splitting for vowel quality.
+  std::unordered_map<std::string, std::vector<std::string>> compoundMap;
 };
 
 // Load phonemes.yaml + merged language packs.
