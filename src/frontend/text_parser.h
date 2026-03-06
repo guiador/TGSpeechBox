@@ -36,18 +36,19 @@ std::string runTextParser(
     const std::vector<std::u32string>& legalOnsets,
     const NumberExpansionRules& numberRules);
 
-// Pre-eSpeak compound splitting (Phase 2).
+// Pre-eSpeak text normalization.
 //
-// Scans text for words in compoundMap and replaces them with their halves
-// joined by spaces.  The modified text should be fed to eSpeak so each half
-// is phonemized independently with correct vowel quality.
+// Applies text-level transforms before eSpeak phonemization:
+//   1. Compound splitting — "dogfood" → "dog\x1Ffood" (if in compoundMap)
+//   2. Date ordinals — "June 6" → "June 6th" (English only)
+//   (Future: dictionary replacements, year splitting, etc.)
 //
-// Example: "dogfood" → "dog food" (if compoundMap has dogfood → [dog, food]).
-//
-// If no compounds are found, returns the original text unchanged.
-std::string splitCompoundsInText(
+// The modified text should be fed to eSpeak so it phonemizes correctly.
+// If no transforms apply, returns the original text unchanged.
+std::string prepareTextForEspeak(
     const std::string& text,
-    const std::unordered_map<std::string, std::vector<std::string>>& compoundMap);
+    const std::unordered_map<std::string, std::vector<std::string>>& compoundMap,
+    const std::string& langTag);
 
 }  // namespace nvsp_frontend
 

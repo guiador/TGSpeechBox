@@ -379,10 +379,8 @@ void tgsb_queue_text(TgsbEngine *engine,
         memcpy(clause, clauseStart, len);
         clause[len] = '\0';
 
-        /* Pre-eSpeak compound splitting: "dogfood" → "dog food" so each
-         * half is phonemized independently with correct vowel quality. */
-        char *splitClause = nvspFrontend_splitCompounds(engine->frontend,
-                                                         clause);
+        /* Pre-eSpeak text normalization: compound splitting, date ordinals, etc. */
+        char *splitClause = nvspFrontend_prepareText(engine->frontend, clause);
         if (splitClause) {
             free(clause);
             clause = splitClause;

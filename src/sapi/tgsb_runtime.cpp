@@ -718,8 +718,19 @@ HRESULT runtime::queue_text(const std::wstring& text, const speak_params& params
         }
     }
 
+    // Pre-eSpeak text normalization: compound splitting, date ordinals, etc.
+    std::wstring prepared_text = text;
+    if (frontend_) {
+        const std::string text_utf8 = utils::wstring_to_string(text);
+        char* prepared = nvspFrontend_prepareText(frontend_, text_utf8.c_str());
+        if (prepared) {
+            prepared_text = utils::string_to_wstring(std::string(prepared));
+            nvspFrontend_freeString(prepared);
+        }
+    }
+
     ipa_buf_.clear();
-    text_to_ipa_utf8(text, ipa_buf_);
+    text_to_ipa_utf8(prepared_text, ipa_buf_);
     if (ipa_buf_.empty()) return S_OK;
 
     if (!frontend_) return E_FAIL;
@@ -731,7 +742,7 @@ HRESULT runtime::queue_text(const std::wstring& text, const speak_params& params
     ctx.params = &params;
 
     // Always use the latest API (ExWithText) — frontend is statically linked.
-    const std::string text_utf8 = utils::wstring_to_string(text);
+    const std::string text_utf8 = utils::wstring_to_string(prepared_text);
     int ok = nvspFrontend_queueIPA_ExWithText(
         frontend_,
         text_utf8.c_str(),

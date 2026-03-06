@@ -490,17 +490,20 @@ NVSP_FRONTEND_API void nvspFrontend_setLegacyPitchInflectionScale(
   the returned text to eSpeak instead of the original, so each half is
   phonemized independently with correct vowel quality.
 
-  Returns NULL if no compounds were found (use original text unchanged).
-  Returns a malloc'd UTF-8 string if compounds were split.  The caller
+  Returns NULL if no transforms were applied (use original text unchanged).
+  Returns a malloc'd UTF-8 string if any transforms fired.  The caller
   must free the returned pointer with nvspFrontend_freeString().
 */
-NVSP_FRONTEND_API char* nvspFrontend_splitCompounds(
+NVSP_FRONTEND_API char* nvspFrontend_prepareText(
   nvspFrontend_handle_t handle,
   const char* textUtf8
 );
 
+// Backwards-compatible alias for older callers.
+#define nvspFrontend_splitCompounds nvspFrontend_prepareText
+
 /*
-  Free a string returned by nvspFrontend_splitCompounds().
+  Free a string returned by nvspFrontend_prepareText().
 */
 NVSP_FRONTEND_API void nvspFrontend_freeString(char* str);
 

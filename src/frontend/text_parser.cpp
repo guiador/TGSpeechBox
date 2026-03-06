@@ -705,7 +705,7 @@ std::string runTextParser(
   if (text.empty()) return ipa;
 
   // ── Compound split boundary tracking ──────────────────────────────────
-  // splitCompoundsInText() uses \x1F (Unit Separator) between compound
+  // prepareTextForEspeak() uses \x1F (Unit Separator) between compound
   // halves instead of space.  Scan for these markers and record which
   // adjacent word pairs came from our compound splitting (vs. the user
   // writing separate words).  Replace \x1F with space for normal parsing.
@@ -1120,7 +1120,9 @@ std::string runTextParser(
   return result;
 }
 
-std::string splitCompoundsInText(
+// ── Compound splitting (internal) ──
+
+static std::string splitCompoundsInText(
     const std::string& text,
     const std::unordered_map<std::string, std::vector<std::string>>& compoundMap)
 {
@@ -1185,6 +1187,139 @@ std::string splitCompoundsInText(
     result += token.substr(hi);  // trailing punctuation
 
     TPLOG("  splitCompound: \"%s\" -> halves[%zu]\n", token.c_str(), halves.size());
+  }
+
+  return result;
+}
+
+// ── English date ordinals ──
+//
+// "June 6" → "June 6th", "6 June" → "6th June"
+// Only bare numbers 1-31 adjacent to a month name.
+
+static const char* const kEnglishMonths[] = {
+  "january", "february", "march", "april", "may", "june",
+  "july", "august", "september", "october", "november", "december",
+  "jan", "feb", "mar", "apr", "jun", "jul", "aug", "sep", "sept", "oct", "nov", "dec"
+};
+static const int kNumMonthNames = sizeof(kEnglishMonths) / sizeof(kEnglishMonths[0]);
+
+static bool isEnglishMonth(const std::string& word) {
+  // Require first letter uppercase — "March 23" is a date, "march 23" may be a verb.
+  if (word.empty() || !std::isupper(static_cast<unsigned char>(word[0]))) return false;
+  std::string lower = word;
+  for (auto& c : lower) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+  for (int i = 0; i < kNumMonthNames; ++i) {
+    if (lower == kEnglishMonths[i]) return true;
+  }
+  return false;
+}
+
+static const char* ordinalSuffix(int n) {
+  if (n >= 11 && n <= 13) return "th";
+  switch (n % 10) {
+    case 1: return "st";
+    case 2: return "nd";
+    case 3: return "rd";
+    default: return "th";
+  }
+}
+
+static std::string insertDateOrdinals(const std::string& text) {
+  // Split into whitespace-separated tokens, preserving whitespace.
+  struct Tok { std::string s; bool isWs; };
+  std::vector<Tok> toks;
+  size_t i = 0;
+  while (i < text.size()) {
+    size_t start = i;
+    bool ws = (text[i] == ' ' || text[i] == '\t' || text[i] == '\n' || text[i] == '\r');
+    if (ws) {
+      while (i < text.size() && (text[i] == ' ' || text[i] == '\t' ||
+             text[i] == '\n' || text[i] == '\r')) ++i;
+    } else {
+      while (i < text.size() && text[i] != ' ' && text[i] != '\t' &&
+             text[i] != '\n' && text[i] != '\r') ++i;
+    }
+    toks.push_back({text.substr(start, i - start), ws});
+  }
+
+  // Look for month + bare number or bare number + month patterns.
+  bool changed = false;
+  for (size_t t = 0; t < toks.size(); ++t) {
+    if (toks[t].isWs) continue;
+
+    // Check if this token is a bare number 1-31 (no existing suffix).
+    const std::string& s = toks[t].s;
+    // Strip trailing punctuation for the digit check.
+    size_t numEnd = s.size();
+    while (numEnd > 0 && std::ispunct(static_cast<unsigned char>(s[numEnd - 1])) &&
+           !std::isdigit(static_cast<unsigned char>(s[numEnd - 1]))) --numEnd;
+    if (numEnd == 0) continue;
+
+    bool allDigits = true;
+    for (size_t c = 0; c < numEnd; ++c) {
+      if (!std::isdigit(static_cast<unsigned char>(s[c]))) { allDigits = false; break; }
+    }
+    if (!allDigits) continue;
+
+    int val = std::atoi(s.substr(0, numEnd).c_str());
+    if (val < 1 || val > 31) continue;
+
+    // Already has ordinal suffix? (e.g. "6th", "1st")
+    if (numEnd < s.size()) {
+      std::string trail = s.substr(numEnd);
+      std::string trailLower = trail;
+      for (auto& c : trailLower) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+      if (trailLower == "st" || trailLower == "nd" || trailLower == "rd" || trailLower == "th") continue;
+    }
+
+    // Look for adjacent month (skipping whitespace tokens).
+    auto adjacentMonth = [&](int dir) -> bool {
+      for (size_t j = t + dir; j < toks.size(); j += dir) {
+        if (toks[j].isWs) continue;
+        return isEnglishMonth(toks[j].s);
+      }
+      return false;
+    };
+
+    if (adjacentMonth(+1) || adjacentMonth(-1)) {
+      // Insert ordinal suffix after the digits, before trailing punctuation.
+      const char* suf = ordinalSuffix(val);
+      toks[t].s = s.substr(0, numEnd) + suf + s.substr(numEnd);
+      changed = true;
+      TPLOG("  dateOrdinal: \"%s\" -> \"%s\"\n", s.c_str(), toks[t].s.c_str());
+    }
+  }
+
+  if (!changed) return text;
+
+  std::string result;
+  result.reserve(text.size() + 32);
+  for (const auto& tok : toks) result += tok.s;
+  return result;
+}
+
+// ── Public API ──
+
+std::string prepareTextForEspeak(
+    const std::string& text,
+    const std::unordered_map<std::string, std::vector<std::string>>& compoundMap,
+    const std::string& langTag)
+{
+  if (text.empty()) return text;
+
+  std::string result = text;
+
+  // 1. Compound splitting.
+  if (!compoundMap.empty()) {
+    result = splitCompoundsInText(result, compoundMap);
+  }
+
+  // 2. English date ordinals ("June 6" → "June 6th").
+  if (langTag.size() >= 2 && (langTag[0] == 'e' || langTag[0] == 'E') &&
+      (langTag[1] == 'n' || langTag[1] == 'N') &&
+      (langTag.size() == 2 || langTag[2] == '-' || langTag[2] == '_')) {
+    result = insertDateOrdinals(result);
   }
 
   return result;

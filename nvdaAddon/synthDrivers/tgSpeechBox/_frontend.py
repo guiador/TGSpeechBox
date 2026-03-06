@@ -279,7 +279,7 @@ class NvspFrontend(object):
 
             # Text parser API (ABI v4+) — accepts original text for stress correction.
             self._hasTextParserApi = False
-            self._hasCompoundSplitApi = False
+            self._hasPrepareTextApi = False
             if self._abiVersion >= 4:
                 try:
                     self._dll.nvspFrontend_queueIPA_ExWithText.argtypes = [
@@ -298,17 +298,17 @@ class NvspFrontend(object):
                     self._hasTextParserApi = True
                     log.debug("TGSpeechBox: text parser API available (ABI v4+)")
 
-                    # Compound splitting API (also ABI v4+).
-                    self._dll.nvspFrontend_splitCompounds.argtypes = [
+                    # Pre-eSpeak text normalization API (also ABI v4+).
+                    self._dll.nvspFrontend_prepareText.argtypes = [
                         ctypes.c_void_p,  # handle
                         ctypes.c_char_p,  # textUtf8
                     ]
                     # Use c_void_p (not c_char_p) to keep raw pointer for freeString.
-                    self._dll.nvspFrontend_splitCompounds.restype = ctypes.c_void_p
+                    self._dll.nvspFrontend_prepareText.restype = ctypes.c_void_p
                     self._dll.nvspFrontend_freeString.argtypes = [ctypes.c_void_p]
                     self._dll.nvspFrontend_freeString.restype = None
-                    self._hasCompoundSplitApi = True
-                    log.debug("TGSpeechBox: compound split API available")
+                    self._hasPrepareTextApi = True
+                    log.debug("TGSpeechBox: prepareText API available")
                 except AttributeError:
                     log.debug("TGSpeechBox: text parser API not available")
         except AttributeError:
@@ -690,20 +690,20 @@ class NvspFrontend(object):
         )
         return bool(ok)
 
-    def splitCompounds(self, text: str) -> str:
-        """Pre-eSpeak compound splitting.
+    def prepareText(self, text: str) -> str:
+        """Pre-eSpeak text normalization.
 
-        If the loaded pack has a compound map, scans text for compound words
-        and replaces them with their halves (e.g., "dogfood" → "dog food").
-        The caller should feed the result to eSpeak for correct phonemization.
+        Applies compound splitting, date ordinals, and other text-level
+        transforms before eSpeak phonemization.  The caller should feed
+        the result to eSpeak for correct phonemization.
 
-        Returns the original text unchanged if no compounds are found or
+        Returns the original text unchanged if no transforms apply or
         the API is unavailable.
         """
-        if not self._hasCompoundSplitApi or not self._dll or not self._h:
+        if not self._hasPrepareTextApi or not self._dll or not self._h:
             return text
         try:
-            ptr = self._dll.nvspFrontend_splitCompounds(
+            ptr = self._dll.nvspFrontend_prepareText(
                 self._h, text.encode("utf-8")
             )
             if ptr:
@@ -713,6 +713,9 @@ class NvspFrontend(object):
         except Exception:
             pass
         return text
+
+    # Backwards-compatible alias.
+    splitCompounds = prepareText
 
     def getVoicingTone(self) -> Optional[VoicingTone]:
         """Get the voicing tone parameters for the current voice profile (ABI v2+).

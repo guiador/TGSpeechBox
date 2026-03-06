@@ -943,7 +943,7 @@ NVSP_FRONTEND_API void nvspFrontend_setLegacyPitchInflectionScale(
   h->pack.lang.legacyPitchInflectionScale = scale;
 }
 
-NVSP_FRONTEND_API char* nvspFrontend_splitCompounds(
+NVSP_FRONTEND_API char* nvspFrontend_prepareText(
   nvspFrontend_handle_t handle,
   const char* textUtf8
 ) {
@@ -952,10 +952,10 @@ NVSP_FRONTEND_API char* nvspFrontend_splitCompounds(
   if (!h || !textUtf8 || !textUtf8[0]) return nullptr;
 
   std::lock_guard<std::mutex> lock(h->mu);
-  if (!h->packLoaded || h->pack.compoundMap.empty()) return nullptr;
+  if (!h->packLoaded) return nullptr;
 
   std::string input(textUtf8);
-  std::string result = splitCompoundsInText(input, h->pack.compoundMap);
+  std::string result = prepareTextForEspeak(input, h->pack.compoundMap, h->langTag);
 
   if (result == input) return nullptr;  // no changes
 
