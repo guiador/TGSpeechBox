@@ -422,6 +422,8 @@ static void applyRules(std::u32string& text, const PackSet& pack, const std::vec
   // substrings are created and intentional chaining is safe
   // (e.g. u→ᵾ then ᵾ→ᵿ, or uː→ᵾː then ᵾ→ᵿ).
   std::vector<bool> prot(text.size(), false);
+  std::vector<bool> crossProt;  // only used when protResult != nullptr
+  if (protResult) crossProt.assign(text.size(), false);
 
   int ruleIdx = 0;
   for (const auto& rule : rules) {
@@ -470,6 +472,11 @@ static void applyRules(std::u32string& text, const PackSet& pack, const std::vec
     out.reserve(text.size());
     std::vector<bool> outProt;
     outProt.reserve(text.size());
+    // Cross-phase protection: only genuinely NEW growth positions get
+    // PUA-A escaped (visible to escapeProtected).  Inherited chars from
+    // growth replacements stay visible to the next phase's rules.
+    std::vector<bool> outCrossProt;
+    if (protResult) outCrossProt.reserve(text.size());
 
     size_t i = 0;
     while (i < text.size()) {
@@ -477,6 +484,7 @@ static void applyRules(std::u32string& text, const PackSet& pack, const std::vec
       if (prot[i]) {
         out.push_back(text[i]);
         outProt.push_back(true);
+        if (protResult) outCrossProt.push_back(crossProt[i]);
         ++i;
         continue;
       }
@@ -548,17 +556,20 @@ static void applyRules(std::u32string& text, const PackSet& pack, const std::vec
         if (ok) {
           if (traceThis) INLOG("  APPLIED: '%s' -> '%s'\n", u32toUtf8(rule.from).c_str(), u32toUtf8(to).c_str());
           out.append(to);
-          // Protect ALL positions of growth replacements from cascade
-          // corruption (a→a_es then e→e_es matching the e inside a_es,
-          // or s→s_es then s→s_mx matching the s inside s_es).
-          // Same-length or shorter replacements are safe to chain
-          // (e.g. u→ᵾ then ᵾ→ᵿ).  Cross-phase visibility (e.g.
-          // preReplacement fɔːɹ→fɔːᵊɹ leaving ɔ visible for the
-          // replacements phase) is handled by PUA-A escaping in
-          // escapeProtected(), not by within-phase protection.
-          const bool shouldProtect = (to.size() > matchLen);
-          for (size_t p = 0; p < to.size(); ++p)
-            outProt.push_back(shouldProtect);
+          // Within-phase: protect ALL positions of growth replacements
+          // from cascade corruption (s→s_es then s→s_mx matching the
+          // s inside s_es).  Same-length or shorter replacements are
+          // safe to chain (e.g. u→ᵾ then ᵾ→ᵿ).
+          const bool grew = (to.size() > matchLen);
+          for (size_t p = 0; p < to.size(); ++p) {
+            outProt.push_back(grew);
+            // Cross-phase: only genuinely new growth positions get
+            // PUA-A escaped.  Inherited chars (p < matchLen) stay
+            // visible so the replacements phase can still match them
+            // (e.g. preReplacement fɔːɹ→fɔːᵊɹ leaves ɔ visible for
+            // the ɔ→ᴐ allophone rule).
+            if (protResult) outCrossProt.push_back(grew && p >= matchLen);
+          }
           i = matchEnd;
           continue;
         }
@@ -566,14 +577,16 @@ static void applyRules(std::u32string& text, const PackSet& pack, const std::vec
 
       out.push_back(text[i]);
       outProt.push_back(false);
+      if (protResult) outCrossProt.push_back(false);
       ++i;
     }
 
     text.swap(out);
     prot.swap(outProt);
+    if (protResult) crossProt.swap(outCrossProt);
     ++ruleIdx;
   }
-  if (protResult) *protResult = std::move(prot);
+  if (protResult) *protResult = std::move(crossProt);
 }
 
 // Escape characters that were protected by a prior applyRules() call into
