@@ -290,6 +290,17 @@ int tgsb_set_voice(TgsbEngine *engine, const char *voiceName)
     return 0;
 }
 
+/*
+ * Pre-split text at clause boundaries (. ? ! , ; :) then feed each
+ * clause to eSpeak individually, tagging it with the correct clause
+ * type for prosody.  This mirrors the NVDA driver and Android JNI,
+ * which pre-split rather than relying on eSpeak's opaque clause chunking.
+ *
+ * Previous approach let eSpeak decide clause boundaries, which caused
+ * issues with colon-separated text like "Unread: 1" — eSpeak could
+ * split at the colon, and the trailing number leaked into the next
+ * VoiceOver utterance (GitHub issue #40).
+ */
 void tgsb_queue_text(TgsbEngine *engine,
                      const char *text,
                      double speed,
@@ -309,53 +320,80 @@ void tgsb_queue_text(TgsbEngine *engine,
     if (pitch < 40.0) pitch = 40.0;
     if (pitch > 500.0) pitch = 500.0;
 
-    /* Text -> IPA via eSpeak, clause by clause */
     FrameCtx ctx;
     ctx.engine = engine;
     ctx.frameCount = 0;
 
-    /* Pre-eSpeak compound splitting: "dogfood" → "dog food" so each
-     * half is phonemized independently with correct vowel quality. */
-    char *splitText = nvspFrontend_splitCompounds(engine->frontend, text);
-    const char *useText = splitText ? splitText : text;
+    const char *p = text;
+    while (*p && !engine->stopRequested) {
+        /* skip leading whitespace */
+        while (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n') p++;
+        if (!*p) break;
 
-    const void *textPtr = useText;
-    while (textPtr && *(const char *)textPtr && !engine->stopRequested) {
-        const char *clauseStart = (const char *)textPtr;
-        const char *ipa = espeak_TextToPhonemes(
-            &textPtr, espeakCHARS_UTF8, 0x02 /* IPA */);
-        if (!ipa || !*ipa) continue;
-
-        /* Detect clause type from consumed text.
-         * eSpeak may consume a few chars of the NEXT clause (e.g.
-         * "Hello? H" for "Hello?"), so we scan backwards through the
-         * entire consumed range looking for sentence-ending punctuation
-         * rather than stopping at the first non-whitespace char. */
-        const char *clauseEnd = textPtr
-            ? (const char *)textPtr : clauseStart + strlen(clauseStart);
-        char clauseType = '.';
-        for (const char *p = clauseEnd - 1; p >= clauseStart; --p) {
+        /* scan forward to find next clause boundary */
+        const char *clauseStart = p;
+        char clauseType = '.';   /* default if no punctuation found */
+        while (*p) {
             char c = *p;
-            if (c == '.' || c == ',' || c == '?' || c == '!') {
+            if (c == '.' || c == '?' || c == '!' || c == ',') {
                 clauseType = c;
+                p++;
                 break;
             }
+            /* colon/semicolon only split when followed by whitespace
+             * (avoids splitting times like "5:44" or ratios like "3:1") */
+            if (c == ';' || c == ':') {
+                char next = *(p + 1);
+                if (next == ' ' || next == '\t' || next == '\r' ||
+                    next == '\n' || next == '\0') {
+                    clauseType = ',';
+                    p++;
+                    break;
+                }
+            }
+            p++;
         }
-        char clauseStr[2] = { clauseType, 0 };
+        /* if we hit end-of-string without punctuation, p is at '\0' */
 
-        /* Extract clause text so the text parser can do stress lookup.
-         * eSpeak may over-consume into the next clause, but the parser
-         * handles misalignment gracefully (unmatched words keep eSpeak
-         * stress — safe no-op). */
-        const char *cEnd = textPtr
-            ? (const char *)textPtr : clauseStart + strlen(clauseStart);
-        std::string clauseText(clauseStart, (size_t)(cEnd - clauseStart));
+        /* copy clause into a NUL-terminated buffer */
+        size_t len = (size_t)(p - clauseStart);
+        if (len == 0) continue;
 
-        nvspFrontend_queueIPA_ExWithText(
-            engine->frontend, clauseText.c_str(), ipa,
-            speed, pitch, engine->inflection, clauseStr, 0,
-            onFrame, &ctx
-        );
+        char *clause = (char *)malloc(len + 1);
+        if (!clause) continue;
+        memcpy(clause, clauseStart, len);
+        clause[len] = '\0';
+
+        /* Pre-eSpeak compound splitting: "dogfood" → "dog food" so each
+         * half is phonemized independently with correct vowel quality. */
+        char *splitClause = nvspFrontend_splitCompounds(engine->frontend,
+                                                         clause);
+        if (splitClause) {
+            free(clause);
+            clause = splitClause;
+        }
+
+        /* eSpeak → IPA for this clause.
+         * Accumulate all IPA chunks into one string so the text parser
+         * can align the full clause text against the full IPA output
+         * (matches NVDA's one-call-per-clause pattern). */
+        const void *ePtr = clause;
+        std::string combinedIpa;
+        while (ePtr && *(const char *)ePtr && !engine->stopRequested) {
+            const char *ipa = espeak_TextToPhonemes(
+                &ePtr, espeakCHARS_UTF8, 0x02 /* IPA */);
+            if (!ipa || !*ipa) continue;
+            if (!combinedIpa.empty()) combinedIpa += ' ';
+            combinedIpa += ipa;
+        }
+        if (!combinedIpa.empty() && !engine->stopRequested) {
+            char clauseStr[2] = { clauseType, 0 };
+            nvspFrontend_queueIPA_ExWithText(
+                engine->frontend, clause, combinedIpa.c_str(),
+                speed, pitch, engine->inflection, clauseStr, 0,
+                onFrame, &ctx
+            );
+        }
 
         /* Punctuation pause — matches NVDA driver durations.
          * Short: 35 ms sentence-final, 25 ms comma
@@ -363,7 +401,7 @@ void tgsb_queue_text(TgsbEngine *engine,
         if (engine->pauseMode > 0 && ctx.frameCount > 0) {
             double pauseMs = 0.0;
             if (clauseType == '.' || clauseType == '!' ||
-                clauseType == '?' || clauseType == ':' || clauseType == ';') {
+                clauseType == '?') {
                 pauseMs = engine->pauseMode == 2 ? 60.0 : 35.0;
             } else if (clauseType == ',') {
                 pauseMs = engine->pauseMode == 2 ? 50.0 : 25.0;
@@ -377,9 +415,9 @@ void tgsb_queue_text(TgsbEngine *engine,
                     samples, fadeSamp, -1, 0);
             }
         }
-    }
 
-    if (splitText) nvspFrontend_freeString(splitText);
+        free(clause);
+    }
 }
 
 int tgsb_pull_audio(TgsbEngine *engine,
