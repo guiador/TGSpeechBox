@@ -836,6 +836,11 @@ double lengthContrastPreGeminateVowelScale = 0.85;
   // Number expansion rules for text parser alignment.
   NumberExpansionRules numberExpansion;
 
+  // Year splitting: split 4-digit numbers into two 2-digit pairs
+  // so "1995" → "19 95" (eSpeak says "nineteen ninety-five").
+  // Off by default — users opt in via setSettings.
+  bool yearSplittingEnabled = false;
+
   // Special coarticulation rules (language-specific Hz deltas).
   bool specialCoarticulationEnabled = false;
   std::vector<SpecialCoarticRule> specialCoarticRules;

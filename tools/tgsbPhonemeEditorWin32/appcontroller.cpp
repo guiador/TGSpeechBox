@@ -1049,6 +1049,7 @@ static std::vector<std::string> knownLanguageSettingKeys() {
     "wordFinalSchwaMinDurationMs",
     "wordFinalSchwaReductionEnabled",
     "wordFinalSchwaScale",
+    "yearSplittingEnabled",
   };
 }
 

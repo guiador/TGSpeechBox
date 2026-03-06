@@ -41,14 +41,15 @@ std::string runTextParser(
 // Applies text-level transforms before eSpeak phonemization:
 //   1. Compound splitting — "dogfood" → "dog\x1Ffood" (if in compoundMap)
 //   2. Date ordinals — "June 6" → "June 6th" (English only)
-//   (Future: dictionary replacements, year splitting, etc.)
+//   3. Year splitting — "1995" → "19 95" (if yearSplitting enabled)
 //
 // The modified text should be fed to eSpeak so it phonemizes correctly.
 // If no transforms apply, returns the original text unchanged.
 std::string prepareTextForEspeak(
     const std::string& text,
     const std::unordered_map<std::string, std::vector<std::string>>& compoundMap,
-    const std::string& langTag);
+    const std::string& langTag,
+    bool yearSplitting);
 
 }  // namespace nvsp_frontend
 

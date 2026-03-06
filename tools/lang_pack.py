@@ -335,6 +335,7 @@ class LanguagePack:
     coarticulation_velar_pinch_f2_scale: float = 0.9
     coarticulation_velar_pinch_f3: float = 2400.0
     coarticulation_cross_syllable_scale: float = 0.70
+    year_splitting_enabled: bool = False
     special_coarticulation_enabled: bool = False
     special_coartic_max_delta_hz: float = 400.0
     cluster_timing_enabled: bool = False
@@ -858,6 +859,7 @@ def _merge_settings(lp: LanguagePack, s: dict):
     lp.coarticulation_velar_pinch_f2_scale = gn("coarticulationVelarPinchF2Scale", lp.coarticulation_velar_pinch_f2_scale)
     lp.coarticulation_velar_pinch_f3 = gn("coarticulationVelarPinchF3", lp.coarticulation_velar_pinch_f3)
     lp.coarticulation_cross_syllable_scale = gn("coarticulationCrossSyllableScale", lp.coarticulation_cross_syllable_scale)
+    lp.year_splitting_enabled = gb("yearSplittingEnabled", lp.year_splitting_enabled)
     lp.special_coarticulation_enabled = gb("specialCoarticulationEnabled", lp.special_coarticulation_enabled)
     lp.special_coartic_max_delta_hz = gn("specialCoarticMaxDeltaHz", lp.special_coartic_max_delta_hz)
     lp.cluster_timing_enabled = gb("clusterTimingEnabled", lp.cluster_timing_enabled)

@@ -640,6 +640,9 @@ getNum("primaryStressDiv", lp.primaryStressDiv);
   getNum("coarticulationVelarPinchF3", lp.coarticulationVelarPinchF3);
   getNum("coarticulationCrossSyllableScale", lp.coarticulationCrossSyllableScale);
 
+  // Year splitting
+  getBool("yearSplittingEnabled", lp.yearSplittingEnabled);
+
   // Special coarticulation rules (language-specific Hz deltas)
   getBool("specialCoarticulationEnabled", lp.specialCoarticulationEnabled);
   getNum("specialCoarticMaxDeltaHz", lp.specialCoarticMaxDeltaHz);

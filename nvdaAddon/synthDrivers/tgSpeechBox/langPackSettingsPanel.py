@@ -701,6 +701,8 @@ def _getPanelClass():
                 "wordFinalSchwaMinDurationMs",
                 "wordFinalSchwaReductionEnabled",
                 "wordFinalSchwaScale",
+                # --- Year splitting ---
+                "yearSplittingEnabled",
             ]
             for k in _extraKeys:
                 if k not in self._knownKeys:
