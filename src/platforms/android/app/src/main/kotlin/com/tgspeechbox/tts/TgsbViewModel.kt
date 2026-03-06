@@ -588,23 +588,51 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun setEditorOverride(langTag: String, key: String, value: String) {
+        // If the new value matches the pack base, remove the override instead.
+        val baseValues = getBaseValues(langTag)
         val overrides = loadOverrides(langTag).toMutableMap()
-        overrides[key] = value
+        if (baseValues[key] == value) {
+            overrides.remove(key)
+        } else {
+            overrides[key] = value
+        }
         saveOverrides(langTag, overrides)
-        // Refresh the settings list.
+        reloadCurrentLanguage()
         loadEditorSettings(langTag)
+    }
+
+    /** Read base pack values (no overrides) for comparison. */
+    private fun getBaseValues(langTag: String): Map<String, String> {
+        engine.setLanguage(langTag, langTag)
+        val raw = engine.getPackSettings() ?: return emptyMap()
+        val map = mutableMapOf<String, String>()
+        for (line in raw.lines()) {
+            val tab = line.indexOf('\t')
+            if (tab < 0) continue
+            map[line.substring(0, tab)] = line.substring(tab + 1)
+        }
+        return map
     }
 
     fun removeEditorOverride(langTag: String, key: String) {
         val overrides = loadOverrides(langTag).toMutableMap()
         overrides.remove(key)
         saveOverrides(langTag, overrides)
+        reloadCurrentLanguage()
         loadEditorSettings(langTag)
     }
 
     fun resetAllEditorOverrides(langTag: String) {
         prefs.edit().remove("pack_overrides_$langTag").apply()
+        reloadCurrentLanguage()
         loadEditorSettings(langTag)
+    }
+
+    /** Reload the current language from disk so removed overrides take effect. */
+    private fun reloadCurrentLanguage() {
+        val curLang = languages.getOrNull(selectedLanguageIndex.value) ?: return
+        engine.setLanguage(curLang.langDef.espeakLang, curLang.langDef.tgsbLang)
+        applyStoredOverrides(curLang.langDef.tgsbLang)
     }
 
     /** Apply stored overrides after setLanguage (call from speak path too). */
