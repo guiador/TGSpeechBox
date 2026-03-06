@@ -364,7 +364,7 @@ void emitFrames(
         if (intervalMs < 3.0) intervalMs = 3.0;
       }
       int N = (intervalMs > 0.0)
-            ? std::max(5, std::min(10, static_cast<int>(totalDur / intervalMs)))
+            ? std::max(5, static_cast<int>(std::round(totalDur / intervalMs)))
             : 3;
 
       const double startCf1 = base[static_cast<int>(FieldId::cf1)];
@@ -1357,13 +1357,14 @@ void emitFramesEx(
       const double endParB2 = t.hasEndPb2 ? t.endPb2 : startPb2;
       const double endParB3 = t.hasEndPb3 ? t.endPb3 : startPb3;
 
-      // Number of micro-frames scales with duration.
-      // MacinTalk staircase: use fewer, coarser steps so each jump
-      // skips past harmonic-formant crossings rather than lingering
-      // near them (which causes diphthong shimmer in smooth sweeps).
-      // With N=3-4 and no per-sample endCf smoothing, formants snap
-      // to each waypoint and hold steady until the next step.
-      int N = 5;
+      // Number of micro-frames scales with duration so each step stays
+      // a consistent length regardless of speech rate.  At fast rates
+      // N stays at minimum 5 (the staircase sweet spot for shimmer).
+      // At slow rates N scales up — more steps with smaller formant
+      // jumps.  This mirrors MacInTalk's fixed 5ms frame rate: slow
+      // speech just gets more frames, not bigger jumps.
+      static constexpr int kMaxFrames = 64;
+      int N = std::clamp(static_cast<int>(std::round(totalDur / intervalMs)), 5, kMaxFrames);
 
       const double startPitch = base[vp];
       const double endPitch = base[evp];
@@ -1401,7 +1402,6 @@ void emitFramesEx(
 
       // Pre-compute all N waypoints so each frame can reference the next.
       // 6 formants per waypoint: cf1,cf2,cf3,pf1,pf2,pf3
-      static constexpr int kMaxFrames = 10;
       double wpCf1[kMaxFrames], wpCf2[kMaxFrames], wpCf3[kMaxFrames];
       double wpPf1[kMaxFrames], wpPf2[kMaxFrames], wpPf3[kMaxFrames];
       double wpCb1[kMaxFrames], wpCb2[kMaxFrames], wpCb3[kMaxFrames];
@@ -1496,9 +1496,9 @@ void emitFramesEx(
             trajectoryState->prevVoiceAmp < 0.05);
         if (afterObstruent && seg < 3) {
           const double sweepF2 = fabs(endCascF2 - startCf2);
-          // Scale: 0 below 300 Hz, full at 600+ Hz.
+          // Scale: 0 below 400 Hz, full at 700+ Hz.
           const double sweepScale = std::clamp(
-              (sweepF2 - 300.0) / 300.0, 0.0, 1.0);
+              (sweepF2 - 400.0) / 300.0, 0.0, 1.0);
           if (sweepScale > 0.0) {
             const double decay = 1.0 / (1 << seg);  // 1.0, 0.5, 0.25
             const double s = sweepScale * decay;
