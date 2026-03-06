@@ -64,6 +64,11 @@ private struct LanguageListView: View {
         }
         .padding()
         .onAppear {
+            if !engineStarted {
+                if engine.start() {
+                    engineStarted = true
+                }
+            }
             if engineStarted {
                 engine.loadEditorLanguages()
             }
@@ -81,6 +86,7 @@ private struct PackSettingsListView: View {
     @State private var editingKey: String?
     @State private var editingValue: String = ""
     @State private var showResetAll = false
+    @AccessibilityFocusState private var headerFocused: Bool
 
     var body: some View {
         VStack(spacing: 0) {
@@ -92,9 +98,11 @@ private struct PackSettingsListView: View {
                         Text("Back")
                     }
                 }
+                .accessibilityFocused($headerFocused)
                 Spacer()
                 Text(langTag)
                     .font(.headline)
+                    .accessibilityAddTraits(.isHeader)
                 Spacer()
                 Button("Reset All") { showResetAll = true }
             }
@@ -129,6 +137,9 @@ private struct PackSettingsListView: View {
         }
         .onAppear {
             engine.loadEditorSettings(langTag: langTag)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                headerFocused = true
+            }
         }
         .alert("Edit Value", isPresented: Binding(
             get: { editingKey != nil },
@@ -187,8 +198,6 @@ private struct SettingRowView: View {
                         set: { onToggle($0 ? "true" : "false") }
                     ))
                     .labelsHidden()
-                    .accessibilityLabel(setting.displayName)
-                    .accessibilityValue(setting.value == "true" ? "on" : "off")
                 default:
                     Text(setting.value)
                         .foregroundColor(.secondary)
@@ -203,6 +212,8 @@ private struct SettingRowView: View {
             }
             .accessibilityElement(children: .combine)
             .accessibilityLabel("\(setting.displayName), \(setting.value)\(setting.isOverridden ? ", customized" : "")")
+            .accessibilityAddTraits(setting.type != .bool_ ? .isButton : [])
+            .accessibilityHint(setting.type != .bool_ ? "Double tap to edit" : "")
 
             if setting.isOverridden {
                 Button("Reset \(setting.displayName)") {

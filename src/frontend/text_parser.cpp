@@ -1284,8 +1284,9 @@ static std::string insertDateOrdinals(const std::string& text) {
 
     if (adjacentMonth(+1) || adjacentMonth(-1)) {
       // Insert ordinal suffix after the digits, before trailing punctuation.
+      // Use the parsed int to strip leading zeros ("06" → "6th").
       const char* suf = ordinalSuffix(val);
-      toks[t].s = s.substr(0, numEnd) + suf + s.substr(numEnd);
+      toks[t].s = std::to_string(val) + suf + s.substr(numEnd);
       changed = true;
       TPLOG("  dateOrdinal: \"%s\" -> \"%s\"\n", s.c_str(), toks[t].s.c_str());
     }
