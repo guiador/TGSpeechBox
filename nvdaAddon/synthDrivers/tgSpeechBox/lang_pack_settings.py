@@ -362,6 +362,8 @@ _LANG_PACK_SPECS = (
     ("toneContoursMode", "toneContoursMode", "enum", "absolute", LangPackSettingsMixin._TONE_CONTOURS_MODES),
     ("stripAllophoneDigits", "stripAllophoneDigits", "bool", False, None),
     ("stripHyphen", "stripHyphen", "bool", False, None),
+    # --- Year splitting ---
+    ("yearSplitting", "yearSplittingEnabled", "bool", True, None),
 )
 
 # Inject generated accessors onto the mixin class.

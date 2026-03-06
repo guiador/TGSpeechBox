@@ -19,7 +19,7 @@ from logHandler import log
 from synthDriverHandler import SynthDriver as _SynthDriverBase, VoiceInfo
 
 from autoSettingsUtils.driverSetting import (
-    DriverSetting, NumericDriverSetting,
+    BooleanDriverSetting, DriverSetting, NumericDriverSetting,
 )
 
 # Local module imports
@@ -66,8 +66,10 @@ class SynthDriver(
         _SynthDriverBase.LanguageSetting(),
         _SynthDriverBase.RateSetting(),
         _SynthDriverBase.PitchSetting(),
+        DriverSetting("legacyPitchMode", _("Pitch mode"), availableInSettingsRing=True),
         _SynthDriverBase.InflectionSetting(),
         _SynthDriverBase.VolumeSetting(),
+        BooleanDriverSetting("yearSplitting", _("Year splitting (4-digit numbers as digit pairs)"), defaultVal=True),
         NumericDriverSetting("voiceTilt", _("Voice tilt (brightness)"), defaultVal=50),
         NumericDriverSetting("noiseGlottalMod", _("Noise glottal modulation"), defaultVal=0),
         NumericDriverSetting("pitchSyncF1", _("Pitch-sync F1 delta"), defaultVal=50),
@@ -91,11 +93,6 @@ class SynthDriver(
         DriverSetting("stopClosureMode", _("Stop closure mode")),
         DriverSetting("spellingDiphthongMode", _("Spelling diphthong mode")),
     ]
-
-    # Only expose legacyPitchMode combo - all other booleans are YAML-only.
-    _supportedSettings.append(
-        DriverSetting("legacyPitchMode", _("Pitch mode")),
-    )
 
     supportedSettings = tuple(_supportedSettings)
 

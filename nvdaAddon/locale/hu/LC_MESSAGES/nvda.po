@@ -2873,3 +2873,13 @@ msgstr "Szóvégi svá redukció engedélyezve"
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Word Final Schwa Scale"
 msgstr "Szóvégi svá skála"
+
+#. Driver setting: year splitting checkbox
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "Year splitting (4-digit numbers as digit pairs)"
+msgstr "Évszám-bontás (4 jegyű számok számpárokként)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Year Splitting Enabled"
+msgstr "Évszám-bontás engedélyezve"

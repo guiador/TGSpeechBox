@@ -2895,3 +2895,13 @@ msgstr "Reducción de Schwa Final de Palabra Habilitada"
 msgid "Word Final Schwa Scale"
 msgstr "Escala de Schwa Final de Palabra"
 
+#. Driver setting: year splitting checkbox
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "Year splitting (4-digit numbers as digit pairs)"
+msgstr "División de años (números de 4 dígitos como pares)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Year Splitting Enabled"
+msgstr "División de Años Habilitada"
+
