@@ -22,6 +22,7 @@ Licensed under the MIT License. See LICENSE for details.
 #include <algorithm>
 #include <cstdint>
 #include <sstream>
+#include <unordered_set>
 
 // Temporary debug logging for text parser investigation.
 // Set to 1 to enable, 0 to disable.
@@ -703,7 +704,42 @@ std::string runTextParser(
 {
   if (text.empty() || stressDict.empty()) return ipa;
 
-  auto textWords = splitOnWhitespace(text);
+  // ── Compound split boundary tracking ──────────────────────────────────
+  // splitCompoundsInText() uses \x1F (Unit Separator) between compound
+  // halves instead of space.  Scan for these markers and record which
+  // adjacent word pairs came from our compound splitting (vs. the user
+  // writing separate words).  Replace \x1F with space for normal parsing.
+  std::unordered_set<std::string> compoundSplitPairs;
+  std::string cleanText;
+  {
+    cleanText.reserve(text.size());
+    std::string prevWord, curWord;
+    bool prevSepWasUS = false;
+
+    for (size_t p = 0; p <= text.size(); ++p) {
+      char c = (p < text.size()) ? text[p] : ' ';
+      bool isSep = (c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\x1F');
+      if (isSep) {
+        if (!curWord.empty()) {
+          if (prevSepWasUS && !prevWord.empty()) {
+            compoundSplitPairs.insert(
+                asciiLower(stripPunct(prevWord)) + "\x1F" +
+                asciiLower(stripPunct(curWord)));
+          }
+          prevWord = curWord;
+          curWord.clear();
+        }
+        prevSepWasUS = (c == '\x1F');
+        cleanText.push_back(prevSepWasUS ? ' ' : c);
+      } else {
+        curWord.push_back(c);
+        cleanText.push_back(c);
+      }
+    }
+    TPLOG("  compoundSplitPairs: %zu\n", compoundSplitPairs.size());
+  }
+
+  auto textWords = splitOnWhitespace(cleanText);
   splitMixedTokens(textWords);
 
   // ── Number expansion ──────────────────────────────────────────────────
@@ -764,6 +800,26 @@ std::string runTextParser(
           combined += asciiLower(stripPunct(textWords[i + j]));
         }
         if (compoundMap.find(combined) != compoundMap.end()) {
+          // Only merge if WE split this compound (\x1F boundaries).
+          // User-written separate words (regular spaces) keep their boundary.
+          bool allSplit = true;
+          if (!compoundSplitPairs.empty()) {
+            for (size_t j = 0; j < span - 1; ++j) {
+              std::string pairKey = asciiLower(stripPunct(textWords[i + j])) + "\x1F"
+                                  + asciiLower(stripPunct(textWords[i + j + 1]));
+              if (compoundSplitPairs.find(pairKey) == compoundSplitPairs.end()) {
+                allSplit = false;
+                break;
+              }
+            }
+          } else {
+            allSplit = false;  // no \x1F markers at all → nothing to merge
+          }
+          if (!allSplit) {
+            TPLOG("  compoundMerge: [%s] skipped (user-written separate words)\n",
+                  combined.c_str());
+            continue;
+          }
           // Merge text and IPA — no space between IPA chunks.
           newText.push_back(combined);
           std::string ipaJoined;
@@ -1110,7 +1166,7 @@ std::string splitCompoundsInText(
     // for phonemization purposes).
     result += token.substr(0, lo);  // leading punctuation
     for (size_t h = 0; h < halves.size(); ++h) {
-      if (h > 0) result.push_back(' ');
+      if (h > 0) result.push_back('\x1F');  // Unit Separator — not space
       result += halves[h];
     }
     result += token.substr(hi);  // trailing punctuation
