@@ -248,6 +248,173 @@ class TgsbEngine: ObservableObject {
         setPauseMode(pauseMode)
     }
 
+    // MARK: - Pack settings editor
+
+    /// Settings managed by Engine Settings sliders — hidden from editor.
+    private static let hiddenKeys: Set<String> = [
+        "legacyPitchMode", "legacyPitchInflectionScale"
+    ]
+
+    enum SettingType { case bool_, number, text }
+
+    struct PackSetting: Identifiable {
+        let id: String  // key
+        let key: String
+        let displayName: String
+        let value: String
+        let isOverridden: Bool
+        let type: SettingType
+    }
+
+    @Published var editorLanguages: [String] = []
+    @Published var editorSettings: [PackSetting] = []
+    private var editorLangTag: String = ""
+
+    func loadEditorLanguages() {
+        guard let eng = engine else { return }
+        guard let ptr = tgsb_get_available_languages(eng) else { return }
+        let raw = String(cString: ptr)
+        tgsb_free_string(ptr)
+        editorLanguages = raw.split(separator: "\n").map(String.init).sorted()
+    }
+
+    func loadEditorSettings(langTag: String) {
+        guard let eng = engine else { return }
+        editorLangTag = langTag
+
+        // Temporarily switch language to read its settings
+        let curLang = selectedLanguage
+        tgsb_set_language(eng, langTag, langTag)
+
+        guard let ptr = tgsb_get_pack_settings(eng) else {
+            tgsb_set_language(eng, curLang.espeakTag, curLang.tgsbTag)
+            applyStoredOverrides(curLang.tgsbTag)
+            return
+        }
+        let raw = String(cString: ptr)
+        tgsb_free_string(ptr)
+
+        let overrides = loadOverrides(langTag)
+        if !overrides.isEmpty {
+            let yaml = overrides.map { "\($0.key): \($0.value)" }.joined(separator: "\n")
+            _ = tgsb_apply_setting_overrides(eng, yaml)
+        }
+
+        var settings: [PackSetting] = []
+        for line in raw.split(separator: "\n") {
+            guard let tabIdx = line.firstIndex(of: "\t") else { continue }
+            let key = String(line[line.startIndex..<tabIdx])
+            if Self.hiddenKeys.contains(key) { continue }
+            let baseValue = String(line[line.index(after: tabIdx)...])
+            let effectiveValue = overrides[key] ?? baseValue
+            let type = detectType(effectiveValue)
+            settings.append(PackSetting(
+                id: key, key: key,
+                displayName: camelToDisplay(key),
+                value: effectiveValue,
+                isOverridden: overrides[key] != nil,
+                type: type))
+        }
+        editorSettings = settings
+
+        // Restore
+        tgsb_set_language(eng, curLang.espeakTag, curLang.tgsbTag)
+        applyStoredOverrides(curLang.tgsbTag)
+    }
+
+    func setEditorOverride(langTag: String, key: String, value: String) {
+        let baseValues = getBaseValues(langTag)
+        var overrides = loadOverrides(langTag)
+        if baseValues[key] == value {
+            overrides.removeValue(forKey: key)
+        } else {
+            overrides[key] = value
+        }
+        saveOverrides(langTag, overrides)
+        reloadCurrentLanguage()
+        loadEditorSettings(langTag: langTag)
+    }
+
+    func removeEditorOverride(langTag: String, key: String) {
+        var overrides = loadOverrides(langTag)
+        overrides.removeValue(forKey: key)
+        saveOverrides(langTag, overrides)
+        reloadCurrentLanguage()
+        loadEditorSettings(langTag: langTag)
+    }
+
+    func resetAllEditorOverrides(langTag: String) {
+        let d = UserDefaults(suiteName: kAppGroupId)
+        d?.removeObject(forKey: "pack_overrides_\(langTag)")
+        reloadCurrentLanguage()
+        loadEditorSettings(langTag: langTag)
+    }
+
+    func applyStoredOverrides(_ tgsbLang: String) {
+        guard let eng = engine else { return }
+        let overrides = loadOverrides(tgsbLang)
+        if overrides.isEmpty { return }
+        let yaml = overrides.map { "\($0.key): \($0.value)" }.joined(separator: "\n")
+        tgsb_apply_setting_overrides(eng, yaml)
+    }
+
+    private func reloadCurrentLanguage() {
+        guard let eng = engine else { return }
+        tgsb_set_language(eng, selectedLanguage.espeakTag, selectedLanguage.tgsbTag)
+        applyStoredOverrides(selectedLanguage.tgsbTag)
+    }
+
+    private func getBaseValues(_ langTag: String) -> [String: String] {
+        guard let eng = engine else { return [:] }
+        tgsb_set_language(eng, langTag, langTag)
+        guard let ptr = tgsb_get_pack_settings(eng) else { return [:] }
+        let raw = String(cString: ptr)
+        tgsb_free_string(ptr)
+        var map: [String: String] = [:]
+        for line in raw.split(separator: "\n") {
+            guard let tabIdx = line.firstIndex(of: "\t") else { continue }
+            map[String(line[line.startIndex..<tabIdx])] = String(line[line.index(after: tabIdx)...])
+        }
+        return map
+    }
+
+    private func loadOverrides(_ langTag: String) -> [String: String] {
+        let d = UserDefaults(suiteName: kAppGroupId)
+        guard let json = d?.string(forKey: "pack_overrides_\(langTag)"),
+              let data = json.data(using: .utf8),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: String]
+        else { return [:] }
+        return obj
+    }
+
+    private func saveOverrides(_ langTag: String, _ overrides: [String: String]) {
+        let d = UserDefaults(suiteName: kAppGroupId)
+        if overrides.isEmpty {
+            d?.removeObject(forKey: "pack_overrides_\(langTag)")
+        } else if let data = try? JSONSerialization.data(withJSONObject: overrides),
+                  let json = String(data: data, encoding: .utf8) {
+            d?.set(json, forKey: "pack_overrides_\(langTag)")
+        }
+    }
+
+    private func detectType(_ value: String) -> SettingType {
+        if value == "true" || value == "false" { return .bool_ }
+        if Double(value) != nil { return .number }
+        return .text
+    }
+
+    private func camelToDisplay(_ key: String) -> String {
+        let dotReplaced = key.replacingOccurrences(of: ".", with: ": ")
+        var result = ""
+        for c in dotReplaced {
+            if c.isUppercase && !result.isEmpty && result.last?.isLowercase == true {
+                result.append(" ")
+            }
+            result.append(c)
+        }
+        return result.prefix(1).uppercased() + result.dropFirst()
+    }
+
     func speak(_ text: String) {
         guard let eng = engine else { return }
         stopSpeaking()
@@ -256,6 +423,7 @@ class TgsbEngine: ObservableObject {
         tgsb_set_language(eng,
                           selectedLanguage.espeakTag,
                           selectedLanguage.tgsbTag)
+        applyStoredOverrides(selectedLanguage.tgsbTag)
         tgsb_set_voice(eng, selectedVoice.id)
         applyEngineSettings()
         tgsb_set_inflection(eng, inflectionValue / 100.0)

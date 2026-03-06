@@ -590,4 +590,31 @@ void tgsb_set_sample_rate(TgsbEngine *engine, int sampleRate)
     }
 }
 
+/* ------------------------------------------------------------------ */
+/* Pack settings editor API                                           */
+/* ------------------------------------------------------------------ */
+
+char *tgsb_get_pack_settings(TgsbEngine *engine)
+{
+    if (!engine || !engine->frontend) return NULL;
+    return nvspFrontend_getPackSettings(engine->frontend);
+}
+
+int tgsb_apply_setting_overrides(TgsbEngine *engine, const char *yamlSnippet)
+{
+    if (!engine || !engine->frontend || !yamlSnippet) return 0;
+    return nvspFrontend_applySettingOverrides(engine->frontend, yamlSnippet);
+}
+
+char *tgsb_get_available_languages(TgsbEngine *engine)
+{
+    if (!engine || !engine->frontend) return NULL;
+    return nvspFrontend_getAvailableLanguages(engine->frontend);
+}
+
+void tgsb_free_string(char *str)
+{
+    nvspFrontend_freeString(str);
+}
+
 } /* extern "C" */

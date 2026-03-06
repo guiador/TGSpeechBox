@@ -26,6 +26,11 @@ struct ContentView: View {
                 .tabItem {
                     Label("Engine", systemImage: "slider.horizontal.3")
                 }
+
+            PackEditorView(engine: engine, engineStarted: $engineStarted)
+                .tabItem {
+                    Label("Editor", systemImage: "pencil")
+                }
         }
         #if os(macOS)
         .frame(minWidth: 500, minHeight: 450)

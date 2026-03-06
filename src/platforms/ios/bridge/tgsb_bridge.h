@@ -82,6 +82,29 @@ void tgsb_set_sample_rate(TgsbEngine *engine, int sampleRate);
 int tgsb_get_num_voices(void);
 const char *tgsb_get_voice_name(int index);
 
+/* --- Pack settings editor --- */
+
+/*
+ * Get all effective pack settings as "key\tvalue\n" pairs.
+ * Caller must free() the returned string.
+ */
+char *tgsb_get_pack_settings(TgsbEngine *engine);
+
+/*
+ * Apply setting overrides from a YAML snippet ("key: value\n...").
+ * Returns 1 on success, 0 on failure.
+ */
+int tgsb_apply_setting_overrides(TgsbEngine *engine, const char *yamlSnippet);
+
+/*
+ * Get available language tags (newline-separated).
+ * Caller must free() the returned string.
+ */
+char *tgsb_get_available_languages(TgsbEngine *engine);
+
+/* Free a string returned by tgsb_get_pack_settings or tgsb_get_available_languages. */
+void tgsb_free_string(char *str);
+
 #ifdef __cplusplus
 }
 #endif

@@ -54,7 +54,7 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
         ("en-US", "en-us", "en-us"),
         ("en-GB", "en-gb", "en-gb"),
         ("en-CA", "en-us", "en-us"),
-        ("en-AU", "en",    "en"),
+        ("en-AU", "en",    "en-au"),
         ("fr-FR", "fr",    "fr"),
         ("fr-CA", "fr",    "fr"),
         ("es-ES", "es",    "es"),
@@ -251,6 +251,7 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
             cachedEspeakLang = espeakLang
             cachedTgsbLang = tgsbLang
         }
+        applyStoredOverrides(tgsbLang)
 
         tgsb_queue_text(eng, plainText, speed, pitch)
 
@@ -418,6 +419,20 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
         let pauseMode = d?.object(forKey: "adv_pauseMode") != nil
             ? d!.integer(forKey: "adv_pauseMode") : 1  // default: short
         tgsb_set_pause_mode(eng, Int32(pauseMode))
+    }
+
+    // MARK: - Pack setting overrides from AppGroup
+
+    private func applyStoredOverrides(_ tgsbLang: String) {
+        guard let eng = engine else { return }
+        let d = UserDefaults(suiteName: "group.com.tgspeechbox.app")
+        guard let json = d?.string(forKey: "pack_overrides_\(tgsbLang)"),
+              let data = json.data(using: .utf8),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: String],
+              !obj.isEmpty
+        else { return }
+        let yaml = obj.map { "\($0.key): \($0.value)" }.joined(separator: "\n")
+        _ = tgsb_apply_setting_overrides(eng, yaml)
     }
 
     // MARK: - Resampling
