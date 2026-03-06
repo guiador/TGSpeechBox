@@ -521,4 +521,44 @@ bool loadFile(const std::string& path, Node& outRoot, std::string& outError) {
   return true;
 }
 
+bool loadString(const std::string& yaml, Node& outRoot, std::string& outError) {
+  // Parse lines from string (same logic as readLines but from a string).
+  std::vector<Line> lines;
+  std::istringstream stream(yaml);
+  std::string raw;
+  int lineNo = 0;
+  while (std::getline(stream, raw)) {
+    ++lineNo;
+    if (!raw.empty() && raw.back() == '\r') raw.pop_back();
+    int indent = 0;
+    while (indent < static_cast<int>(raw.size()) && raw[indent] == ' ') ++indent;
+    std::string t = raw.substr(static_cast<size_t>(indent));
+    t = rtrim(t);
+    if (t.empty()) continue;
+    std::string tNoLead = ltrim(t);
+    if (!tNoLead.empty() && tNoLead[0] == '#') continue;
+    t = stripInlineComment(t);
+    if (t.empty()) continue;
+    lines.push_back(Line{lineNo, indent, t});
+  }
+
+  outRoot = Node{};
+  if (lines.empty()) {
+    outRoot.type = Node::Type::Map;
+    return true;
+  }
+
+  size_t idx = 0;
+  std::string parseErr;
+  if (!parseBlock(lines, idx, lines[0].indent, outRoot, parseErr)) {
+    int ln = (idx < lines.size()) ? lines[idx].lineNo : lines.back().lineNo;
+    std::ostringstream oss;
+    oss << "(string):" << ln << ": " << parseErr;
+    outError = oss.str();
+    return false;
+  }
+
+  return true;
+}
+
 } // namespace nvsp_frontend::yaml_min

@@ -970,4 +970,57 @@ NVSP_FRONTEND_API void nvspFrontend_freeString(char* str) {
   std::free(str);
 }
 
+NVSP_FRONTEND_API char* nvspFrontend_getPackSettings(nvspFrontend_handle_t handle) {
+  using namespace nvsp_frontend;
+  Handle* h = asHandle(handle);
+  if (!h) return nullptr;
+
+  std::lock_guard<std::mutex> lock(h->mu);
+  if (!h->packLoaded) return nullptr;
+
+  std::string result = getEffectiveSettings(h->packDir, h->langTag);
+  if (result.empty()) return nullptr;
+
+  char* out = static_cast<char*>(std::malloc(result.size() + 1));
+  if (!out) return nullptr;
+  std::memcpy(out, result.c_str(), result.size() + 1);
+  return out;
+}
+
+NVSP_FRONTEND_API int nvspFrontend_applySettingOverrides(
+  nvspFrontend_handle_t handle,
+  const char* yamlSnippetUtf8
+) {
+  using namespace nvsp_frontend;
+  Handle* h = asHandle(handle);
+  if (!h || !yamlSnippetUtf8 || !yamlSnippetUtf8[0]) return 0;
+
+  std::lock_guard<std::mutex> lock(h->mu);
+  if (!h->packLoaded) return 0;
+
+  return applySettingOverrides(h->pack.lang, std::string(yamlSnippetUtf8)) ? 1 : 0;
+}
+
+NVSP_FRONTEND_API char* nvspFrontend_getAvailableLanguages(nvspFrontend_handle_t handle) {
+  using namespace nvsp_frontend;
+  Handle* h = asHandle(handle);
+  if (!h) return nullptr;
+
+  std::lock_guard<std::mutex> lock(h->mu);
+
+  auto langs = getAvailableLanguages(h->packDir);
+  if (langs.empty()) return nullptr;
+
+  std::string result;
+  for (const auto& lang : langs) {
+    result += lang;
+    result += '\n';
+  }
+
+  char* out = static_cast<char*>(std::malloc(result.size() + 1));
+  if (!out) return nullptr;
+  std::memcpy(out, result.c_str(), result.size() + 1);
+  return out;
+}
+
 } // extern "C"

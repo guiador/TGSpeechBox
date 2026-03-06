@@ -58,6 +58,9 @@ struct Node {
 // Returns true on success. On failure, outError contains a message with a 1-based line number.
 bool loadFile(const std::string& path, Node& outRoot, std::string& outError);
 
+// Same as loadFile but parses from a string instead of a file path.
+bool loadString(const std::string& yaml, Node& outRoot, std::string& outError);
+
 } // namespace nvsp_frontend::yaml_min
 
 #endif

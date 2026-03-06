@@ -507,6 +507,31 @@ NVSP_FRONTEND_API char* nvspFrontend_prepareText(
 */
 NVSP_FRONTEND_API void nvspFrontend_freeString(char* str);
 
+/*
+  Get effective scalar settings for the current language as "key\tvalue\n" lines.
+  Reads the YAML file chain and flattens nested keys with dot notation.
+  Returns NULL if no language is loaded.
+  Caller must free with nvspFrontend_freeString().
+*/
+NVSP_FRONTEND_API char* nvspFrontend_getPackSettings(nvspFrontend_handle_t handle);
+
+/*
+  Apply setting overrides on top of the currently loaded language pack.
+  yamlSnippetUtf8 is a mini YAML snippet containing "key: value" lines.
+  Dot-notation keys (e.g. "boundarySmoothing.enabled: true") are supported.
+  Must be called after setLanguage. Returns 1 on success, 0 on failure.
+*/
+NVSP_FRONTEND_API int nvspFrontend_applySettingOverrides(
+  nvspFrontend_handle_t handle,
+  const char* yamlSnippetUtf8
+);
+
+/*
+  Get available language tags by scanning packs/lang/*.yaml.
+  Returns a malloc'd "langTag\n" string. Caller must free with nvspFrontend_freeString().
+*/
+NVSP_FRONTEND_API char* nvspFrontend_getAvailableLanguages(nvspFrontend_handle_t handle);
+
 #ifdef __cplusplus
 }
 #endif

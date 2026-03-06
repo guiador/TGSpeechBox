@@ -1259,6 +1259,19 @@ bool hasPhoneme(const PackSet& pack, const std::u32string& key);
 // Map a frame field name (e.g. "cf1") to FieldId. Returns true on success.
 bool parseFieldId(const std::string& name, FieldId& out);
 
+// Get effective scalar settings for a language as "key\tvalue\n" lines.
+// Reads the YAML file chain (default → en → en-us), extracts settings: blocks,
+// flattens nested keys with dot notation, merges in order.
+// Returns empty string on error.
+std::string getEffectiveSettings(const std::string& packDir, const std::string& langTag);
+
+// Get available language tags by scanning packs/lang/*.yaml.
+std::vector<std::string> getAvailableLanguages(const std::string& packDir);
+
+// Apply a YAML snippet of setting overrides to a loaded LanguagePack.
+// The snippet should contain "key: value" lines (flat or nested).
+bool applySettingOverrides(LanguagePack& lp, const std::string& yamlSnippet);
+
 } // namespace nvsp_frontend
 
 #endif
