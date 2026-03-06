@@ -456,6 +456,11 @@ void emitFrames(
 
         const double thisDur = (seg == 0) ? seg0Dur : otherSegDur;
         double fadeIn = (seg == 0) ? t.fadeMs : thisDur;
+        // Cap entry fade after obstruents (see Ex path comment).
+        if (seg == 0 && trajectoryState->hasPrevFrame &&
+            trajectoryState->prevVoiceAmp < 0.05) {
+          fadeIn = std::min(fadeIn, 4.0);
+        }
         if (fadeIn > thisDur) fadeIn = thisDur;
 
         cb(userData, &frame, thisDur, fadeIn, userIndexBase);
@@ -1474,9 +1479,35 @@ void emitFramesEx(
         // Fade: first micro-frame uses token's entry fade.
         // Internal micro-frames use a short snap fade (3ms) so formants
         // jump quickly to the new waypoint then hold — staircase style.
+        //
+        // After obstruents, onset shimmer is addressed by bandwidth widening
+        // below (not by fade capping, which caused clicks).
         const double thisDur = (seg == 0) ? seg0Dur : otherSegDur;
         double fadeIn = (seg == 0) ? t.fadeMs : 3.0;
         if (fadeIn > thisDur) fadeIn = thisDur;
+
+        // After obstruents, apply decaying bandwidth widening across the
+        // first few micro-frames, scaled by the diphthong's F2 sweep width.
+        // Wide sweeps (MOUTH /aʊ/, 550-750 Hz) need more help settling;
+        // narrow sweeps (FACE /eɪ/, ~200 Hz) need little or none.
+        // MacInTalk widens BW1 by 250 Hz during burst release; we taper
+        // across seg0→seg1→seg2 so bandwidths return gradually (no pop).
+        const bool afterObstruent = (trajectoryState->hasPrevFrame &&
+            trajectoryState->prevVoiceAmp < 0.05);
+        if (afterObstruent && seg < 3) {
+          const double sweepF2 = fabs(endCascF2 - startCf2);
+          // Scale: 0 below 300 Hz, full at 600+ Hz.
+          const double sweepScale = std::clamp(
+              (sweepF2 - 300.0) / 300.0, 0.0, 1.0);
+          if (sweepScale > 0.0) {
+            const double decay = 1.0 / (1 << seg);  // 1.0, 0.5, 0.25
+            const double s = sweepScale * decay;
+            mf[static_cast<int>(FieldId::cb1)] += 200.0 * s;
+            mf[static_cast<int>(FieldId::cb2)] += 60.0 * s;
+            mf[static_cast<int>(FieldId::cb3)] += 40.0 * s;
+            std::memcpy(&frame, mf, sizeof(frame));
+          }
+        }
 
         // Don't re-fire Fujisaki commands on internal micro-frames.
         if (seg > 0) {
