@@ -648,24 +648,27 @@ phonemes:
     # F1≈770 Hz, F2≈1200-1300 Hz — distinctly backer than PRICE.
     # Deterding (1997, JIPA 27): RP MOUTH onset F1≈750, F2≈1200.
     # Cruttenden (2014, Gimson's 8th ed.): RP MOUTH [a]~[ɑ], open.
-    # Target: F1=780 (fully open), F2=1300 (back-of-center but not
-    # too dark — preserves RP "twang").  Gives 430 Hz F2 sweep to
-    # ʊ (870) — wide enough for a clear rounding glide.
+    # Target: F1=780 (open), F2=1650 (fronted — palatal quality),
+    # F3=2100 (low for lip rounding cue).  eSpeak produces identical
+    # /aʊ/ for both en-gb and en — no MOUTH distinction at all.
+    # F2=1650 compensates: 200 Hz above GenAm ä (1450), giving RP its
+    # characteristic fronted-but-rounded onset quality.  Wide cb1
+    # prevents the open F1 from clipping.
     _isVowel: true
     _isVoiced: true
     aspirationAmplitude: 0
     caNP: 0
-    cb1: 160
-    cb2: 110
+    cb1: 200
+    cb2: 120
     cb3: 170
     cb4: 250
     cb5: 200
     cb6: 1000
     cbN0: 100
     cbNP: 100
-    cf1: 830
-    cf2: 1350
-    cf3: 2500
+    cf1: 780
+    cf2: 1650
+    cf3: 2100
     cf4: 3300
     cf5: 3750
     cf6: 4900
@@ -679,19 +682,19 @@ phonemes:
     pa5: 0
     pa6: 0
     parallelBypass: 0
-    pb1: 160
-    pb2: 110
+    pb1: 200
+    pb2: 120
     pb3: 170
     pb4: 250
     pb5: 200
     pb6: 1000
-    pf1: 830
-    pf2: 1350
-    pf3: 2600
+    pf1: 780
+    pf2: 1650
+    pf3: 2150
     pf4: 3300
     pf5: 3750
     pf6: 4900
-    voiceAmplitude: 0.75
+    voiceAmplitude: 0.50
   a_es:
     # This is a plain /a/ vowel, tuned on purpose for Spanish.
     _isLiquid: false
