@@ -335,7 +335,22 @@ void tgsb_queue_text(TgsbEngine *engine,
         char clauseType = '.';   /* default if no punctuation found */
         while (*p) {
             char c = *p;
-            if (c == '.' || c == '?' || c == '!' || c == ',') {
+            if (c == '?' || c == '!') {
+                clauseType = c;
+                p++;
+                break;
+            }
+            /* comma/period between digits is a thousands separator or decimal
+             * (e.g. "26,655" or "3.14"), not a clause boundary */
+            if (c == ',' || c == '.') {
+                bool prevDigit = (p > clauseStart) &&
+                    (unsigned char)(*(p - 1) - '0') <= 9;
+                bool nextDigit = *(p + 1) &&
+                    (unsigned char)(*(p + 1) - '0') <= 9;
+                if (prevDigit && nextDigit) {
+                    p++;
+                    continue;
+                }
                 clauseType = c;
                 p++;
                 break;
