@@ -125,6 +125,18 @@ std::vector<sapi_clause> split_clauses(const std::wstring& text)
         while (pos < total) {
             wchar_t c = s[pos];
             if (is_clause_punct(c)) {
+                // Comma/period between digits is a thousands separator
+                // or decimal — don't split (e.g. "65,543", "3.14").
+                if (c == L',' || c == L'.') {
+                    bool prevDigit = (pos > clauseStart) &&
+                        (static_cast<unsigned>(s[pos - 1] - L'0') <= 9);
+                    bool nextDigit = (pos + 1 < total) &&
+                        (static_cast<unsigned>(s[pos + 1] - L'0') <= 9);
+                    if (prevDigit && nextDigit) {
+                        ++pos;
+                        continue;
+                    }
+                }
                 clauseType = static_cast<char>(c);
                 ++pos;
                 // Consume trailing closing quotes/brackets that belong
