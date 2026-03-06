@@ -146,6 +146,30 @@ class FrameManagerImpl: public FrameManager {
 				curHasFrameEx = oldFrameRequest->hasFrameEx;
 			} else {
 				double linearRatio=(double)sampleCounter/(newFrameRequest->numFadeSamples);
+
+				// When the incoming frame has no formant ramp targets (all
+				// endCf = NAN), the frontend has already handled the formant
+				// trajectory (e.g. diphthong staircase micro-frames).  Use
+				// simple linear interpolation — no cosine smoothing, no
+				// per-parameter acceleration, no transition BW widening.
+				// The sophisticated crossfade features cause shimmer on
+				// staircase steps by making formants linger at harmonic-
+				// formant crossings (cosine S-curve) and pumping Q
+				// (transition BW widening).
+				const bool noFormantTargets = newFrameRequest->hasFrameEx &&
+					!std::isfinite(newFrameRequest->endCf1) &&
+					!std::isfinite(newFrameRequest->endCf2) &&
+					!std::isfinite(newFrameRequest->endCf3);
+
+				if (noFormantTargets) {
+					// Simple linear crossfade — all params, same rate.
+					for(int i=0;i<speechPlayer_frame_numParams;++i) {
+						double oldVal = ((speechPlayer_frameParam_t*)&(oldFrameRequest->frame))[i];
+						double newVal = ((speechPlayer_frameParam_t*)&(newFrameRequest->frame))[i];
+						((speechPlayer_frameParam_t*)&curFrame)[i]=calculateValueAtFadePosition(oldVal, newVal, linearRatio);
+					}
+				} else {
+
 				// Cosine ease-in/ease-out for spectral parameters only.
 				// Amplitude/gain parameters stay linear so that energy crossfades
 				// are monotonic — the S-curve can create brief energy dips at
@@ -226,6 +250,7 @@ class FrameManagerImpl: public FrameManager {
 					widenForDelta((int)(offsetof(speechPlayer_frame_t,pf3)/szP),
 					              (int)(offsetof(speechPlayer_frame_t,pb3)/szP));
 				}
+				} // end sophisticated crossfade
 
 				if(oldFrameRequest->hasFrameEx || newFrameRequest->hasFrameEx) {
 					curHasFrameEx = true;
