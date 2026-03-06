@@ -83,6 +83,12 @@ void applyPitchImpulse(
   const double smoothAlpha        = std::max(0.01, std::min(1.0,
                                      lang.impulseSmoothAlpha));
 
+  // Exclamation register boost: raise baseline pitch for exclamatory speech.
+  // Natural exclamations have a higher mean F0, not just bigger peaks.
+  if (clauseType == '!') {
+    basePitch *= 1.10;
+  }
+
   const size_t n = tokens.size();
 
   // =========================================================================
@@ -281,8 +287,10 @@ void applyPitchImpulse(
       bool isTerminal = (static_cast<int>(i) == lastPrimaryVowelIdx &&
                          (clauseType == '.' || clauseType == '!'));
 
-      if (isTerminal && isPrimary) {
+      if (isTerminal && isPrimary && stressCount > 0) {
         // Terminal primary stress DROPS pitch instead of boosting.
+        // Only when prior stresses established a higher register —
+        // single-word utterances ("hi.", "b") still get a real peak.
         stressPeak = termStressHz * inflection * assertiveness;
       } else if (isPrimary) {
         // Count-dependent boost.
