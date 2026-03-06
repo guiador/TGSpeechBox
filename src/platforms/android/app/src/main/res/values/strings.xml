@@ -5,6 +5,17 @@
     <!-- Bottom navigation tabs -->
     <string name="tab_speak">Speak</string>
     <string name="tab_advanced">Engine Settings</string>
+    <string name="tab_editor">Editor</string>
+
+    <!-- Editor tab -->
+    <string name="editor_packs_section">Packs</string>
+    <string name="editor_select_language">Select a language to edit</string>
+    <string name="editor_no_settings">No settings found</string>
+    <string name="editor_reset_all">Reset All Overrides</string>
+    <string name="editor_reset_all_confirm">Remove all custom overrides for this language?</string>
+    <string name="editor_reset_setting">Reset</string>
+    <string name="editor_edit_value">Edit Value</string>
+    <string name="editor_overridden">Customized</string>
 
     <!-- Speak tab -->
     <string name="text_input_label">Text to speak</string>

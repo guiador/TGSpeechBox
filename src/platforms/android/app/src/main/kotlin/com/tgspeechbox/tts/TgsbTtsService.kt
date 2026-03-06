@@ -207,6 +207,7 @@ class TgsbTtsService : TextToSpeechService() {
     private external fun nativeSetVolume(handle: Long, value: Double)
     private external fun nativeSetSampleRate(handle: Long, sampleRate: Int)
     private external fun nativeSetPauseMode(handle: Long, mode: Int)
+    private external fun nativeApplySettingOverrides(handle: Long, yamlSnippet: String): Int
 
     override fun onCreate() {
         super.onCreate()
@@ -252,12 +253,25 @@ class TgsbTtsService : TextToSpeechService() {
         return if (result == 0) {
             confirmedNativeLang = ld
             prefs.edit().putString(PREF_LAST_LANG, ld.tgsbLang).apply()
+            applyStoredOverrides(ld.tgsbLang)
             true
         } else {
             confirmedNativeLang = null
             Log.e(TAG, "setNativeLanguage FAILED: ${ld.espeakLang}/${ld.tgsbLang}")
             false
         }
+    }
+
+    /** Apply pack setting overrides saved by the editor. */
+    private fun applyStoredOverrides(tgsbLang: String) {
+        if (nativeHandle == 0L) return
+        val json = prefs.getString("pack_overrides_$tgsbLang", null) ?: return
+        val overrides = try {
+            val obj = org.json.JSONObject(json)
+            obj.keys().asSequence().map { "${it}: ${obj.getString(it)}" }.joinToString("\n")
+        } catch (e: Exception) { return }
+        if (overrides.isEmpty()) return
+        nativeApplySettingOverrides(nativeHandle, overrides)
     }
 
     /**
@@ -365,7 +379,7 @@ class TgsbTtsService : TextToSpeechService() {
     // ---- Asset extraction ----
 
     private fun extractAssets() {
-        val assetVersion = 4
+        val assetVersion = 5
         val marker = File(filesDir, ".assets_v$assetVersion")
         if (marker.exists()) return
 
@@ -535,6 +549,8 @@ class TgsbTtsService : TextToSpeechService() {
         // which requires a loaded language pack.
         if (confirmedNativeLang != currentLang) {
             setNativeLanguage(currentLang)
+        } else {
+            applyStoredOverrides(currentLang.tgsbLang)
         }
         applyAdvancedSettings()
 

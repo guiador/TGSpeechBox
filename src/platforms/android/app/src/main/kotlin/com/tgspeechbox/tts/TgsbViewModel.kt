@@ -127,6 +127,7 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
 
             val ld = languages[selectedLanguageIndex.value].langDef
             engine.setLanguage(ld.espeakLang, ld.tgsbLang)
+            applyStoredOverrides(ld.tgsbLang)
             engine.setVoice(voices[selectedVoiceIndex.value].id)
             applyVoicingTone()
             applyFrameExDefaults()
@@ -160,6 +161,7 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
 
         val ld = languages[selectedLanguageIndex.value].langDef
         engine.setLanguage(ld.espeakLang, ld.tgsbLang)
+        applyStoredOverrides(ld.tgsbLang)
         engine.setVoice(voices[selectedVoiceIndex.value].id)
         applyVoicingTone()
         applyFrameExDefaults()
@@ -181,6 +183,7 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
         selectedLanguageIndex.value = index
         val ld = languages[index].langDef
         engine.setLanguage(ld.espeakLang, ld.tgsbLang)
+        applyStoredOverrides(ld.tgsbLang)
         Log.i(TAG, "Language selected: ${ld.espeakLang}")
     }
 
@@ -517,5 +520,133 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
                 .putStringSet(TgsbTtsService.PREF_SUPPORTED_LANGUAGES, keys)
                 .apply()
         }
+    }
+
+    // ── Pack settings editor ─────────────────────────────────────────
+
+    enum class SettingType { Bool, Number, Text }
+
+    data class PackSetting(
+        val key: String,
+        val displayName: String,
+        val value: String,
+        val isOverridden: Boolean,
+        val type: SettingType
+    )
+
+    val editorLanguages = MutableStateFlow<List<String>>(emptyList())
+    val editorSettings = MutableStateFlow<List<PackSetting>>(emptyList())
+    private var editorLangTag: String = ""
+
+    fun loadEditorLanguages() {
+        editorLanguages.value = engine.getAvailableLanguages()
+    }
+
+    fun loadEditorSettings(langTag: String) {
+        editorLangTag = langTag
+        // Temporarily set language to read its settings, then restore.
+        val curLang = languages.getOrNull(selectedLanguageIndex.value)
+        engine.setLanguage(langTag, langTag)
+
+        val raw = engine.getPackSettings() ?: ""
+        val overrides = loadOverrides(langTag)
+
+        // Re-apply overrides so the engine reflects them.
+        if (overrides.isNotEmpty()) {
+            val yaml = overrides.entries.joinToString("\n") { "${it.key}: ${it.value}" }
+            engine.applySettingOverrides(yaml)
+        }
+
+        // Settings managed by Engine Settings sliders — hide from editor.
+        val hiddenKeys = setOf("legacyPitchMode", "legacyPitchInflectionScale")
+
+        val settings = mutableListOf<PackSetting>()
+        for (line in raw.lines()) {
+            if (line.isBlank()) continue
+            val tab = line.indexOf('\t')
+            if (tab < 0) continue
+            val key = line.substring(0, tab)
+            if (key in hiddenKeys) continue
+            val baseValue = line.substring(tab + 1)
+            val effectiveValue = overrides[key] ?: baseValue
+            val type = detectType(effectiveValue)
+            settings.add(PackSetting(
+                key = key,
+                displayName = camelToDisplay(key),
+                value = effectiveValue,
+                isOverridden = overrides.containsKey(key),
+                type = type
+            ))
+        }
+        editorSettings.value = settings
+
+        // Restore the original language.
+        if (curLang != null) {
+            engine.setLanguage(curLang.langDef.espeakLang, curLang.langDef.tgsbLang)
+            applyStoredOverrides(curLang.langDef.tgsbLang)
+        }
+    }
+
+    fun setEditorOverride(langTag: String, key: String, value: String) {
+        val overrides = loadOverrides(langTag).toMutableMap()
+        overrides[key] = value
+        saveOverrides(langTag, overrides)
+        // Refresh the settings list.
+        loadEditorSettings(langTag)
+    }
+
+    fun removeEditorOverride(langTag: String, key: String) {
+        val overrides = loadOverrides(langTag).toMutableMap()
+        overrides.remove(key)
+        saveOverrides(langTag, overrides)
+        loadEditorSettings(langTag)
+    }
+
+    fun resetAllEditorOverrides(langTag: String) {
+        prefs.edit().remove("pack_overrides_$langTag").apply()
+        loadEditorSettings(langTag)
+    }
+
+    /** Apply stored overrides after setLanguage (call from speak path too). */
+    fun applyStoredOverrides(tgsbLang: String) {
+        val overrides = loadOverrides(tgsbLang)
+        if (overrides.isEmpty()) return
+        val yaml = overrides.entries.joinToString("\n") { "${it.key}: ${it.value}" }
+        engine.applySettingOverrides(yaml)
+    }
+
+    private fun loadOverrides(langTag: String): Map<String, String> {
+        val json = prefs.getString("pack_overrides_$langTag", null) ?: return emptyMap()
+        return try {
+            val obj = org.json.JSONObject(json)
+            obj.keys().asSequence().associateWith { obj.getString(it) }
+        } catch (e: Exception) { emptyMap() }
+    }
+
+    private fun saveOverrides(langTag: String, overrides: Map<String, String>) {
+        if (overrides.isEmpty()) {
+            prefs.edit().remove("pack_overrides_$langTag").apply()
+            return
+        }
+        val obj = org.json.JSONObject()
+        for ((k, v) in overrides) obj.put(k, v)
+        prefs.edit().putString("pack_overrides_$langTag", obj.toString()).apply()
+    }
+
+    private fun detectType(value: String): SettingType = when {
+        value == "true" || value == "false" -> SettingType.Bool
+        value.toDoubleOrNull() != null -> SettingType.Number
+        else -> SettingType.Text
+    }
+
+    private fun camelToDisplay(key: String): String {
+        // "boundarySmoothing.enabled" → "Boundary Smoothing: Enabled"
+        // "yearSplittingEnabled" → "Year Splitting Enabled"
+        return key.replace(".", ": ").fold(StringBuilder()) { sb, c ->
+            if (c.isUpperCase() && sb.isNotEmpty() && sb.last().isLowerCase()) {
+                sb.append(' ')
+            }
+            sb.append(c)
+        }.toString().replaceFirstChar { it.uppercase() }
     }
 }

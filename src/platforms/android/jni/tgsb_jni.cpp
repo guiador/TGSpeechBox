@@ -909,4 +909,82 @@ Java_com_tgspeechbox_tts_TgsbSpeakEngine_nativeSetPauseMode(
         env, thiz, handle, mode);
 }
 
+/* ------------------------------------------------------------------ */
+/* Pack settings editor API                                           */
+/* ------------------------------------------------------------------ */
+
+JNIEXPORT jstring JNICALL
+Java_com_tgspeechbox_tts_TgsbTtsService_nativeGetPackSettings(
+    JNIEnv *env, jobject thiz, jlong handle
+) {
+    (void)thiz;
+    TgsbEngine *engine = (TgsbEngine *)(intptr_t)handle;
+    if (!engine || !engine->frontend) return NULL;
+
+    char *settings = nvspFrontend_getPackSettings(engine->frontend);
+    if (!settings) return NULL;
+
+    jstring result = env->NewStringUTF(settings);
+    nvspFrontend_freeString(settings);
+    return result;
+}
+
+JNIEXPORT jint JNICALL
+Java_com_tgspeechbox_tts_TgsbTtsService_nativeApplySettingOverrides(
+    JNIEnv *env, jobject thiz, jlong handle, jstring yamlSnippet
+) {
+    (void)thiz;
+    TgsbEngine *engine = (TgsbEngine *)(intptr_t)handle;
+    if (!engine || !engine->frontend || !yamlSnippet) return 0;
+
+    const char *snippet = env->GetStringUTFChars(yamlSnippet, NULL);
+    if (!snippet) return 0;
+
+    int ok = nvspFrontend_applySettingOverrides(engine->frontend, snippet);
+    env->ReleaseStringUTFChars(yamlSnippet, snippet);
+    return (jint)ok;
+}
+
+JNIEXPORT jstring JNICALL
+Java_com_tgspeechbox_tts_TgsbTtsService_nativeGetAvailableLanguages(
+    JNIEnv *env, jobject thiz, jlong handle
+) {
+    (void)thiz;
+    TgsbEngine *engine = (TgsbEngine *)(intptr_t)handle;
+    if (!engine || !engine->frontend) return NULL;
+
+    char *langs = nvspFrontend_getAvailableLanguages(engine->frontend);
+    if (!langs) return NULL;
+
+    jstring result = env->NewStringUTF(langs);
+    nvspFrontend_freeString(langs);
+    return result;
+}
+
+/* SpeakEngine delegates */
+
+JNIEXPORT jstring JNICALL
+Java_com_tgspeechbox_tts_TgsbSpeakEngine_nativeGetPackSettings(
+    JNIEnv *env, jobject thiz, jlong handle
+) {
+    return Java_com_tgspeechbox_tts_TgsbTtsService_nativeGetPackSettings(
+        env, thiz, handle);
+}
+
+JNIEXPORT jint JNICALL
+Java_com_tgspeechbox_tts_TgsbSpeakEngine_nativeApplySettingOverrides(
+    JNIEnv *env, jobject thiz, jlong handle, jstring yamlSnippet
+) {
+    return Java_com_tgspeechbox_tts_TgsbTtsService_nativeApplySettingOverrides(
+        env, thiz, handle, yamlSnippet);
+}
+
+JNIEXPORT jstring JNICALL
+Java_com_tgspeechbox_tts_TgsbSpeakEngine_nativeGetAvailableLanguages(
+    JNIEnv *env, jobject thiz, jlong handle
+) {
+    return Java_com_tgspeechbox_tts_TgsbTtsService_nativeGetAvailableLanguages(
+        env, thiz, handle);
+}
+
 } /* extern "C" */

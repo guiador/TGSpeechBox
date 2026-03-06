@@ -92,6 +92,9 @@ class TgsbSpeakEngine(private val context: Context) {
     private external fun nativeSetVolume(handle: Long, value: Double)
     private external fun nativeSetSampleRate(handle: Long, sampleRate: Int)
     private external fun nativeSetPauseMode(handle: Long, mode: Int)
+    private external fun nativeGetPackSettings(handle: Long): String?
+    private external fun nativeApplySettingOverrides(handle: Long, yamlSnippet: String): Int
+    private external fun nativeGetAvailableLanguages(handle: Long): String?
 
     // ── Lifecycle ────────────────────────────────────────────────────
 
@@ -252,6 +255,24 @@ class TgsbSpeakEngine(private val context: Context) {
         }, "TgsbSynth").also { it.start() }
     }
 
+    // ── Pack settings editor ────────────────────────────────────────
+
+    fun getPackSettings(): String? {
+        if (nativeHandle == 0L) return null
+        return nativeGetPackSettings(nativeHandle)
+    }
+
+    fun applySettingOverrides(yamlSnippet: String): Boolean {
+        if (nativeHandle == 0L) return false
+        return nativeApplySettingOverrides(nativeHandle, yamlSnippet) != 0
+    }
+
+    fun getAvailableLanguages(): List<String> {
+        if (nativeHandle == 0L) return emptyList()
+        val raw = nativeGetAvailableLanguages(nativeHandle) ?: return emptyList()
+        return raw.trim().split('\n').filter { it.isNotEmpty() }
+    }
+
     fun stop() {
         stopRequested = true
         if (nativeHandle != 0L) nativeStop(nativeHandle)
@@ -330,7 +351,7 @@ class TgsbSpeakEngine(private val context: Context) {
     // ── Asset extraction (same logic as TgsbTtsService) ─────────────
 
     private fun extractAssets() {
-        val assetVersion = 4
+        val assetVersion = 5
         val marker = File(context.filesDir, ".assets_v$assetVersion")
         if (marker.exists()) return
 
