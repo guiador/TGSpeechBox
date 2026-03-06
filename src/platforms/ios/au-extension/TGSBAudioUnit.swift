@@ -386,8 +386,8 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
             : 2.0 + ((speedQuotient - 50.0) / 50.0) * 2.0
         let aspTilt  = (aspirationTilt - 50.0) * 0.24
         let bw       = cascadeBwScale <= 50.0
-            ? 2.0 - (cascadeBwScale / 50.0) * 1.1
-            : 0.9 - ((cascadeBwScale - 50.0) / 50.0) * 0.6
+            ? 2.0 - (cascadeBwScale / 50.0) * 1.0
+            : 1.0 - ((cascadeBwScale - 50.0) / 50.0) * 0.7
         let tremor   = (voiceTremor / 100.0) * 0.4
 
         tgsb_set_voicing_tone(eng, tilt, noiseMod, psF1, psB1,

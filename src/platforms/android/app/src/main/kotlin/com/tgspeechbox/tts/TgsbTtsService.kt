@@ -288,9 +288,9 @@ class TgsbTtsService : TextToSpeechService() {
         else
             2.0 + ((sqSlider - 50.0) / 50.0) * 2.0
         val bw = if (bwSlider <= 50f)
-            2.0 - (bwSlider / 50.0) * 1.1
+            2.0 - (bwSlider / 50.0) * 1.0
         else
-            0.9 - ((bwSlider - 50.0) / 50.0) * 0.6
+            1.0 - ((bwSlider - 50.0) / 50.0) * 0.7
         val tremor = (tremorSlider / 100f) * 0.4f
 
         nativeSetVoicingTone(

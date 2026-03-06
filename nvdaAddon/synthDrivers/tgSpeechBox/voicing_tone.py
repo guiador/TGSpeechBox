@@ -400,13 +400,12 @@ class VoicingToneMixin:
             # Above 50: wider formants (softer, more blended)
             bwSlider = safe_float(getattr(self, "_curCascadeBwScale", 50), 50.0)
             if bwSlider <= 50.0:
-                # 0 -> 2.0 (wide/muffled), 50 -> 0.9 (neutral)
-                tone.cascadeBwScale = 2.0 - (bwSlider / 50.0) * 1.1
+                # 0 -> 2.0 (wide/muffled), 50 -> 1.0 (neutral)
+                tone.cascadeBwScale = 2.0 - (bwSlider / 50.0) * 1.0
             else:
-                # 50 -> 0.9 (neutral), 100 -> 0.3 (sharp/ringy)
-                tone.cascadeBwScale = 0.9 - ((bwSlider - 50.0) / 50.0) * 0.6
-            # Safety clamp
-                tone.cascadeBwScale = max(0.2, min(2.0, tone.cascadeBwScale))
+                # 50 -> 1.0 (neutral), 100 -> 0.3 (sharp/ringy)
+                tone.cascadeBwScale = 1.0 - ((bwSlider - 50.0) / 50.0) * 0.7
+            tone.cascadeBwScale = max(0.3, min(2.0, tone.cascadeBwScale))
 
             # Apply voice tremor from slider (0-100 maps to 0.0-0.4 depth)
             tremorSlider = safe_float(getattr(self, "_curVoiceTremor", 0), 0.0)

@@ -540,7 +540,7 @@ NVSP_FRONTEND_API int nvspFrontend_getVoicingTone(
   outTone->pitchSyncB1DeltaHz = 0.0;
   outTone->speedQuotient = 2.0;
   outTone->aspirationTiltDbPerOct = 0.0;
-  outTone->cascadeBwScale = 0.9;
+  outTone->cascadeBwScale = 1.0;
   outTone->tremorDepth = 0.0;
 
   // Check if we have a voice profile with voicing tone

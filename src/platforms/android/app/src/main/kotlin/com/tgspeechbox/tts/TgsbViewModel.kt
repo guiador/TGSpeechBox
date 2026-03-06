@@ -347,9 +347,9 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
 
         val bwSlider = cascadeBwScale.value
         val bw = if (bwSlider <= 50f)
-            2.0 - (bwSlider / 50.0) * 1.1                         // 2.0..0.9
+            2.0 - (bwSlider / 50.0) * 1.0                         // 2.0..1.0
         else
-            0.9 - ((bwSlider - 50.0) / 50.0) * 0.6                // 0.9..0.3
+            1.0 - ((bwSlider - 50.0) / 50.0) * 0.7                // 1.0..0.3
 
         val tremor = (voiceTremor.value / 100f) * 0.4f             // 0..0.4
 

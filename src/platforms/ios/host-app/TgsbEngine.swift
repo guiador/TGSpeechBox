@@ -163,8 +163,8 @@ class TgsbEngine: ObservableObject {
             : 2.0 + ((sq - 50.0) / 50.0) * 2.0
         let aspTilt  = (aspirationTilt - 50.0) * 0.24
         let bwVal    = bw <= 50.0
-            ? 2.0 - (bw / 50.0) * 1.1
-            : 0.9 - ((bw - 50.0) / 50.0) * 0.6
+            ? 2.0 - (bw / 50.0) * 1.0
+            : 1.0 - ((bw - 50.0) / 50.0) * 0.7
         let tremor   = (voiceTremor / 100.0) * 0.4
 
         tgsb_set_voicing_tone(eng, tilt, noiseMod, psF1, psB1,
