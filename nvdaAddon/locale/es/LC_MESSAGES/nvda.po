@@ -1672,6 +1672,36 @@ msgstr "Impulso Refuerzo del Tercer Acento (Hz)"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Impulse Declination Range (Hz)"
+msgstr "Impulso Rango de Declinación (Hz)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Impulse Hat Fall Scale"
+msgstr "Impulso Escala de Caída del Sombrero"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Impulse Rise (Hz)"
+msgstr "Impulso Subida (Hz)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Impulse Secondary Stress Scale"
+msgstr "Impulso Escala de Acento Secundario"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Impulse Stress Gain"
+msgstr "Impulso Ganancia de Acento"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Impulse Terminal Stress (Hz)"
+msgstr "Impulso Acento Final (Hz)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Klatt Continuation Rise (Hz)"
 msgstr "Klatt Subida de Continuación (Hz)"
 

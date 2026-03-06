@@ -1646,6 +1646,36 @@ msgstr "Impulzus Harmadik hangsúly erősítés (Hz)"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Impulse Declination Range (Hz)"
+msgstr "Impulzus Deklinációs tartomány (Hz)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Impulse Hat Fall Scale"
+msgstr "Impulzus Kalap esési skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Impulse Rise (Hz)"
+msgstr "Impulzus Emelkedés (Hz)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Impulse Secondary Stress Scale"
+msgstr "Impulzus Másodlagos hangsúly skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Impulse Stress Gain"
+msgstr "Impulzus Hangsúly erősítés"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Impulse Terminal Stress (Hz)"
+msgstr "Impulzus Záró hangsúly (Hz)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Klatt Continuation Rise (Hz)"
 msgstr "Klatt Folytatási emelkedés (Hz)"
 
