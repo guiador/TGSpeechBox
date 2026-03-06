@@ -1063,6 +1063,11 @@ double liquidDynamicsLabialGlideTransitionPct = 0.60;
   // Full-vowel protection: boost non-schwa vowels that score 0.0
   double prominenceFullVowelFloor = 0.0;  // 0 = disabled; recommended: 0.4
 
+  // Compound noun phrase prominence: reduce the word AFTER a compound
+  // to shift nuclear accent onto the compound (English compound stress rule).
+  // 1.0 = no change; 0.6 = reduce follower to 60%.
+  double prominenceCompoundFollowerScale = 1.0;
+
   // Realization: amplitude
   double prominenceAmplitudeBoostDb = 0.0;
   double prominenceAmplitudeReductionDb = 0.0;

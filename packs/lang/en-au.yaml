@@ -166,6 +166,7 @@ settings:
     fullVowelFloor: 0.4
     amplitudeBoostDb: 0.3
     amplitudeReductionDb: 0.0
+    compoundFollowerScale: 0.6
     pitchFromProminence: true
 
   # ── Liquid dynamics ────────────────────────────────────────────

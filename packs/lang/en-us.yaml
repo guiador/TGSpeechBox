@@ -218,6 +218,10 @@ settings:
     amplitudeBoostDb: 0.3
     amplitudeReductionDb: 0.0
 
+    # Compound noun phrase: reduce the word after a compound so nuclear
+    # accent shifts onto the compound head ("LIGHThouse keeper").
+    compoundFollowerScale: 0.6
+
     # Let prominence drive Fujisaki accents
     pitchFromProminence: true
   liquidDynamics:
@@ -784,7 +788,9 @@ settings:
   # Compound words: secondary syllable steps down from primary (log-F0 units).
   fujisakiCompoundDeclinStep: 0.05
 
-  singleWordClauseTypeOverrideCommaOnly: false
+  # singleWordClauseTypeOverrideCommaOnly defaults to true from en.yaml.
+  # false was too aggressive: it killed question/exclamation intonation
+  # on single-word utterances ("hi?" sounded like "hi.").
 normalization:
   preReplacements:
     # FORCE vowels: Shorten the vowel when followed by a consonant (short, sport, report).

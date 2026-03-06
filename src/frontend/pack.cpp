@@ -828,6 +828,7 @@ getNum("liquidDynamicsLabialGlideTransitionPct", lp.liquidDynamicsLabialGlideTra
       }
     }
     getNumFrom(*pr, "fullVowelFloor", lp.prominenceFullVowelFloor);
+    getNumFrom(*pr, "compoundFollowerScale", lp.prominenceCompoundFollowerScale);
     getNumFrom(*pr, "amplitudeBoostDb", lp.prominenceAmplitudeBoostDb);
     getNumFrom(*pr, "amplitudeReductionDb", lp.prominenceAmplitudeReductionDb);
     getBoolFrom(*pr, "pitchFromProminence", lp.prominencePitchFromProminence);
@@ -846,6 +847,7 @@ getNum("liquidDynamicsLabialGlideTransitionPct", lp.liquidDynamicsLabialGlideTra
   getNum("prominenceDurationReducedCeiling", lp.prominenceDurationReducedCeiling);
   getNum("prominenceMonosyllableFloor", lp.prominenceMonosyllableFloor);
   getNum("prominenceFullVowelFloor", lp.prominenceFullVowelFloor);
+  getNum("prominenceCompoundFollowerScale", lp.prominenceCompoundFollowerScale);
   getNum("prominenceAmplitudeBoostDb", lp.prominenceAmplitudeBoostDb);
   getNum("prominenceAmplitudeReductionDb", lp.prominenceAmplitudeReductionDb);
   getBool("prominencePitchFromProminence", lp.prominencePitchFromProminence);
