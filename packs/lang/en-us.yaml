@@ -188,6 +188,7 @@ settings:
       - "tuː"     # to (strong)
       - "fə"      # for (reduced)
       - "fɔː"     # for
+      - "fɔːɹ"    # for (rhotic)
       - "fɚ"      # for (rhotic reduced)
       - "ɪn"      # in
       - "ɒn"      # on
@@ -201,6 +202,7 @@ settings:
       - "hæd"     # had
       - "bʌt"     # but
       - "ɔː"      # or
+      - "ɔːɹ"     # or (rhotic long)
       - "ɔɹ"      # or (rhotic)
       - "æz"      # as
       - "ænd"     # and
