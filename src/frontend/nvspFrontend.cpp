@@ -380,10 +380,12 @@ static int queueIPA_ExImpl(
 
   if (!ipaUtf8) ipaUtf8 = "";
 
-  // Run text parser if text is available and a stress dict is loaded.
+  // Run text parser if text is available and there's work to do
+  // (stress dict for stress correction, OR compound map for IPA merge).
   std::string parsedIpa;
   const char* finalIpa = ipaUtf8;
-  if (textUtf8 && textUtf8[0] && !h->pack.stressDict.empty()) {
+  if (textUtf8 && textUtf8[0] &&
+      (!h->pack.stressDict.empty() || !h->pack.compoundMap.empty())) {
     parsedIpa = runTextParser(textUtf8, ipaUtf8, h->pack.stressDict,
                                h->pack.compoundMap,
                                h->pack.lang.legalOnsets,

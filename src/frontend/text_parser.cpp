@@ -702,7 +702,7 @@ std::string runTextParser(
     const std::vector<std::u32string>& legalOnsets,
     const NumberExpansionRules& numberRules)
 {
-  if (text.empty() || stressDict.empty()) return ipa;
+  if (text.empty()) return ipa;
 
   // ── Compound split boundary tracking ──────────────────────────────────
   // splitCompoundsInText() uses \x1F (Unit Separator) between compound
@@ -845,6 +845,19 @@ std::string runTextParser(
   }
 
   if (textWords.empty() || ipaChunks.empty()) return ipa;
+
+  // If there's no stress dict (e.g. en-gb), compound merge was still useful
+  // but stress correction can't run.  Reassemble and return.
+  if (stressDict.empty()) {
+    std::string result;
+    for (const auto& c : ipaChunks) {
+      if (c.empty()) continue;
+      if (!result.empty()) result.push_back(' ');
+      result += c;
+    }
+    TPLOG("  -> no stressDict, returning after compound merge: \"%s\"\n", result.c_str());
+    return result;
+  }
 
   TPLOG("--- runTextParser ---\n");
   TPLOG("  text: \"%s\"\n", text.c_str());
