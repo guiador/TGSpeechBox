@@ -346,6 +346,7 @@ class TgsbEngine: ObservableObject {
     func resetAllEditorOverrides(langTag: String) {
         let d = UserDefaults(suiteName: kAppGroupId)
         d?.removeObject(forKey: "pack_overrides_\(langTag)")
+        d?.synchronize()
         reloadCurrentLanguage()
         loadEditorSettings(langTag: langTag)
     }
@@ -395,6 +396,7 @@ class TgsbEngine: ObservableObject {
                   let json = String(data: data, encoding: .utf8) {
             d?.set(json, forKey: "pack_overrides_\(langTag)")
         }
+        d?.synchronize()
     }
 
     private func detectType(_ value: String) -> SettingType {

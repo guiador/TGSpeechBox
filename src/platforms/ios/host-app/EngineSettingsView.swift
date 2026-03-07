@@ -276,6 +276,7 @@ struct EngineSettingsView: View {
                     Slider(value: $systemVolume, in: 0.1...1.0, step: 0.05)
                         .onChange(of: systemVolume) { val in
                             defaults?.set(val, forKey: "systemVolume")
+                            defaults?.synchronize()
                         }
                 }
                 .accessibilityElement(children: .combine)
@@ -428,6 +429,9 @@ struct EngineSettingsView: View {
         let d = defaults
         let ver = (d?.integer(forKey: "adv_settingsVersion") ?? 0) + 1
         d?.set(ver, forKey: "adv_settingsVersion")
+        // Flush to disk so the AU extension (separate process) sees the
+        // updated values immediately via its own synchronize() call.
+        d?.synchronize()
     }
 
     // MARK: - UserDefaults loader (per-voice with global fallback)
