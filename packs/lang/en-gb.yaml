@@ -330,6 +330,7 @@ settings:
           pa3: 0.60
           pa4: 0.50
           pa5: 0.40
+          pa6: 0.30
 
     # ── Velar word-final boost ─────────────────────────────────────
     # Velar stops have "compact" burst energy in mid-frequencies.

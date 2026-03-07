@@ -412,8 +412,8 @@ settings:
     # the remaining burst energy concentrates in mid-high frequencies
     # (pa3+) — this helps the burst cut through after sibilants like
     # /s/ in "list", where low frequencies are already full of noise.
-    # NO upward tilt (pa4/pa5 left at 1.0) — the old ×1.3/×1.4
-    # pushed energy into affricate territory and made /t/ ≈ /t͡ʃ/.
+    # pa3–pa6 scaled down to avoid upward spectral tilt — without
+    # pa6 rolloff, it becomes the dominant burst component (/t/ ≈ /t͡ʃ/).
       - name: unreleased_word_final
         flags: [stop]
         notFlags: [voiced]
@@ -428,6 +428,7 @@ settings:
           pa3: 0.60
           pa4: 0.50
           pa5: 0.40
+          pa6: 0.30
 
     # ── Labial word-final boost ────────────────────────────────────
     # Labial stops (/p/, /b/) have weaker bursts than alveolars or
