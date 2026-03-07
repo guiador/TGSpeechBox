@@ -131,8 +131,18 @@ NVSP_FRONTEND_API int nvspFrontend_setLanguage(nvspFrontend_handle_t handle, con
     return 0;
   }
 
+  // Preserve voice profile name across language changes.
+  // loadPackSet produces a fresh PackSet with empty voiceProfileName,
+  // but the caller expects the active profile to survive.
+  std::string savedProfile = h->pack.lang.voiceProfileName;
+
   h->pack = std::move(pack);
   h->packLoaded = true;
+
+  // Restore the voice profile that was active before the language change.
+  if (!savedProfile.empty()) {
+    h->pack.lang.voiceProfileName = savedProfile;
+  }
 
   // Apply any settings that were set before the language was loaded.
   if (!h->pendingPitchMode.empty()) {

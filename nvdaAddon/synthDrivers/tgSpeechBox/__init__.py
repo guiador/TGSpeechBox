@@ -534,6 +534,11 @@ class SynthDriver(
         try:
             if getattr(self, "_frontend", None):
                 self._applyFrontendLangTag(resolved)
+                # Re-apply voice profile after language change — setLanguage
+                # replaces the entire PackSet, so the profile's phonetic
+                # transforms need to be re-applied on the new pack data.
+                if getattr(self, "_usingVoiceProfile", False) and getattr(self, "_activeProfileName", ""):
+                    self._frontend.setVoiceProfile(self._activeProfileName)
         except Exception:
             log.error("TGSpeechBox: error setting frontend language", exc_info=True)
 
