@@ -624,6 +624,13 @@ static void applyAliases(std::u32string& text, const PackSet& pack) {
 static std::u32string normalizeIpaText(const PackSet& pack, const std::string& ipaUtf8) {
   std::u32string t = utf8ToU32(ipaUtf8);
 
+  // Strip any codepoints in Supplementary PUA-A (U+F0000–U+FFFFD) from the
+  // input.  We use this range internally to protect characters during allophone
+  // cascade processing; any PUA-A arriving from eSpeak or user dictionaries
+  // would collide with our escape/unescape logic.
+  t.erase(std::remove_if(t.begin(), t.end(),
+      [](char32_t c) { return c >= 0xF0000 && c <= 0xFFFFF; }), t.end());
+
   // Normalize tie bar variants early so pack rules can match reliably.
   replaceAll(t, U"͜", U"͡");
 
