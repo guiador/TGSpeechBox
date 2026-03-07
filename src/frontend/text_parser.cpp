@@ -1306,7 +1306,7 @@ static std::string insertDateOrdinals(const std::string& text) {
 // as digit pairs: "1995" → "19 95" ("nineteen ninety-five").
 // Only pure 4-digit tokens (no leading zeros, not part of a larger number).
 
-static std::string splitYears(const std::string& text) {
+static std::string splitYears(const std::string& text, const std::string& ohDigit) {
   struct Tok { std::string s; bool isWs; };
   std::vector<Tok> toks;
   size_t i = 0;
@@ -1355,9 +1355,20 @@ static std::string splitYears(const std::string& text) {
     // round thousands well ("2000" → "two thousand").
     if (s[numStart + 2] == '0' && s[numStart + 3] == '0') continue;
 
-    // Split: "1995" → "19 95"
+    // Split: "1995" → "19 95", "3709" → "37 oh nine"
+    // When the second pair has a leading zero (e.g. "09") and the
+    // language pack provides an ohDigit word, use it instead of
+    // letting eSpeak read "zero" — matches natural English year/number
+    // pronunciation (Eloquence-style).  Non-English packs leave ohDigit
+    // empty to skip this.
+    std::string secondPair;
+    if (s[numStart + 2] == '0' && !ohDigit.empty()) {
+      secondPair = ohDigit + " " + s.substr(numStart + 3, 1);
+    } else {
+      secondPair = s.substr(numStart + 2, 2);
+    }
     std::string split = s.substr(0, numStart)
-        + s.substr(numStart, 2) + " " + s.substr(numStart + 2, 2)
+        + s.substr(numStart, 2) + " " + secondPair
         + s.substr(numEnd);
     TPLOG("  yearSplit: \"%s\" -> \"%s\"\n", s.c_str(), split.c_str());
     tok.s = split;
@@ -1378,7 +1389,8 @@ std::string prepareTextForEspeak(
     const std::string& text,
     const std::unordered_map<std::string, std::vector<std::string>>& compoundMap,
     const std::string& langTag,
-    bool yearSplitting)
+    bool yearSplitting,
+    const std::string& ohDigit)
 {
   if (text.empty()) return text;
 
@@ -1398,7 +1410,7 @@ std::string prepareTextForEspeak(
 
   // 3. Year splitting ("1995" → "19 95").
   if (yearSplitting) {
-    result = splitYears(result);
+    result = splitYears(result, ohDigit);
   }
 
   return result;

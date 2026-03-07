@@ -1032,6 +1032,7 @@ if (const yaml_min::Node* ne = settings.get("numberExpansion"); ne && ne->isMap(
   getStrFrom(*ne, "million",     lp.numberExpansion.million);
   getStrFrom(*ne, "billion",     lp.numberExpansion.billion);
   getStrFrom(*ne, "conjunction", lp.numberExpansion.conjunction);
+  getStrFrom(*ne, "ohDigit",     lp.numberExpansion.ohDigit);
 }
 
 if (const yaml_min::Node* tl = settings.get("trajectoryLimit"); tl && tl->isMap()) {

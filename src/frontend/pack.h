@@ -316,6 +316,7 @@ struct NumberExpansionRules {
   std::string million;                  // "million"
   std::string billion;                  // "billion"
   std::string conjunction;              // "" (en-us) or "and" (en-gb)
+  std::string ohDigit;                  // "oh" (en) — replaces zero in year pairs like "09"
 };
 
 struct LanguagePack {

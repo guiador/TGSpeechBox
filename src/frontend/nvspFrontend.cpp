@@ -966,7 +966,8 @@ NVSP_FRONTEND_API char* nvspFrontend_prepareText(
 
   std::string input(textUtf8);
   std::string result = prepareTextForEspeak(input, h->pack.compoundMap, h->langTag,
-                                             h->pack.lang.yearSplittingEnabled);
+                                             h->pack.lang.yearSplittingEnabled,
+                                             h->pack.lang.numberExpansion.ohDigit);
 
   if (result == input) return nullptr;  // no changes
 
