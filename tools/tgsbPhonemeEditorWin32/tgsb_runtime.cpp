@@ -481,9 +481,9 @@ void TgsbRuntime::applySpeechSettingsToFrame(speechPlayer_frame_t& frame) const 
     } else if (voice == "David") {
       mulByName("voicePitch", 0.75);
       mulByName("endVoicePitch", 0.75);
-      mulByName("cf1", 0.75);
-      mulByName("cf2", 0.85);
-      mulByName("cf3", 0.85);
+      mulByName("cf1", 0.90);
+      mulByName("cf2", 0.93);
+      mulByName("cf3", 0.95);
     } else if (voice == "Robert") {
       // Slightly higher pitch for brighter character
       mulByName("voicePitch", 1.10);

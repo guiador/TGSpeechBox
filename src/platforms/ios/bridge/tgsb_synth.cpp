@@ -65,9 +65,9 @@ static const FrameOverride kCalebOverrides[] = {
 static const FrameOverride kDavidOverrides[] = {
     { OFF(voicePitch), 0.75, 1 },
     { OFF(endVoicePitch), 0.75, 1 },
-    { OFF(cf1), 0.75, 1 },
-    { OFF(cf2), 0.85, 1 },
-    { OFF(cf3), 0.85, 1 },
+    { OFF(cf1), 0.90, 1 },
+    { OFF(cf2), 0.93, 1 },
+    { OFF(cf3), 0.95, 1 },
 };
 
 static const FrameOverride kRobertOverrides[] = {

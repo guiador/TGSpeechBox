@@ -819,9 +819,9 @@ void runtime::apply_preset_and_volume(void* frame_ptr, const speak_params& param
     else if (eq(preset, L"David")) {
         f.voicePitch *= 0.75;
         f.endVoicePitch *= 0.75;
-        f.cf1 *= 0.75;
-        f.cf2 *= 0.85;
-        f.cf3 *= 0.85;
+        f.cf1 *= 0.90;
+        f.cf2 *= 0.93;
+        f.cf3 *= 0.95;
     }
     else if (eq(preset, L"Robert")) {
         f.voicePitch *= 1.10;
