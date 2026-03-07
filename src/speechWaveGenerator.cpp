@@ -555,6 +555,8 @@ public:
                 double cascadeOut = cascade.getNext(frame, frameEx, voiceGenerator.glottisOpen, voiceForCascade * smoothPreGain);
 
                 // Generate raw frication noise
+                // No sample-rate scaling here: brownish noise (getNext) already
+                // partially self-adapts via its IIR feedback (0.75*lastValue).
                 double fricNoise = fricGenerator.getNext() * kFricNoiseScale * fricAmp * bypassGain * bypassVoicedDuck * voicedFricScale;
 
                 // Apply tilt filter to frication (same tilt as aspiration for now)
