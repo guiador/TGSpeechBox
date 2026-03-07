@@ -84,6 +84,9 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
 
     private static func loadDspRate() -> Int {
         let d = UserDefaults(suiteName: "group.com.tgspeechbox.app")
+        // Force cross-process sync so AU extension sees host app's writes.
+        // Required for App Group containers after VoiceOver restart.
+        d?.synchronize()
         let valid: Set<Int> = [11025, 16000, 22050, 44100]
         if let d = d, d.object(forKey: "adv_sampleRate") != nil {
             let saved = d.integer(forKey: "adv_sampleRate")
@@ -197,6 +200,11 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
         let parts = speechRequest.voice.identifier.split(separator: ".")
         let voiceName = parts.count >= 3 ? String(parts[2]) : "adam"
         let bcp47 = parts.count >= 4 ? String(parts[3]) : "en-us"
+
+        // Force cross-process sync so AU extension sees host app's latest writes.
+        // Without this, VoiceOver restart can leave the extension with stale/empty
+        // UserDefaults, causing all settings to revert to factory defaults.
+        UserDefaults(suiteName: "group.com.tgspeechbox.app")?.synchronize()
 
         // Re-read engine settings when version changes or voice changes
         let curVersion = UserDefaults(suiteName: "group.com.tgspeechbox.app")?
