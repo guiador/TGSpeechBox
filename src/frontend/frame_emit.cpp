@@ -987,6 +987,16 @@ void emitFrames(
       emitFade = std::min(emitFade, mainDur * 0.50);
     }
 
+    // Pitch-dependent fade floor: at low F0, each glottal cycle is longer
+    // so crossfades span fewer cycles and individual frame boundaries become
+    // audible (choppy at low pitch). Enforce a minimum of 2 glottal cycles.
+    if (base[vp] > 0.0) {
+      double minFadeMs = 2000.0 / base[vp]; // 2 cycles at current pitch
+      if (emitFade < minFadeMs && mainDur > minFadeMs) {
+        emitFade = minFadeMs;
+      }
+    }
+
     cb(userData, &frame, mainDur, emitFade, userIndexBase);
     hadPrevFrame = true;
 
@@ -2043,6 +2053,16 @@ void emitFramesEx(
     double emitFade = mainFade;
     if (prevTokenWasTap && mainDur > 0.0) {
       emitFade = std::min(emitFade, mainDur * 0.50);
+    }
+
+    // Pitch-dependent fade floor: at low F0, each glottal cycle is longer
+    // so crossfades span fewer cycles and individual frame boundaries become
+    // audible (choppy at low pitch). Enforce a minimum of 2 glottal cycles.
+    if (base[vp] > 0.0) {
+      double minFadeMs = 2000.0 / base[vp]; // 2 cycles at current pitch
+      if (emitFade < minFadeMs && mainDur > minFadeMs) {
+        emitFade = minFadeMs;
+      }
     }
 
     cb(userData, &frame, &frameEx, mainDur, emitFade, userIndexBase);
