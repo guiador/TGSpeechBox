@@ -76,6 +76,14 @@ fun AdvancedScreen(
             .verticalScroll(rememberScrollState())
             .padding(20.dp)
     ) {
+        Text(
+            text = stringResource(R.string.advanced_subtitle),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        Spacer(Modifier.height(12.dp))
+
         // ── Voice selector (per-voice settings, matching iOS) ────────
         Column(modifier = Modifier.semantics { isTraversalGroup = true }) {
             EditingVoiceDropdown(viewModel)

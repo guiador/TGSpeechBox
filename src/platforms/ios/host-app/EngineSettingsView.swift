@@ -127,6 +127,12 @@ struct EngineSettingsView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+        Text("Applies to VoiceOver and Speak")
+            .font(.subheadline)
+            .foregroundColor(.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 20)
+            .padding(.top, 10)
         Button("Reset to Defaults") { showResetAlert = true }
             .padding(.horizontal, 20)
             .padding(.vertical, 10)

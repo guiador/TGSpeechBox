@@ -51,6 +51,9 @@ struct ContentView: View {
             Text("TGSpeechBox")
                 .font(.largeTitle)
                 .accessibilityAddTraits(.isHeader)
+            Text("Preview and test the voice")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
 
             if let error = errorMessage {
                 Text(error)

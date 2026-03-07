@@ -18,6 +18,7 @@
     <string name="editor_overridden">Customized</string>
 
     <!-- Speak tab -->
+    <string name="speak_subtitle">Preview and test the voice</string>
     <string name="text_input_label">Text to speak</string>
     <string name="text_input_placeholder">Enter text here</string>
     <string name="language_label">Language</string>
@@ -31,6 +32,8 @@
     <string name="tts_not_ready">TTS engine not ready</string>
     <string name="tts_connecting">Connecting to TTS engine\u2026</string>
 
+    <!-- Advanced tab -->
+    <string name="advanced_subtitle">Applies to TalkBack and Speak</string>
     <!-- Advanced tab: Pitch -->
     <string name="pitch_section_title">Pitch</string>
     <string name="pitch_mode_label">Pitch Mode</string>
