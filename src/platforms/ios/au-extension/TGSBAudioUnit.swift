@@ -206,21 +206,9 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
         // UserDefaults, causing all settings to revert to factory defaults.
         UserDefaults(suiteName: "group.com.tgspeechbox.app")?.synchronize()
 
-        // Re-read engine settings when version changes or voice changes
         let curVersion = UserDefaults(suiteName: "group.com.tgspeechbox.app")?
             .integer(forKey: "adv_settingsVersion") ?? 0
         let voiceChanged = voiceName != cachedVoice
-        if curVersion != cachedSettingsVersion || voiceChanged {
-            if let e = engine {
-                let newRate = Self.loadDspRate()
-                if newRate != dspRate {
-                    tgsb_set_sample_rate(e, Int32(newRate))
-                    dspRate = newRate
-                }
-                applyEngineSettings(e, voice: voiceName)
-            }
-            cachedSettingsVersion = curVersion
-        }
 
         guard let eng = engine else {
             // No engine — still need to signal render block to complete
@@ -249,15 +237,31 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
             vol *= Float32(savedVol)
         }
 
-        // Only call bridge setters when voice/language actually changed
+        // Set voice and language identity FIRST — tgsb_set_voice resets
+        // voicing tone and tgsb_set_language reloads the pack (resetting
+        // pitch mode). Engine settings must be applied AFTER these.
         if voiceName != cachedVoice {
             tgsb_set_voice(eng, voiceName)
             cachedVoice = voiceName
         }
-        if espeakLang != cachedEspeakLang || tgsbLang != cachedTgsbLang {
+        let languageChanged = espeakLang != cachedEspeakLang || tgsbLang != cachedTgsbLang
+        if languageChanged {
             tgsb_set_language(eng, espeakLang, tgsbLang)
             cachedEspeakLang = espeakLang
             cachedTgsbLang = tgsbLang
+        }
+
+        // Re-apply engine settings after voice/language identity is set.
+        // Language change reloads the pack which resets pitch mode, so
+        // settings must also be re-applied after a language change.
+        if curVersion != cachedSettingsVersion || voiceChanged || languageChanged {
+            let newRate = Self.loadDspRate()
+            if newRate != dspRate {
+                tgsb_set_sample_rate(eng, Int32(newRate))
+                dspRate = newRate
+            }
+            applyEngineSettings(eng, voice: voiceName)
+            cachedSettingsVersion = curVersion
         }
         applyStoredOverrides(tgsbLang)
 
