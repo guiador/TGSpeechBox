@@ -1461,6 +1461,23 @@ static void parseWhen(const yaml_min::Node& whenNode, RuleWhen& when) {
     const yaml_min::Node* n = whenNode.get("notAfterClass");
     if (n && n->isScalar()) when.notAfterClass = n->scalar;
   }
+  // Cross-word conditions
+  {
+    const yaml_min::Node* n = whenNode.get("nextWordStartsClass");
+    if (n && n->isScalar()) when.nextWordStartsClass = n->scalar;
+  }
+  {
+    const yaml_min::Node* n = whenNode.get("nextWordStartsNotClass");
+    if (n && n->isScalar()) when.nextWordStartsNotClass = n->scalar;
+  }
+  {
+    const yaml_min::Node* n = whenNode.get("prevWordEndsClass");
+    if (n && n->isScalar()) when.prevWordEndsClass = n->scalar;
+  }
+  {
+    const yaml_min::Node* n = whenNode.get("prevWordEndsNotClass");
+    if (n && n->isScalar()) when.prevWordEndsNotClass = n->scalar;
+  }
 }
 
 static bool parseReplacementList(const yaml_min::Node& node, std::vector<ReplacementRule>& out) {

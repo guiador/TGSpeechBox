@@ -361,6 +361,32 @@ static bool isWordBoundaryAfter(const std::u32string& text, size_t posAfter) {
   return text[posAfter] == U' ';
 }
 
+// Find the first IPA character of the next word (skip space + stress marks).
+// Returns the index, or text.size() if no next word.
+static size_t nextWordFirstChar(const std::u32string& text, size_t posAfterMatch) {
+  size_t i = posAfterMatch;
+  // Skip to space
+  while (i < text.size() && text[i] != U' ') ++i;
+  // Skip space(s)
+  while (i < text.size() && text[i] == U' ') ++i;
+  // Skip stress marks
+  while (i < text.size() && isStressMark(text[i])) ++i;
+  return i;
+}
+
+// Find the last IPA character of the previous word (skip space + stress marks backwards).
+// Returns the index, or SIZE_MAX if no previous word.
+static size_t prevWordLastChar(const std::u32string& text, size_t matchStart) {
+  if (matchStart == 0) return SIZE_MAX;
+  size_t i = matchStart - 1;
+  // Skip space(s) backwards
+  while (i > 0 && text[i] == U' ') --i;
+  if (text[i] == U' ') return SIZE_MAX;  // was at start
+  // Skip stress marks backwards
+  while (i > 0 && isStressMark(text[i])) --i;
+  return i;
+}
+
 static inline bool isTieBar(char32_t c) {
   return c == U'͡' || c == U'͜';
 }
@@ -539,6 +565,39 @@ static void applyRules(std::u32string& text, const PackSet& pack, const std::vec
         if (ok && !rule.when.notAfterClass.empty()) {
           // Fail if prev char exists AND is in the forbidden class
           if (matchStart > 0 && classContainsPrev(pack.lang.classes, rule.when.notAfterClass, text, matchStart - 1)) {
+            ok = false;
+          }
+        }
+
+        // Cross-word class conditions: look at adjacent words' boundary chars.
+        if (ok && !rule.when.nextWordStartsClass.empty()) {
+          size_t nwi = nextWordFirstChar(text, matchEnd);
+          if (nwi >= text.size()) {
+            ok = false;  // no next word = silence; doesn't match
+          } else {
+            ok = classContainsNext(pack.lang.classes, rule.when.nextWordStartsClass, text, nwi);
+          }
+        }
+        if (ok && !rule.when.nextWordStartsNotClass.empty()) {
+          size_t nwi = nextWordFirstChar(text, matchEnd);
+          // No next word (silence) passes the NOT condition
+          if (nwi < text.size() &&
+              classContainsNext(pack.lang.classes, rule.when.nextWordStartsNotClass, text, nwi)) {
+            ok = false;
+          }
+        }
+        if (ok && !rule.when.prevWordEndsClass.empty()) {
+          size_t pwi = prevWordLastChar(text, matchStart);
+          if (pwi == SIZE_MAX) {
+            ok = false;  // no prev word
+          } else {
+            ok = classContainsPrev(pack.lang.classes, rule.when.prevWordEndsClass, text, pwi);
+          }
+        }
+        if (ok && !rule.when.prevWordEndsNotClass.empty()) {
+          size_t pwi = prevWordLastChar(text, matchStart);
+          if (pwi != SIZE_MAX &&
+              classContainsPrev(pack.lang.classes, rule.when.prevWordEndsNotClass, text, pwi)) {
             ok = false;
           }
         }

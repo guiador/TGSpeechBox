@@ -176,6 +176,12 @@ struct RuleWhen {
   std::string afterClass;     // name from classes - match only if prev char is in class
   std::string notBeforeClass; // name from classes - match only if next char is NOT in class
   std::string notAfterClass;  // name from classes - match only if prev char is NOT in class
+  // Cross-word conditions: look at the first/last char of adjacent words.
+  // Only meaningful when atWordEnd/atWordStart is also true.
+  std::string nextWordStartsClass;     // match only if next word's first char is in class
+  std::string nextWordStartsNotClass;  // match only if next word's first char is NOT in class
+  std::string prevWordEndsClass;       // match only if prev word's last char is in class
+  std::string prevWordEndsNotClass;    // match only if prev word's last char is NOT in class
 };
 
 struct ReplacementRule {
