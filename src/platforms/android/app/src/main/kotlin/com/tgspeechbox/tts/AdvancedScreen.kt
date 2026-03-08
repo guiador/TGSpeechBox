@@ -191,6 +191,12 @@ fun AdvancedScreen(
                 onChange = { viewModel.onVoiceTremorChanged(it) },
                 format = { v -> "${v.roundToInt()}" }
             )
+            VoicingToneSlider(
+                label = stringResource(R.string.head_size_label),
+                flow = viewModel.headSize,
+                onChange = { viewModel.onHeadSizeChanged(it) },
+                format = { v -> "${v.roundToInt()}" }
+            )
         }
 
         Spacer(Modifier.height(20.dp))

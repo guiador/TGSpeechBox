@@ -187,7 +187,8 @@ class TgsbEngine: ObservableObject {
         voiceTilt: Double, speedQuotient sq: Double,
         aspirationTilt: Double, cascadeBwScale bw: Double,
         noiseGlottalMod: Double, pitchSyncF1: Double,
-        pitchSyncB1: Double, voiceTremor: Double
+        pitchSyncB1: Double, voiceTremor: Double,
+        headSize: Double
     ) {
         guard let eng = engine else { return }
 
@@ -203,10 +204,13 @@ class TgsbEngine: ObservableObject {
             ? 2.0 - (bw / 50.0) * 1.0
             : 1.0 - ((bw - 50.0) / 50.0) * 0.7
         let tremor   = (voiceTremor / 100.0) * 0.4
+        let hs       = headSize <= 50.0
+            ? 1.25 - (headSize / 50.0) * 0.25
+            : 1.0 - ((headSize - 50.0) / 50.0) * 0.15
 
         tgsb_set_voicing_tone(eng, tilt, noiseMod, psF1, psB1,
                               sqVal, aspTilt, bwVal, tremor,
-                              1.0, 1.0, 1.0)
+                              1.0, hs, 1.0)
     }
 
     /// Apply FrameEx defaults from 0–100 slider values.

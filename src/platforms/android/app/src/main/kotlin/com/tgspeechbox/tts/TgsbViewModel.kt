@@ -59,6 +59,7 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
     val aspirationTilt = MutableStateFlow(loadSlider("aspirationTilt", 50f))
     val cascadeBwScale = MutableStateFlow(loadSlider("cascadeBwScale", 50f))
     val voiceTremor = MutableStateFlow(loadSlider("voiceTremor", 0f))
+    val headSize = MutableStateFlow(loadSlider("headSize", 50f))
 
     // ── Pitch settings ──────────────────────────────────────────────
 
@@ -213,6 +214,7 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
         aspirationTilt.value     = loadSlider("aspirationTilt", 50f)
         cascadeBwScale.value     = loadSlider("cascadeBwScale", 50f)
         voiceTremor.value        = loadSlider("voiceTremor", 0f)
+        headSize.value           = loadSlider("headSize", 50f)
 
         // FrameEx sliders
         creakiness.value         = loadSlider("creakiness", 0f)
@@ -237,6 +239,7 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
     fun onAspirationTiltChanged(v: Float)  { aspirationTilt.value = v;  saveSlider("aspirationTilt", v);  applyVoicingTone() }
     fun onCascadeBwScaleChanged(v: Float)  { cascadeBwScale.value = v;  saveSlider("cascadeBwScale", v);  applyVoicingTone() }
     fun onVoiceTremorChanged(v: Float)     { voiceTremor.value = v;     saveSlider("voiceTremor", v);     applyVoicingTone() }
+    fun onHeadSizeChanged(v: Float)       { headSize.value = v;       saveSlider("headSize", v);       applyVoicingTone() }
 
     fun onCreakinessChanged(v: Float)      { creakiness.value = v;      saveSlider("creakiness", v);      applyFrameExDefaults() }
     fun onBreathinessChanged(v: Float)     { breathiness.value = v;     saveSlider("breathiness", v);     applyFrameExDefaults() }
@@ -278,6 +281,7 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
                 ed.putFloat("${PREF_PREFIX}pitchSyncF1.$v", 50f)
                 ed.putFloat("${PREF_PREFIX}pitchSyncB1.$v", 50f)
                 ed.putFloat("${PREF_PREFIX}voiceTremor.$v", 0f)
+                ed.putFloat("${PREF_PREFIX}headSize.$v", 50f)
                 ed.putFloat("${PREF_PREFIX}creakiness.$v", 0f)
                 ed.putFloat("${PREF_PREFIX}breathiness.$v", 0f)
                 ed.putFloat("${PREF_PREFIX}jitter.$v", 0f)
@@ -303,6 +307,7 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
             onPitchSyncF1Changed(50f)
             onPitchSyncB1Changed(50f)
             onVoiceTremorChanged(0f)
+            onHeadSizeChanged(50f)
 
             // Per-voice: FrameEx sliders
             onCreakinessChanged(0f)
