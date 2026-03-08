@@ -867,7 +867,7 @@ void runtime::apply_preset_and_volume(void* frame_ptr, const speak_params& param
 
     f.preFormantGain *= v;
 
-    constexpr double k_output_gain_boost_at_max = 0.95;
+    constexpr double k_output_gain_boost_at_max = 0.50;
     const double out_v = v * (1.0 + k_output_gain_boost_at_max * v);
     f.outputGain *= out_v;
 }
