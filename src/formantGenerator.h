@@ -147,25 +147,31 @@ void setCascadeBwScale(double scale) {
             return 1.0 - (ratio - 0.65) / 0.20;
         };
 
+        // Graduated head-size scaling: F4-F6 get full scale, F3 mostly,
+        // F2 moderate, F1 minimal.  Models vocal tract length uniformly
+        // without destroying vowel identity carried by F1/F2.
+        const double hs1 = (f4FreqScale != 1.0) ? pow(f4FreqScale, 0.2) : 1.0;
+        const double hs2 = (f4FreqScale != 1.0) ? pow(f4FreqScale, 0.5) : 1.0;
+        const double hs3 = (f4FreqScale != 1.0) ? pow(f4FreqScale, 0.8) : 1.0;
+
         double preR6 = output;
-        output = r6.resonate(output, frame->cf6, cb6);
-        double fade6 = cascadeFade(frame->cf6);
+        output = r6.resonate(output, frame->cf6 * f4FreqScale, cb6);
+        double fade6 = cascadeFade(frame->cf6 * f4FreqScale);
         output = preR6 + fade6 * (output - preR6);
 
         double preR5 = output;
-        output = r5.resonate(output, frame->cf5, cb5);
-        double fade5 = cascadeFade(frame->cf5);
+        output = r5.resonate(output, frame->cf5 * f4FreqScale, cb5);
+        double fade5 = cascadeFade(frame->cf5 * f4FreqScale);
         output = preR5 + fade5 * (output - preR5);
 
         double preR4 = output;
-        double cf4Scaled = frame->cf4 * f4FreqScale;
-        output = r4.resonate(output, cf4Scaled, cb4);
-        double fade4 = cascadeFade(cf4Scaled);
+        output = r4.resonate(output, frame->cf4 * f4FreqScale, cb4);
+        double fade4 = cascadeFade(frame->cf4 * f4FreqScale);
         output = preR4 + fade4 * (output - preR4);
-        output = r3.resonate(output, frame->cf3, cb3);
-        output = r2.resonate(output, frame->cf2, cb2);
-        // F1 uses pitch-synchronous resonator without Fujisaki compensation (dropped as we don't have F1 spikes it worked with.)
-        output = r1.resonate(output, frame->cf1, cb1, glottisOpen);
+        output = r3.resonate(output, frame->cf3 * hs3, cb3);
+        output = r2.resonate(output, frame->cf2 * hs2, cb2);
+        // F1 uses pitch-synchronous resonator
+        output = r1.resonate(output, frame->cf1 * hs1, cb1, glottisOpen);
         return output;
     }
 };
@@ -209,12 +215,16 @@ public:
             if (std::isfinite(frameEx->endPf3)) pb3 = bandwidthForSweep(frame->pf3, pb3, kSweepQMaxF3, kSweepBwMinF3, kSweepBwMax);
         }
 
-        output+=(r1.resonate(input,frame->pf1,pb1)-input)*frame->pa1;
-        output+=(r2.resonate(input,frame->pf2,pb2)-input)*frame->pa2;
-        output+=(r3.resonate(input,frame->pf3,pb3)-input)*frame->pa3;
+        // Graduated head-size scaling (same as cascade path)
+        const double hs1 = (f4FreqScale != 1.0) ? pow(f4FreqScale, 0.2) : 1.0;
+        const double hs2 = (f4FreqScale != 1.0) ? pow(f4FreqScale, 0.5) : 1.0;
+        const double hs3 = (f4FreqScale != 1.0) ? pow(f4FreqScale, 0.8) : 1.0;
+        output+=(r1.resonate(input,frame->pf1 * hs1,pb1)-input)*frame->pa1;
+        output+=(r2.resonate(input,frame->pf2 * hs2,pb2)-input)*frame->pa2;
+        output+=(r3.resonate(input,frame->pf3 * hs3,pb3)-input)*frame->pa3;
         output+=(r4.resonate(input,frame->pf4 * f4FreqScale,frame->pb4)-input)*frame->pa4;
-        output+=(r5.resonate(input,frame->pf5,frame->pb5)-input)*frame->pa5;
-        output+=(r6.resonate(input,frame->pf6,frame->pb6)-input)*frame->pa6;
+        output+=(r5.resonate(input,frame->pf5 * f4FreqScale,frame->pb5)-input)*frame->pa5;
+        output+=(r6.resonate(input,frame->pf6 * f4FreqScale,frame->pb6)-input)*frame->pa6;
         return calculateValueAtFadePosition(output,input,frame->parallelBypass);
     }
 };

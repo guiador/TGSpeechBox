@@ -78,6 +78,7 @@ class SynthDriver(
         NumericDriverSetting("aspirationTilt", _("Aspiration tilt (breath color)"), defaultVal=50),
         NumericDriverSetting("cascadeBwScale", _("Formant sharpness (cascade bandwidth)"), defaultVal=50),
         NumericDriverSetting("voiceTremor", _("Voice tremor (shakiness)"), defaultVal=0),
+        NumericDriverSetting("headSize", _("Head size (pharynx length)"), defaultVal=50),
         # FrameEx voice quality params (DSP v5+) - for creaky voice, breathiness, etc.
         NumericDriverSetting("frameExCreakiness", _("Creakiness (laryngealization)"), defaultVal=0),
         NumericDriverSetting("frameExBreathiness", _("Breathiness"), defaultVal=0),
@@ -909,6 +910,8 @@ class SynthDriver(
     _set_cascadeBwScale = VoicingToneMixin._set_cascadeBwScale
     _get_voiceTremor = VoicingToneMixin._get_voiceTremor
     _set_voiceTremor = VoicingToneMixin._set_voiceTremor
+    _get_headSize = VoicingToneMixin._get_headSize
+    _set_headSize = VoicingToneMixin._set_headSize
     _get_frameExCreakiness = VoicingToneMixin._get_frameExCreakiness
     _set_frameExCreakiness = VoicingToneMixin._set_frameExCreakiness
     _get_frameExBreathiness = VoicingToneMixin._get_frameExBreathiness
