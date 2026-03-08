@@ -8145,7 +8145,7 @@ phonemes:
     pf4: 3300
     pf5: 3750
     pf6: 4900
-    voiceAmplitude: 0.9
+    voiceAmplitude: 0.85
   "ᴒ":
     # Hungarian short a /ɒ/ - open back ROUNDED vowel.
     # Must be clearly distinct from á (open central unrounded).
