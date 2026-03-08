@@ -220,12 +220,12 @@ settings:
     amplitudeBoostDb: 0.3
     amplitudeReductionDb: 0.0
 
+  # Let prominence drive Fujisaki accents
+  pitchFromProminence: true
+
   # Unstressed vowels between sonorants: small amplitude boost
   # keeps them from being masked by smooth formant transitions.
   sonorantContextAmplitudeScale: 1.15
-
-    # Let prominence drive Fujisaki accents
-    pitchFromProminence: true
   liquidDynamics:
     enabled: true
     # American-style rhotic quality - creates movement in the R
