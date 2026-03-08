@@ -15,9 +15,10 @@ if(MSVC)
   # Make the compiler treat source files as UTF-8 (important for IPA symbols).
   add_compile_options(/utf-8)
 
-  # Prefer dynamic MSVC runtime (smaller DLLs than /MT in most cases).
-  # If you rely on /MT for deployment reasons, remove this line.
-  set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDLL")
+  # Static MSVC runtime (/MT).  Required for Windows 7 compatibility:
+  # with /MD, ucrtbase.dll's own import of CreateFile2/CopyFile2 crashes
+  # on Win7.  /MT embeds the CRT so YY-Thunks can intercept those calls.
+  set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
   # Release optimizations and dead code stripping.
   add_compile_options("$<$<CONFIG:Release>:/O2>" "$<$<CONFIG:Release>:/DNDEBUG>")
@@ -26,6 +27,28 @@ if(MSVC)
 
   add_link_options("$<$<CONFIG:Release>:/OPT:REF>" "$<$<CONFIG:Release>:/OPT:ICF>")
   add_link_options("$<$<CONFIG:Release>:/LTCG>")
+endif()
+
+# -------------------------------------------------
+# Windows 7 compatibility (YY-Thunks)
+# -------------------------------------------------
+# VS2022's UCRT internally calls Win8+ APIs (CreateFile2, CopyFile2, etc.)
+# which crash on Windows 7.  YY-Thunks provides fallback implementations
+# that redirect to Win7-compatible equivalents at runtime.
+# See: https://github.com/Chuyu-Team/YY-Thunks  (MIT license)
+if(WIN32 AND MSVC)
+  add_compile_definitions(WINVER=0x0601 _WIN32_WINNT=0x0601)
+
+  if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+    set(YY_THUNKS_OBJ "${CMAKE_CURRENT_SOURCE_DIR}/deps/YY-Thunks/objs/x64/YY_Thunks_for_Win7.obj")
+  else()
+    set(YY_THUNKS_OBJ "${CMAKE_CURRENT_SOURCE_DIR}/deps/YY-Thunks/objs/x86/YY_Thunks_for_Win7.obj")
+  endif()
+
+  if(NOT EXISTS "${YY_THUNKS_OBJ}")
+    message(WARNING "YY-Thunks obj not found at ${YY_THUNKS_OBJ} — Win7 compat disabled")
+    set(YY_THUNKS_OBJ "")
+  endif()
 endif()
 
 # -------------------------
@@ -50,6 +73,9 @@ target_compile_features(speechPlayer PRIVATE cxx_std_17)
 # Windows waveOut dependency (as in the original project).
 if(WIN32)
   target_link_libraries(speechPlayer PRIVATE winmm)
+  if(YY_THUNKS_OBJ)
+    target_link_libraries(speechPlayer PRIVATE "${YY_THUNKS_OBJ}")
+  endif()
 else()
   target_link_libraries(speechPlayer PRIVATE Threads::Threads)
 endif()
@@ -70,6 +96,11 @@ target_include_directories(nvspFrontend PRIVATE
 target_compile_features(nvspFrontend PRIVATE cxx_std_17)
 
 target_compile_definitions(nvspFrontend PRIVATE NVSP_FRONTEND_EXPORTS=1)
+
+# Win7 compat thunks.
+if(YY_THUNKS_OBJ)
+  target_link_libraries(nvspFrontend PRIVATE "${YY_THUNKS_OBJ}")
+endif()
 
 # Optional: make the DLL name predictable.
 set_target_properties(nvspFrontend PROPERTIES OUTPUT_NAME "nvspFrontend")
@@ -161,6 +192,9 @@ if(WIN32 AND TGSB_BUILD_SAPI)
     espeak_phonemizer       # text → IPA
     ole32 oleaut32 advapi32 shlwapi uuid
   )
+  if(YY_THUNKS_OBJ)
+    target_link_libraries(TGSpeechSapi PRIVATE "${YY_THUNKS_OBJ}")
+  endif()
 
   if(MSVC)
     target_compile_options(TGSpeechSapi PRIVATE /W4 /permissive-)
@@ -182,6 +216,9 @@ if(WIN32 AND TGSB_BUILD_SAPI)
   )
 
   target_link_libraries(TGSpeechSapiSettings PRIVATE comctl32)
+  if(YY_THUNKS_OBJ)
+    target_link_libraries(TGSpeechSapiSettings PRIVATE "${YY_THUNKS_OBJ}")
+  endif()
 
   if(MSVC)
     target_compile_options(TGSpeechSapiSettings PRIVATE /W4 /permissive-)

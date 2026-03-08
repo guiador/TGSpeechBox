@@ -63,4 +63,7 @@ if(WIN32)
     shlwapi
     winmm
   )
+  if(YY_THUNKS_OBJ)
+    target_link_libraries(tgsbPhonemeEditor PRIVATE "${YY_THUNKS_OBJ}")
+  endif()
 endif()
