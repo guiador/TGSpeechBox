@@ -897,6 +897,7 @@ getNum("liquidDynamicsLabialGlideTransitionPct", lp.liquidDynamicsLabialGlideTra
     getNumFrom(*rc, "floorSpeedScale", lp.rateCompFloorSpeedScale);
     getBoolFrom(*rc, "clusterProportionGuard", lp.rateCompClusterProportionGuard);
     getNumFrom(*rc, "clusterMaxRatioShift", lp.rateCompClusterMaxRatioShift);
+    getNumFrom(*rc, "sonorantContextBonusMs", lp.rateCompSonorantContextBonusMs);
     if (const yaml_min::Node* sr = rc->get("schwaReduction"); sr && sr->isMap()) {
       getBoolFrom(*sr, "enabled", lp.rateCompSchwaReductionEnabled);
       getNumFrom(*sr, "threshold", lp.rateCompSchwaThreshold);
@@ -920,6 +921,8 @@ getNum("liquidDynamicsLabialGlideTransitionPct", lp.liquidDynamicsLabialGlideTra
   getNum("rateCompFloorSpeedScale", lp.rateCompFloorSpeedScale);
   getBool("rateCompClusterProportionGuard", lp.rateCompClusterProportionGuard);
   getNum("rateCompClusterMaxRatioShift", lp.rateCompClusterMaxRatioShift);
+  getNum("rateCompSonorantContextBonusMs", lp.rateCompSonorantContextBonusMs);
+  getNum("sonorantContextAmplitudeScale", lp.sonorantContextAmplitudeScale);
   getBool("rateCompSchwaReductionEnabled", lp.rateCompSchwaReductionEnabled);
   getNum("rateCompSchwaThreshold", lp.rateCompSchwaThreshold);
   getNum("rateCompSchwaScale", lp.rateCompSchwaScale);

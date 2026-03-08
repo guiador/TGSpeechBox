@@ -2456,6 +2456,11 @@ msgstr ""
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Rate Comp Sonorant Context Bonus (ms)"
+msgstr "Sebesség-kompenzáció: szonoráns kontextus bónusz (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Rate Comp Stop Floor (ms)"
 msgstr ""
 
@@ -2508,6 +2513,16 @@ msgstr "Szegmenshatár Skip Magánhangzó likvidára"
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Segment Boundary Skip Vowel To Vowel"
 msgstr "Szegmenshatár Skip Magánhangzó magánhangzóra"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Sonorant Context Amplitude Scale"
+msgstr "Szonoráns kontextus amplitúdó skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Rate Compensation: Sonorant Context Bonus (ms)"
+msgstr "Sebesség-kompenzáció: szonoráns kontextus bónusz (ms)"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py

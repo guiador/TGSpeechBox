@@ -1148,6 +1148,12 @@ double liquidDynamicsLabialGlideTransitionPct = 0.60;
   bool rateCompClusterProportionGuard = true;
   double rateCompClusterMaxRatioShift = 0.4;
 
+  // Sonorant-context vowel protection: unstressed vowels flanked by
+  // sonorants (nasals, liquids, semivowels) get masked by smooth formant
+  // transitions.  Extra duration floor and amplitude boost keep them audible.
+  double rateCompSonorantContextBonusMs = 8.0;
+  double sonorantContextAmplitudeScale = 1.15;  // 1.0 = no boost
+
   // Absorbed from old reduction pass: rate-dependent schwa shortening.
   // At speeds above threshold, unstressed schwas shorten. Floor still
   // enforced — this can't create sub-threshold segments.

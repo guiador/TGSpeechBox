@@ -21,6 +21,26 @@ static inline bool isSilenceOrMissing(const Token& t) {
   return t.silence || !t.def;
 }
 
+static inline bool isNasal(const Token& t) {
+  return t.def && ((t.def->flags & kIsNasal) != 0);
+}
+
+static inline bool isLiquid(const Token& t) {
+  return t.def && ((t.def->flags & kIsLiquid) != 0);
+}
+
+static inline bool isSemivowel(const Token& t) {
+  return t.def && ((t.def->flags & kIsSemivowel) != 0);
+}
+
+static inline bool isSonorant(const Token& t) {
+  return isNasal(t) || isLiquid(t) || isSemivowel(t);
+}
+
+static inline bool isSyntheticGap(const Token& t) {
+  return t.preStopGap || t.postStopAspiration || t.vowelHiatusGap;
+}
+
 }  // namespace
 
 bool runProminence(PassContext& ctx, std::vector<Token>& tokens, std::string& outError) {
@@ -484,6 +504,45 @@ bool runProminence(PassContext& ctx, std::vector<Token>& tokens, std::string& ou
         double linearScale = std::pow(10.0, dbChange / 20.0);
         t.field[vaIdx] = currentAmp * linearScale;
         t.setMask |= (1ULL << vaIdx);
+      }
+    }
+  }
+
+  // ── Sonorant-context amplitude boost ──
+  // Unstressed vowels between sonorants get masked by smooth transitions.
+  // A small amplitude boost keeps them audible at higher rates.
+  const double sonAmpScale = lang.sonorantContextAmplitudeScale;
+  if (sonAmpScale > 1.0) {
+    for (size_t i = 0; i < tokens.size(); ++i) {
+      Token& t = tokens[i];
+      if (isSilenceOrMissing(t) || !isVowel(t)) continue;
+      if (t.stress != 0) continue;
+
+      bool prevSon = false, nextSon = false;
+      for (size_t j = i; j > 0; --j) {
+        const Token& p = tokens[j - 1];
+        if (isSyntheticGap(p) || p.silence) continue;
+        prevSon = isSonorant(p);
+        break;
+      }
+      for (size_t j = i + 1; j < tokens.size(); ++j) {
+        const Token& n = tokens[j];
+        if (isSyntheticGap(n) || n.silence) continue;
+        nextSon = isSonorant(n);
+        break;
+      }
+
+      if (prevSon && nextSon) {
+        double currentAmp = 0.0;
+        if (t.setMask & (1ULL << vaIdx)) {
+          currentAmp = t.field[vaIdx];
+        } else if (t.def) {
+          currentAmp = t.def->field[vaIdx];
+        }
+        if (currentAmp > 0.0) {
+          t.field[vaIdx] = currentAmp * sonAmpScale;
+          t.setMask |= (1ULL << vaIdx);
+        }
       }
     }
   }

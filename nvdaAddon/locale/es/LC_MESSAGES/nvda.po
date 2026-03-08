@@ -2477,6 +2477,11 @@ msgstr ""
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Rate Comp Sonorant Context Bonus (ms)"
+msgstr "Comp. velocidad: bonificación contexto sonorante (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Rate Comp Stop Floor (ms)"
 msgstr ""
 
@@ -2529,6 +2534,16 @@ msgstr "Límite de Segmento Omitir Vocal a Líquida"
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Segment Boundary Skip Vowel To Vowel"
 msgstr "Límite de Segmento Omitir Vocal a Vocal"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Sonorant Context Amplitude Scale"
+msgstr "Escala de amplitud en contexto sonorante"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Rate Compensation: Sonorant Context Bonus (ms)"
+msgstr "Compensación de velocidad: bonificación contexto sonorante (ms)"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py

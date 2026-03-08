@@ -220,6 +220,10 @@ settings:
     amplitudeBoostDb: 0.3
     amplitudeReductionDb: 0.0
 
+  # Unstressed vowels between sonorants: small amplitude boost
+  # keeps them from being masked by smooth formant transitions.
+  sonorantContextAmplitudeScale: 1.15
+
     # Let prominence drive Fujisaki accents
     pitchFromProminence: true
   liquidDynamics:
@@ -705,6 +709,10 @@ settings:
     # This smooths the ratios back toward their pre-floor proportions.
     clusterProportionGuard: true
     clusterMaxRatioShift: 0.4
+
+    # Extra duration floor for unstressed vowels flanked by sonorants
+    # (nasals, liquids, semivowels) — smooth transitions mask short vowels.
+    sonorantContextBonusMs: 8
 
     # Rate-dependent schwa shortening (absorbed from old reduction pass).
     # Off for now — enable once base floors are tuned and sounding right.

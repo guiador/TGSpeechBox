@@ -403,6 +403,7 @@ def _getPanelClass():
                 "rateCompensation.schwaReduction.enabled",
                 "rateCompensation.schwaReduction.scale",
                 "rateCompensation.schwaReduction.threshold",
+                "rateCompensation.sonorantContextBonusMs",
                 "rateCompensation.wordFinalBonusMs",
 
                 # --- Special coarticulation ---
@@ -734,7 +735,9 @@ def _getPanelClass():
                     "postStopAspirationEnabled",
                     "primaryStressDiv",
                     "rateCompEnabled",
+                    "rateCompSonorantContextBonusMs",
                     "secondaryStressDiv",
+                    "sonorantContextAmplitudeScale",
                     "semivowelOffglideScale",
                     "stopClosureMode",
                     "stopClosureVowelFadeMs",
