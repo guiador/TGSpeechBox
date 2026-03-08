@@ -768,12 +768,12 @@ std::string runTextParser(
 
   auto ipaChunks = splitIpaWords(ipa);
 
-  // When number expansion made textWords longer than ipaChunks, eSpeak
-  // merged some number sub-words (e.g. "wˈʌnhˈʌndɹɪd" = one+hundred).
-  // Split multi-stress IPA chunks to recover them.  Safe here because the
-  // excess text words are known to be from number expansion.
-  // Without expansion, splitting is deferred to reassembly as before.
-  if (numberRules.enabled && textWords.size() > ipaChunks.size()) {
+  // eSpeak sometimes merges number sub-words into a single IPA chunk
+  // (e.g. "wˈʌnhˈʌndɹɪd" = one+hundred).  Always split multi-stress
+  // chunks when number expansion is active — the old size() guard missed
+  // cases where other numbers expanded to MORE IPA chunks, masking the
+  // merge (e.g. "100 ... 1.95" → 13 text words but 15 IPA chunks).
+  if (numberRules.enabled) {
     splitMultiStressChunks(ipaChunks);
   }
 
