@@ -96,7 +96,7 @@ struct EngineSettingsView: View {
         _pitchSyncF1     = State(initialValue: Self.loadV(d, "pitchSyncF1", 50, voice))
         _pitchSyncB1     = State(initialValue: Self.loadV(d, "pitchSyncB1", 50, voice))
         _voiceTremor     = State(initialValue: Self.loadV(d, "voiceTremor", 0, voice))
-        _headSize        = State(initialValue: Self.loadV(d, "headSize", 50, voice))
+        _headSize        = State(initialValue: Self.loadV(d, "headSize", voice == "david" ? 100 : 50, voice))
 
         _creakiness       = State(initialValue: Self.loadV(d, "creakiness", 0, voice))
         _breathiness      = State(initialValue: Self.loadV(d, "breathiness", 0, voice))
@@ -311,7 +311,7 @@ struct EngineSettingsView: View {
         pitchSyncF1     = Self.loadV(d, "pitchSyncF1", 50, voice)
         pitchSyncB1     = Self.loadV(d, "pitchSyncB1", 50, voice)
         voiceTremor     = Self.loadV(d, "voiceTremor", 0, voice)
-        headSize        = Self.loadV(d, "headSize", 50, voice)
+        headSize        = Self.loadV(d, "headSize", voice == "david" ? 100 : 50, voice)
 
         creakiness       = Self.loadV(d, "creakiness", 0, voice)
         breathiness      = Self.loadV(d, "breathiness", 0, voice)

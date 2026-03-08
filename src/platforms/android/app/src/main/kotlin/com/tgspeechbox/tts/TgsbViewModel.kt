@@ -59,7 +59,7 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
     val aspirationTilt = MutableStateFlow(loadSlider("aspirationTilt", 50f))
     val cascadeBwScale = MutableStateFlow(loadSlider("cascadeBwScale", 50f))
     val voiceTremor = MutableStateFlow(loadSlider("voiceTremor", 0f))
-    val headSize = MutableStateFlow(loadSlider("headSize", 50f))
+    val headSize = MutableStateFlow(loadSlider("headSize", if (currentVoiceId == "david") 100f else 50f))
 
     // ── Pitch settings ──────────────────────────────────────────────
 
@@ -214,7 +214,7 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
         aspirationTilt.value     = loadSlider("aspirationTilt", 50f)
         cascadeBwScale.value     = loadSlider("cascadeBwScale", 50f)
         voiceTremor.value        = loadSlider("voiceTremor", 0f)
-        headSize.value           = loadSlider("headSize", 50f)
+        headSize.value           = loadSlider("headSize", if (currentVoiceId == "david") 100f else 50f)
 
         // FrameEx sliders
         creakiness.value         = loadSlider("creakiness", 0f)

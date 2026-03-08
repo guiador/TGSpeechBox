@@ -306,7 +306,7 @@ class TgsbTtsService : TextToSpeechService() {
         val aspTilt      = (prefFloat("aspirationTilt", 50f, voice) - 50f) * 0.24f
         val bwSlider     = prefFloat("cascadeBwScale", 50f, voice)
         val tremorSlider = prefFloat("voiceTremor", 0f, voice)
-        val hsSlider     = prefFloat("headSize", 50f, voice)
+        val hsSlider     = prefFloat("headSize", if (voice == "david") 100f else 50f, voice)
 
         val tilt = (tiltSlider - 50f) * (24f / 50f)
         val sq = if (sqSlider <= 50f)
