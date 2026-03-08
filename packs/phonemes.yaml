@@ -8768,10 +8768,10 @@ voiceProfiles:
         glottalOpenQuotient_mul: 0.70
         voiceAmplitude_mul: 0.92
         aspirationAmplitude_mul: 1.15
-        preFormantGain_mul: 0.88
-        outputGain_mul: 0.92
-        cf_mul: [1.12, 1.10, 1.06, 0.94, 0.88, 0.82]
-        pf_mul: [1.12, 1.10, 1.06, 0.94, 0.88, 0.82]
+        preFormantGain_mul: 0.82
+        outputGain_mul: 0.90
+        cf_mul: [1.18, 1.20, 1.14, 0.94, 0.88, 0.82]
+        pf_mul: [1.18, 1.20, 1.14, 0.94, 0.88, 0.82]
         cb_mul: [1.10, 1.10, 1.10, 1.25, 1.35, 1.50]
         pb_mul: [1.10, 1.10, 1.10, 1.25, 1.35, 1.50]
       voicedConsonant:
@@ -8786,14 +8786,14 @@ voiceProfiles:
         preFormantGain_mul: 0.88
         outputGain_mul: 0.92
       unvoicedFricative:
-        pf_mul: [1.10, 1.08, 1.04, 0.94, 0.84, 0.72]
+        pf_mul: [1.16, 1.18, 1.12, 0.94, 0.84, 0.72]
         pb_mul: [1, 1, 1, 1.10, 1.25, 1.45]
         fricationAmplitude_mul: 0.85
         aspirationAmplitude_mul: 0.90
         preFormantGain_mul: 0.88
         outputGain_mul: 0.92
       voicedFricative:
-        pf_mul: [1.10, 1.08, 1.04, 0.94, 0.84, 0.72]
+        pf_mul: [1.16, 1.18, 1.12, 0.94, 0.84, 0.72]
         pb_mul: [1, 1, 1, 1.10, 1.25, 1.45]
         fricationAmplitude_mul: 0.85
         aspirationAmplitude_mul: 0.90
