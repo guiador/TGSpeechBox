@@ -840,7 +840,9 @@ phonemes:
     pf6: 4900
     voiceAmplitude: 0
   d:
-    # Voiced alveolar stop
+    # Voiced alveolar stop.  fricationAmplitude lowered 0.60→0.45 to
+    # unmask alveolar burst shape (pa4/pa5) and reduce affricate quality
+    # in clusters like /nd/ ("calendar" → "calenger").
     # Burst: diffuse-rising spectrum (Blumstein & Stevens 1979).
     # Front-cavity resonance ~4000 Hz → pa4/pa5 dominant.
     # F2 locus ~1700 Hz (Delattre et al. 1955, Sussman et al. 1993).
@@ -871,7 +873,7 @@ phonemes:
     cf6: 4900
     cfN0: 250
     cfNP: 200
-    fricationAmplitude: 0.60
+    fricationAmplitude: 0.45
     pa1: 0.08
     pa2: 0.15
     pa3: 0.30
@@ -2050,7 +2052,7 @@ phonemes:
     cbNP: 100
     cf1: 200
     cf2: 1600
-    cf3: 2600
+    cf3: 2200
     cf4: 3300
     cf5: 3750
     cf6: 4900
@@ -2072,7 +2074,7 @@ phonemes:
     pb6: 1400
     pf1: 200
     pf2: 1600
-    pf3: 2600
+    pf3: 2200
     pf4: 3300
     pf5: 3750
     pf6: 4900
