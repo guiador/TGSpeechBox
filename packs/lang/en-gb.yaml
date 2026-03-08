@@ -524,10 +524,13 @@ settings:
     floorSpeedScale: 0.0
     clusterProportionGuard: true
     clusterMaxRatioShift: 0.4
+    sonorantContextBonusMs: 8
     schwaReduction:
       enabled: false
       threshold: 2.5
       scale: 0.8
+
+  sonorantContextAmplitudeScale: 1.15
 
   # ── Syllable duration ──────────────────────────────────────────
   syllableDuration:
