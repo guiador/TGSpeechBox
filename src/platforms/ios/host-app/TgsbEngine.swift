@@ -66,7 +66,7 @@ class TgsbEngine: ObservableObject {
     @Published var pitch: Double = 110.0
     @Published var inflectionValue: Double = 50.0  // 0–100 slider
 
-    let voices: [TgsbVoice]
+    @Published var voices: [TgsbVoice]
 
     private var engine: OpaquePointer?
     private var sampleRate: Int
@@ -99,13 +99,8 @@ class TgsbEngine: ObservableObject {
                                    displayName: name.capitalized))
             }
         }
-        // Add YAML voice profiles (Beth, Bobby, etc.)
-        let profileNames = ["Beth", "Bobby"]
-        for name in profileNames {
-            v.append(TgsbVoice(id: name.lowercased(),
-                               displayName: name,
-                               isProfile: true))
-        }
+        // YAML voice profiles will be discovered after engine starts.
+        // For now, just use DSP presets.
         self.voices = v
         self.selectedVoice = v.first ?? TgsbVoice(id: "adam",
                                                    displayName: "Adam")
@@ -135,6 +130,22 @@ class TgsbEngine: ObservableObject {
         tgsb_set_language(engine,
                           selectedLanguage.espeakTag,
                           selectedLanguage.tgsbTag)
+        // Discover YAML voice profiles now that engine is available
+        if let namesPtr = tgsb_get_voice_profile_names(engine!) {
+            let names = String(cString: namesPtr)
+            free(namesPtr)
+            var updatedVoices = self.voices
+            for name in names.split(separator: "\n") where !name.isEmpty {
+                let n = String(name)
+                if !updatedVoices.contains(where: { $0.id == n.lowercased() }) {
+                    updatedVoices.append(TgsbVoice(id: n.lowercased(),
+                                                    displayName: n,
+                                                    isProfile: true))
+                }
+            }
+            self.voices = updatedVoices
+        }
+
         applySelectedVoice(engine!)
 
         print("[TgsbEngine] Engine ready")

@@ -146,31 +146,52 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
 
     // MARK: - Voices
 
-    // Voice definitions: DSP presets + YAML voice profiles.
-    // isProfile voices use tgsb_set_voice_profile() instead of tgsb_set_voice().
-    private static let voiceDefs: [(name: String, gender: AVSpeechSynthesisVoiceGender, isProfile: Bool)] = [
-        ("Adam",     .male,   false),
-        ("Benjamin", .male,   false),
-        ("Caleb",    .male,   false),
-        ("David",    .male,   false),
-        ("Robert",   .male,   false),
-        ("Beth",     .female, true),
-        ("Bobby",    .male,   true),
-    ]
+    /// Discover all available voices: DSP presets + YAML voice profiles.
+    /// Profile names are queried dynamically from the engine so that
+    /// user-defined profiles in phonemes.yaml appear automatically.
+    private func discoverVoices() -> [(name: String, isProfile: Bool)] {
+        var result: [(String, Bool)] = []
+
+        // DSP presets (compiled-in)
+        let numPresets = tgsb_get_num_voices()
+        for i in 0..<numPresets {
+            if let p = tgsb_get_voice_name(Int32(i)) {
+                result.append((String(cString: p).capitalized, false))
+            }
+        }
+
+        // YAML voice profiles (from phonemes.yaml)
+        if let eng = engine,
+           let namesPtr = tgsb_get_voice_profile_names(eng) {
+            let names = String(cString: namesPtr)
+            free(namesPtr)
+            for name in names.split(separator: "\n") where !name.isEmpty {
+                let n = String(name)
+                // Skip if already in presets (shouldn't happen, but defensive)
+                if !result.contains(where: { $0.0.lowercased() == n.lowercased() }) {
+                    result.append((n, true))
+                }
+            }
+        }
+
+        return result
+    }
 
     public override var speechVoices: [AVSpeechSynthesisProviderVoice] {
         get {
+            let voiceDefs = discoverVoices()
             var voices: [AVSpeechSynthesisProviderVoice] = []
 
-            for vd in Self.voiceDefs {
+            for vd in voiceDefs {
                 for lang in Self.languageMap {
                     let voice = AVSpeechSynthesisProviderVoice(
-                        name: "\(vd.name) (\(lang.bcp47))",
-                        identifier: "com.tgspeechbox.\(vd.name.lowercased()).\(lang.bcp47.lowercased())",
+                        name: "\(vd.0) (\(lang.bcp47))",
+                        identifier: "com.tgspeechbox.\(vd.0.lowercased()).\(lang.bcp47.lowercased())",
                         primaryLanguages: [lang.bcp47],
                         supportedLanguages: [lang.bcp47]
                     )
-                    voice.gender = vd.gender
+                    // Infer gender from profile (could add metadata later)
+                    voice.gender = .male
                     voices.append(voice)
                 }
             }
@@ -252,10 +273,17 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
         // voicing tone and tgsb_set_language reloads the pack (resetting
         // pitch mode). Engine settings must be applied AFTER these.
         if voiceName != cachedVoice {
-            // Check if this is a YAML voice profile (Beth, Bobby)
-            let isProfile = Self.voiceDefs.first {
-                $0.name.lowercased() == voiceName
-            }?.isProfile ?? false
+            // Check if this voice name is a YAML profile by querying
+            // available profile names from the engine.
+            var isProfile = false
+            if let namesPtr = tgsb_get_voice_profile_names(eng) {
+                let names = String(cString: namesPtr)
+                free(namesPtr)
+                let profileNames = names.split(separator: "\n").map {
+                    String($0).lowercased()
+                }
+                isProfile = profileNames.contains(voiceName.lowercased())
+            }
 
             if isProfile {
                 tgsb_set_voice(eng, "adam")
