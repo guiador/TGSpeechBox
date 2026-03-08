@@ -393,7 +393,7 @@ class TgsbTtsService : TextToSpeechService() {
             nativeSetVoice(nativeHandle, "adam")
             nativeSetVoiceProfile(nativeHandle, voiceDef.id)
         } else {
-            applyCurrentVoice()
+            nativeSetVoice(nativeHandle, currentPreset)
         }
     }
 
