@@ -99,8 +99,10 @@ class TgsbEngine: ObservableObject {
                                    displayName: name.capitalized))
             }
         }
-        // YAML voice profiles will be discovered after engine starts.
-        // For now, just use DSP presets.
+        // Add known YAML voice profiles as fallback (replaced by
+        // dynamic discovery in start() if engine finds more).
+        v.append(TgsbVoice(id: "beth", displayName: "Beth", isProfile: true))
+        v.append(TgsbVoice(id: "bobby", displayName: "Bobby", isProfile: true))
         self.voices = v
         self.selectedVoice = v.first ?? TgsbVoice(id: "adam",
                                                    displayName: "Adam")
