@@ -35,6 +35,7 @@ class VoiceManagementMixin:
         self._perVoiceAspirationTilt = {}
         self._perVoiceCascadeBwScale = {}
         self._perVoiceVoiceTremor = {}
+        self._perVoiceHeadSize = {}
         self._perVoiceFrameExCreakiness = {}
         self._perVoiceFrameExBreathiness = {}
         self._perVoiceFrameExJitter = {}
@@ -87,6 +88,7 @@ class VoiceManagementMixin:
                 self._perVoiceAspirationTilt[oldVoice] = getattr(self, "_curAspirationTilt", 50)
                 self._perVoiceCascadeBwScale[oldVoice] = getattr(self, "_curCascadeBwScale", 50)
                 self._perVoiceVoiceTremor[oldVoice] = getattr(self, "_curVoiceTremor", 0)
+                self._perVoiceHeadSize[oldVoice] = getattr(self, "_curHeadSize", 50)
                 self._perVoiceFrameExCreakiness[oldVoice] = getattr(self, "_curFrameExCreakiness", 0)
                 self._perVoiceFrameExBreathiness[oldVoice] = getattr(self, "_curFrameExBreathiness", 0)
                 self._perVoiceFrameExJitter[oldVoice] = getattr(self, "_curFrameExJitter", 0)
@@ -105,6 +107,7 @@ class VoiceManagementMixin:
                 self._curAspirationTilt = self._perVoiceAspirationTilt.get(voice, 50)
                 self._curCascadeBwScale = self._perVoiceCascadeBwScale.get(voice, 50)
                 self._curVoiceTremor = self._perVoiceVoiceTremor.get(voice, 0)
+                self._curHeadSize = self._perVoiceHeadSize.get(voice, 50)
                 self._curFrameExCreakiness = self._perVoiceFrameExCreakiness.get(voice, 0)
                 self._curFrameExBreathiness = self._perVoiceFrameExBreathiness.get(voice, 0)
                 self._curFrameExJitter = self._perVoiceFrameExJitter.get(voice, 0)
