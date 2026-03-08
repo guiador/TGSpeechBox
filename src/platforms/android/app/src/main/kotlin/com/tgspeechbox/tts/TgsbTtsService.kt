@@ -199,7 +199,10 @@ class TgsbTtsService : TextToSpeechService() {
         speedQuotient: Double,
         aspirationTiltDbPerOct: Double,
         cascadeBwScale: Double,
-        tremorDepth: Double
+        tremorDepth: Double,
+        nasalBwScale: Double,
+        f4FreqScale: Double,
+        nasalGainScale: Double
     )
     private external fun nativeSetFrameExDefaults(
         handle: Long,
@@ -303,6 +306,7 @@ class TgsbTtsService : TextToSpeechService() {
         val aspTilt      = (prefFloat("aspirationTilt", 50f, voice) - 50f) * 0.24f
         val bwSlider     = prefFloat("cascadeBwScale", 50f, voice)
         val tremorSlider = prefFloat("voiceTremor", 0f, voice)
+        val hsSlider     = prefFloat("headSize", 50f, voice)
 
         val tilt = (tiltSlider - 50f) * (24f / 50f)
         val sq = if (sqSlider <= 50f)
@@ -314,12 +318,17 @@ class TgsbTtsService : TextToSpeechService() {
         else
             1.0 - ((bwSlider - 50.0) / 50.0) * 0.7
         val tremor = (tremorSlider / 100f) * 0.4f
+        val hs = if (hsSlider <= 50f)
+            1.25 - (hsSlider / 50.0) * 0.25
+        else
+            1.0 - ((hsSlider - 50.0) / 50.0) * 0.15
 
         nativeSetVoicingTone(
             nativeHandle,
             tilt.toDouble(), noiseMod.toDouble(),
             psF1.toDouble(), psB1.toDouble(),
-            sq, aspTilt.toDouble(), bw, tremor.toDouble()
+            sq, aspTilt.toDouble(), bw, tremor.toDouble(),
+            1.0, hs, 1.0
         )
 
         // FrameEx defaults

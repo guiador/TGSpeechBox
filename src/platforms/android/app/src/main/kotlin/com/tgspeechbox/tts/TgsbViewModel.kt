@@ -361,10 +361,16 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
 
         val tremor = (voiceTremor.value / 100f) * 0.4f             // 0..0.4
 
+        val hsSlider = headSize.value.toDouble()
+        val hs = if (hsSlider <= 50.0)
+            1.25 - (hsSlider / 50.0) * 0.25                        // 1.25..1.0
+        else
+            1.0 - ((hsSlider - 50.0) / 50.0) * 0.15                // 1.0..0.85
+
         engine.setVoicingTone(
             tilt.toDouble(), noiseMod.toDouble(),
             psF1.toDouble(), psB1.toDouble(),
-            sq, aspTilt.toDouble(), bw, tremor.toDouble()
+            sq, aspTilt.toDouble(), bw, tremor.toDouble(), hs
         )
     }
 

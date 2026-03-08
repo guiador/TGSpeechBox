@@ -78,7 +78,10 @@ class TgsbSpeakEngine(private val context: Context) {
         speedQuotient: Double,
         aspirationTiltDbPerOct: Double,
         cascadeBwScale: Double,
-        tremorDepth: Double
+        tremorDepth: Double,
+        nasalBwScale: Double,
+        f4FreqScale: Double,
+        nasalGainScale: Double
     )
     private external fun nativeSetFrameExDefaults(
         handle: Long,
@@ -142,7 +145,8 @@ class TgsbSpeakEngine(private val context: Context) {
         speedQuotient: Double,
         aspirationTiltDbPerOct: Double,
         cascadeBwScale: Double,
-        tremorDepth: Double
+        tremorDepth: Double,
+        f4FreqScale: Double = 1.0
     ) {
         if (nativeHandle == 0L) return
         nativeSetVoicingTone(
@@ -150,7 +154,8 @@ class TgsbSpeakEngine(private val context: Context) {
             voicedTiltDbPerOct, noiseGlottalModDepth,
             pitchSyncF1DeltaHz, pitchSyncB1DeltaHz,
             speedQuotient, aspirationTiltDbPerOct,
-            cascadeBwScale, tremorDepth
+            cascadeBwScale, tremorDepth,
+            1.0, f4FreqScale, 1.0
         )
     }
 

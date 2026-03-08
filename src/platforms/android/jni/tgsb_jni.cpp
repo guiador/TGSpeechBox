@@ -663,9 +663,10 @@ JNIEXPORT void JNICALL
 Java_com_tgspeechbox_tts_TgsbTtsService_nativeSetVoicingTone(
     JNIEnv *env, jobject thiz, jlong handle,
     jdouble a, jdouble b, jdouble c, jdouble d,
-    jdouble e, jdouble f, jdouble g, jdouble h
+    jdouble e, jdouble f, jdouble g, jdouble h,
+    jdouble nasalBw, jdouble f4Freq, jdouble nasalGain
 ) {
-    applyVoicingTone((TgsbEngine *)(intptr_t)handle, a,b,c,d,e,f,g,h);
+    applyVoicingTone((TgsbEngine *)(intptr_t)handle, a,b,c,d,e,f,g,h, nasalBw, f4Freq, nasalGain);
 }
 
 JNIEXPORT void JNICALL
@@ -898,9 +899,10 @@ JNIEXPORT void JNICALL
 Java_com_tgspeechbox_tts_TgsbSpeakEngine_nativeSetVoicingTone(
     JNIEnv *env, jobject thiz, jlong handle,
     jdouble a, jdouble b, jdouble c, jdouble d,
-    jdouble e, jdouble f, jdouble g, jdouble h
+    jdouble e, jdouble f, jdouble g, jdouble h,
+    jdouble nasalBw, jdouble f4Freq, jdouble nasalGain
 ) {
-    applyVoicingTone((TgsbEngine *)(intptr_t)handle, a,b,c,d,e,f,g,h);
+    applyVoicingTone((TgsbEngine *)(intptr_t)handle, a,b,c,d,e,f,g,h, nasalBw, f4Freq, nasalGain);
 }
 
 JNIEXPORT void JNICALL
