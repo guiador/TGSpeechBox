@@ -1351,9 +1351,11 @@ static std::string splitYears(const std::string& text, const std::string& ohDigi
     // Don't split if first pair starts with 0 (e.g. "0512").
     if (s[numStart] == '0') continue;
 
-    // Don't split if second pair is "00" — eSpeak already handles
-    // round thousands well ("2000" → "two thousand").
-    if (s[numStart + 2] == '0' && s[numStart + 3] == '0') continue;
+    // Don't split if second pair is "0X" (00–09) — eSpeak handles
+    // these better as full thousands ("2000" → "two thousand",
+    // "2001" → "two thousand one").  Only split when the second
+    // pair is 10+ ("1995" → "19 95", "3710" → "37 10").
+    if (s[numStart + 2] == '0') continue;
 
     // Split: "1995" → "19 95", "3709" → "37 oh nine"
     // When the second pair has a leading zero (e.g. "09") and the
