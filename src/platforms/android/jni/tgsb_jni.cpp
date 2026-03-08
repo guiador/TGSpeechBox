@@ -104,7 +104,7 @@ static const VoicePreset kPresets[] = {
     PRESET("adam",     kAdamOverrides,     0.0,  0, 0),
     PRESET("benjamin", kBenjaminOverrides, 0.0,  0, 0),
     PRESET("caleb",    kCalebOverrides,    0.0,  0, 0),
-    PRESET("david",    kDavidOverrides,    0.0,  0, 0.85),
+    PRESET("david",    kDavidOverrides,    0.0,  0, 0),
     PRESET("robert",   kRobertOverrides,  -6.0,  1, 0),
 };
 static const int kNumPresets = sizeof(kPresets) / sizeof(kPresets[0]);
