@@ -8752,60 +8752,61 @@ phonemes:
 voiceProfiles:
   Beth:
     voicingTone:
-      voicedTiltDbPerOct: -14.40
+      voicedTiltDbPerOct: -10.0
       noiseGlottalModDepth: 0.00
       pitchSyncF1DeltaHz: 0.0
       pitchSyncB1DeltaHz: 0.0
-      speedQuotient: 2.00
+      speedQuotient: 1.60
       aspirationTiltDbPerOct: 0.00
     classScales:
       vowel:
-        voicePitch_mul: 1.25
-        endVoicePitch_mul: 1.25
+        voicePitch_mul: 1.65
+        endVoicePitch_mul: 1.65
         vibratoPitchOffset_mul: 0.75
         vibratoSpeed_mul: 0.98
-        voiceTurbulenceAmplitude_mul: 1.35
-        glottalOpenQuotient_mul: 0.7
-        voiceAmplitude_mul: 0.78
-        aspirationAmplitude_mul: 1.05
-        preFormantGain_mul: 0.78
-        outputGain_mul: 0.86
-        cf_mul: [1, 1, 1, 0.92, 0.86, 0.8]
-        pf_mul: [1, 1, 1, 0.92, 0.86, 0.8]
-        cb_mul: [1.2, 1.25, 1.25, 1.35, 1.45, 1.6]
-        pb_mul: [1.2, 1.25, 1.25, 1.35, 1.45, 1.6]
+        voiceTurbulenceAmplitude_mul: 1.20
+        glottalOpenQuotient_mul: 0.70
+        voiceAmplitude_mul: 0.92
+        aspirationAmplitude_mul: 1.15
+        preFormantGain_mul: 0.88
+        outputGain_mul: 0.92
+        cf_mul: [1.12, 1.10, 1.06, 0.94, 0.88, 0.82]
+        pf_mul: [1.12, 1.10, 1.06, 0.94, 0.88, 0.82]
+        cb_mul: [1.10, 1.10, 1.10, 1.25, 1.35, 1.50]
+        pb_mul: [1.10, 1.10, 1.10, 1.25, 1.35, 1.50]
       voicedConsonant:
-        voicePitch_mul: 1.25
-        endVoicePitch_mul: 1.25
+        voicePitch_mul: 1.65
+        endVoicePitch_mul: 1.65
         vibratoPitchOffset_mul: 0.75
         vibratoSpeed_mul: 0.98
-        voiceTurbulenceAmplitude_mul: 1.2
-        glottalOpenQuotient_mul: 0.74
-        voiceAmplitude_mul: 0.82
-        preFormantGain_mul: 0.8
-        outputGain_mul: 0.91
+        voiceTurbulenceAmplitude_mul: 1.1
+        glottalOpenQuotient_mul: 0.72
+        voiceAmplitude_mul: 0.94
+        aspirationAmplitude_mul: 1.05
+        preFormantGain_mul: 0.88
+        outputGain_mul: 0.92
       unvoicedFricative:
-        pf_mul: [1, 1, 1, 0.92, 0.8, 0.68]
-        pb_mul: [1, 1, 1, 1.15, 1.35, 1.55]
-        fricationAmplitude_mul: 0.65
-        aspirationAmplitude_mul: 0.75
-        preFormantGain_mul: 0.72
-        outputGain_mul: 0.8
+        pf_mul: [1.10, 1.08, 1.04, 0.94, 0.84, 0.72]
+        pb_mul: [1, 1, 1, 1.10, 1.25, 1.45]
+        fricationAmplitude_mul: 0.85
+        aspirationAmplitude_mul: 0.90
+        preFormantGain_mul: 0.88
+        outputGain_mul: 0.92
       voicedFricative:
-        pf_mul: [1, 1, 1, 0.93, 0.82, 0.7]
-        pb_mul: [1, 1, 1, 1.15, 1.35, 1.55]
-        fricationAmplitude_mul: 0.68
-        aspirationAmplitude_mul: 0.8
-        preFormantGain_mul: 0.74
-        outputGain_mul: 0.82
+        pf_mul: [1.10, 1.08, 1.04, 0.94, 0.84, 0.72]
+        pb_mul: [1, 1, 1, 1.10, 1.25, 1.45]
+        fricationAmplitude_mul: 0.85
+        aspirationAmplitude_mul: 0.90
+        preFormantGain_mul: 0.88
+        outputGain_mul: 0.92
       stop:
-        preFormantGain_mul: 0.78
-        outputGain_mul: 0.88
+        preFormantGain_mul: 0.88
+        outputGain_mul: 0.92
       affricate:
-        fricationAmplitude_mul: 0.62
-        aspirationAmplitude_mul: 0.72
-        preFormantGain_mul: 0.7
-        outputGain_mul: 0.79
+        fricationAmplitude_mul: 0.80
+        aspirationAmplitude_mul: 0.85
+        preFormantGain_mul: 0.88
+        outputGain_mul: 0.92
     phonemeOverrides:
       0: {cf1: 568, cf2: 1630, cf3: 2539, pf1: 568, pf2: 1630, pf3: 2539}
       3: {cf1: 379, cf2: 1718, cf3: 2539, pf1: 568, pf2: 1630, pf3: 2539}
@@ -8904,169 +8905,57 @@ voiceProfiles:
       voicingPeakPos: 0.88
       voicedPreEmphA: 0.9
       voicedPreEmphMix: 0.22
-      highShelfFcHz: 2200
-      highShelfGainDb: 1.5
+      highShelfFcHz: 2400
+      highShelfGainDb: 2.0
       highShelfQ: 0.7
+      speedQuotient: 2.20
     classScales:
       vowel:
-        voicePitch_mul: 1.6
-        endVoicePitch_mul: 1.7
+        voicePitch_mul: 1.95
+        endVoicePitch_mul: 2.05
         vibratoPitchOffset_mul: 0.8
         vibratoSpeed_mul: 1.1
-        voiceTurbulenceAmplitude_mul: 1.15
-        glottalOpenQuotient_mul: 0.8
-        voiceAmplitude_mul: 0.7
-        aspirationAmplitude_mul: 1
-        preFormantGain_mul: 0.68
-        outputGain_mul: 0.75
-        cf_mul: [1, 1, 1, 0.9, 0.84, 0.78]
-        pf_mul: [1, 1, 1, 0.9, 0.84, 0.78]
-        cb_mul: [1.25, 1.3, 1.3, 1.4, 1.55, 1.7]
-        pb_mul: [1.25, 1.3, 1.3, 1.4, 1.55, 1.7]
+        voiceTurbulenceAmplitude_mul: 1.0
+        glottalOpenQuotient_mul: 0.75
+        voiceAmplitude_mul: 0.95
+        aspirationAmplitude_mul: 0.50
+        preFormantGain_mul: 0.82
+        outputGain_mul: 0.85
+        cf_mul: [1.14, 1.12, 1.10, 0.94, 0.88, 0.82]
+        pf_mul: [1.14, 1.12, 1.10, 0.94, 0.88, 0.82]
+        cb_mul: [1.05, 1.05, 1.0, 1.15, 1.30, 1.45]
+        pb_mul: [1.05, 1.05, 1.0, 1.15, 1.30, 1.45]
       voicedConsonant:
-        voicePitch_mul: 1.6
-        endVoicePitch_mul: 1.7
+        voicePitch_mul: 1.95
+        endVoicePitch_mul: 2.05
         vibratoPitchOffset_mul: 0.8
         vibratoSpeed_mul: 1.1
-        voiceTurbulenceAmplitude_mul: 1.1
-        glottalOpenQuotient_mul: 0.82
-        voiceAmplitude_mul: 0.72
-        preFormantGain_mul: 0.7
-        outputGain_mul: 0.8
+        voiceTurbulenceAmplitude_mul: 1.0
+        glottalOpenQuotient_mul: 0.78
+        voiceAmplitude_mul: 0.95
+        aspirationAmplitude_mul: 0.50
+        preFormantGain_mul: 0.82
+        outputGain_mul: 0.85
       unvoicedFricative:
-        pf_mul: [1, 1, 1, 0.9, 0.78, 0.65]
-        pb_mul: [1, 1, 1, 1.2, 1.4, 1.6]
-        fricationAmplitude_mul: 0.6
-        aspirationAmplitude_mul: 0.7
-        preFormantGain_mul: 0.65
-        outputGain_mul: 0.7
+        pf_mul: [1.12, 1.10, 1.08, 0.94, 0.82, 0.70]
+        pb_mul: [1, 1, 1, 1.10, 1.30, 1.50]
+        fricationAmplitude_mul: 0.80
+        aspirationAmplitude_mul: 0.70
+        preFormantGain_mul: 0.82
+        outputGain_mul: 0.85
       voicedFricative:
-        pf_mul: [1, 1, 1, 0.91, 0.8, 0.67]
-        pb_mul: [1, 1, 1, 1.2, 1.4, 1.6]
-        fricationAmplitude_mul: 0.62
-        aspirationAmplitude_mul: 0.75
-        preFormantGain_mul: 0.67
-        outputGain_mul: 0.72
+        pf_mul: [1.12, 1.10, 1.08, 0.94, 0.82, 0.70]
+        pb_mul: [1, 1, 1, 1.10, 1.30, 1.50]
+        fricationAmplitude_mul: 0.80
+        aspirationAmplitude_mul: 0.70
+        preFormantGain_mul: 0.82
+        outputGain_mul: 0.85
       stop:
-        preFormantGain_mul: 0.7
-        outputGain_mul: 0.8
+        preFormantGain_mul: 0.82
+        outputGain_mul: 0.85
       affricate:
-        fricationAmplitude_mul: 0.56
-        aspirationAmplitude_mul: 0.68
-        preFormantGain_mul: 0.62
-        outputGain_mul: 0.7
-    phonemeOverrides:
-      0: {cf1: 648, cf2: 1856, cf3: 2820, pf1: 648, pf2: 1856, pf3: 2820}
-      3: {cf1: 433, cf2: 1955, cf3: 2820, pf1: 648, pf2: 1856, pf3: 2820}
-      @: {cf1: 648, cf2: 1856, cf3: 2820, pf1: 648, pf2: 1856, pf3: 2820}
-      E: {cf1: 685, cf2: 2199, cf3: 3050, pf1: 685, pf2: 2199, pf3: 3050}
-      I: {cf1: 522, cf2: 2344, cf3: 3130, pf1: 522, pf2: 2344, pf3: 3130}
-      O: {cf1: 585, cf2: 1181, cf3: 3130, pf1: 771, pf2: 1337, pf3: 3130}
-      U: {cf1: 528, cf2: 1220, cf3: 2958, pf1: 585, pf2: 1478, pf3: 2878}
-      V: {cf1: 795, cf2: 1631, cf3: 3107, pf1: 795, pf2: 1631, pf3: 3107}
-      a: {cf1: 771, cf2: 1894, cf3: 3050, pf1: 832, pf2: 1631, pf3: 3164}
-      e: {cf1: 560, cf2: 2462, cf3: 3278, pf1: 560, pf2: 2462, pf3: 3278}
-      i: {cf1: 407, cf2: 2603, cf3: 3570, pf1: 407, pf2: 2603, pf3: 3570}
-      o: {cf1: 697, cf2: 1350, cf3: 2820, pf1: 697, pf2: 1350, pf3: 2820}
-      u: {cf1: 382, cf2: 1285, cf3: 2797, pf1: 458, pf2: 1220, pf3: 2704}
-      y: {cf1: 356, cf2: 2284, cf3: 2646, pf1: 356, pf2: 2284, pf3: 2646}
-      Ã: {cf1: 710, cf2: 1542, cf3: 2935, pf1: 710, pf2: 1542, pf3: 2935}
-      á: {cf1: 1036, cf2: 2041, cf3: 3334, pf1: 1036, pf2: 1980, pf3: 3391}
-      ã: {cf1: 832, cf2: 1542, cf3: 2935, pf1: 832, pf2: 1542, pf3: 2935}
-      æ: {cf1: 795, cf2: 2175, cf3: 2970, pf1: 795, pf2: 2175, pf3: 2970}
-      é: {cf1: 497, cf2: 2696, cf3: 3559, pf1: 522, pf2: 2812, pf3: 3559}
-      í: {cf1: 382, cf2: 2754, cf3: 3570, pf1: 407, pf2: 2603, pf3: 3570}
-      ó: {cf1: 560, cf2: 1090, cf3: 2820, pf1: 623, pf2: 1155, pf3: 2820}
-      õ: {cf1: 572, cf2: 1350, cf3: 2820, pf1: 572, pf2: 1350, pf3: 2820}
-      ø: {cf1: 585, cf2: 1856, cf3: 3050, pf1: 585, pf2: 1856, pf3: 3050}
-      ú: {cf1: 356, cf2: 1155, cf3: 2797, pf1: 458, pf2: 1220, pf3: 2704}
-      ĩ: {cf1: 407, cf2: 2603, cf3: 3570, pf1: 407, pf2: 2603, pf3: 3570}
-      ő: {cf1: 522, cf2: 2041, cf3: 3050, pf1: 585, pf2: 1856, pf3: 3050}
-      œ: {cf1: 685, cf2: 1980, cf3: 2878, pf1: 685, pf2: 1980, pf3: 2878}
-      ũ: {cf1: 382, cf2: 1285, cf3: 2797, pf1: 458, pf2: 1220, pf3: 2704}
-      ű: {cf1: 330, cf2: 2224, cf3: 2646, pf1: 356, pf2: 2284, pf3: 2646}
-      ɐ: {cf1: 685, cf2: 1744, cf3: 2935, pf1: 795, pf2: 1631, pf3: 3107}
-      ɑ: {cf1: 893, cf2: 1769, cf3: 3164, pf1: 893, pf2: 1769, pf3: 3164}
-      # ᵅ: UK RP PALM/START - properly back "ah" for British English
-      ᵅ: {cf1: 795, cf2: 1350, cf3: 2935, pf1: 795, pf2: 1350, pf3: 2935}
-      ɒ: {cf1: 795, cf2: 1478, cf3: 2830, pf1: 893, pf2: 1631, pf3: 2900}
-      ɔ: {cf1: 585, cf2: 1181, cf3: 2830, pf1: 771, pf2: 1337, pf3: 2830}
-      ɘ: {cf1: 648, cf2: 1856, cf3: 2820, pf1: 648, pf2: 1856, pf3: 2820}
-      ə: {cf1: 648, cf2: 1856, cf3: 2820, pf1: 648, pf2: 1856, pf3: 2820}
-      ɚ: {cf1: 648, cf2: 1732, cf3: 2234, pf1: 648, pf2: 1732, pf3: 2234}
-      ɛ: {cf1: 685, cf2: 2284, cf3: 3050, pf1: 685, pf2: 2284, pf3: 3050}
-      ɜ: {cf1: 648, cf2: 1856, cf3: 2820, pf1: 648, pf2: 1856, pf3: 2820}
-      ɝ: {cf1: 598, cf2: 1732, cf3: 2115, pf1: 598, pf2: 1732, pf3: 2115}
-      ɤ: {cf1: 795, cf2: 1631, cf3: 3107, pf1: 795, pf2: 1631, pf3: 3107}
-      ɨ: {cf1: 442, cf2: 1980, cf3: 2760, pf1: 442, pf2: 1845, pf3: 2760}
-      ɪ: {cf1: 471, cf2: 2344, cf3: 3130, pf1: 522, pf2: 2344, pf3: 3130, cb1: 55, cb2: 50, cb3: 120}
-      ɯ: {cf1: 433, cf2: 1542, cf3: 2935, pf1: 433, pf2: 1542, pf3: 2935}
-      ɵ: {cf1: 585, cf2: 1856, cf3: 3050, pf1: 585, pf2: 1856, pf3: 3050}
-      ʉ: {cf1: 420, cf2: 1980, cf3: 2820, pf1: 458, pf2: 1980, pf3: 2820}
-      ʊ: {cf1: 528, cf2: 1220, cf3: 2958, pf1: 585, pf2: 1478, pf3: 2878, cb1: 65, cb2: 80, cb3: 130}
-      ʌ: {cf1: 795, cf2: 1631, cf3: 2880, pf1: 795, pf2: 1631, pf3: 2880}
-      ʏ: {cf1: 458, cf2: 2163, cf3: 2820, pf1: 458, pf2: 2163, pf3: 2820}
-      ᴀ: {cf1: 1012, cf2: 1669, cf3: 3164, pf1: 458, pf2: 1794, pf3: 3164}
-      ᴇ: {cf1: 458, cf2: 2754, cf3: 3559, pf1: 522, pf2: 2812, pf3: 3559}
-      ᴏ: {cf1: 783, cf2: 1350, cf3: 2830, pf1: 771, pf2: 1337, pf3: 2830}
-      ᴐ: {cf1: 746, cf2: 1478, cf3: 2830, pf1: 722, pf2: 1337, pf3: 2830}
-      ᴒ: {cf1: 787, cf2: 1343, cf3: 2993, pf1: 716, pf2: 1280, pf3: 3050}
-      ᴜ: {cf1: 528, cf2: 1220, cf3: 2958, pf1: 585, pf2: 1478, pf3: 2878}
-      ᵁ: {cf1: 528, cf2: 1542, cf3: 2958, pf1: 585, pf2: 1669, pf3: 2878}
-      ᵃ: {cf1: 832, cf2: 1894, cf3: 3050, pf1: 893, pf2: 1631, pf3: 3164}
-      ᵒ: {cf1: 697, cf2: 1478, cf3: 2820, pf1: 697, pf2: 1478, pf3: 2820}
-      ᵻ: {cf1: 471, cf2: 2163, cf3: 2993, pf1: 522, pf2: 2163, pf3: 2993}
-      ᵾ: {cf1: 382, cf2: 1794, cf3: 2797, pf1: 458, pf2: 1669, pf3: 2704}
-      ᵿ: {cf1: 382, cf2: 1542, cf3: 2797, pf1: 458, pf2: 1542, pf3: 2704}
-      ẽ: {cf1: 560, cf2: 2462, cf3: 3278, pf1: 560, pf2: 2462, pf3: 3278}
-      oː: {cf1: 697, cf2: 1350, cf3: 2820, pf1: 697, pf2: 1350, pf3: 2820}
-      yː: {cf1: 394, cf2: 2344, cf3: 3278, pf1: 394, pf2: 2344, pf3: 3278}
-      øː: {cf1: 585, cf2: 1856, cf3: 3050, pf1: 585, pf2: 1856, pf3: 3050}
-      ɑj: {cf1: 844, cf2: 1606, cf3: 3107, pf1: 844, pf2: 1606, pf3: 3107}
-      ɑw: {cf1: 820, cf2: 1644, cf3: 3107, pf1: 820, pf2: 1644, pf3: 3107}
-      ɑ̃: {cf1: 746, cf2: 1414, cf3: 2935, pf1: 746, pf2: 1414, pf3: 2935}
-      ɔj: {cf1: 710, cf2: 1298, cf3: 2935, pf1: 710, pf2: 1298, pf3: 2935}
-      ʊ̞: {cf1: 560, cf2: 1376, cf3: 2958, pf1: 623, pf2: 1427, pf3: 2878}
-      ɔ_r: {cf1: 795, cf2: 1414, cf3: 2820, pf1: 795, pf2: 1414, pf3: 2820}
-      ə͡l: {cf1: 648, cf2: 1856, cf3: 2820, pf1: 648, pf2: 1856, pf3: 2820}
-      s: {pf5: 3150, pf6: 3465, pb5: 260, pb6: 1876}
-      z: {pf5: 3150, pf6: 3234, pb5: 260, pb6: 1876}
-      ɕ: {pf5: 3150, pf6: 3234, pb5: 260, pb6: 1705}
-      ʂ: {pf5: 3150, pf6: 3234, pb5: 260, pb6: 1705}
-      ʃ: {pf5: 3150, pf6: 3234, pb5: 260, pb6: 1876}
-      ʐ: {pf5: 3150, pf6: 3234, pb5: 260, pb6: 1705}
-      ʑ: {pf5: 3150, pf6: 3234, pb5: 260, pb6: 1705}
-      ʒ: {pf5: 3150, pf6: 3234, pb5: 260, pb6: 1876}
-      d͡z: {pf5: 3150, pf6: 3234, pb5: 260, pb6: 1705}
-      d͡ʐ: {pf5: 3150, pf6: 3234, pb5: 260, pb6: 1705}
-      d͡ʑ: {pf5: 3150, pf6: 3234, pb5: 260, pb6: 1705}
-      d͡ʒ: {pf5: 3150, pf6: 3234, pb5: 442, pb6: 2216}
-      t͡s: {pf5: 3150, pf6: 3465, pb5: 260, pb6: 1705}
-      t͡ɕ: {pf5: 3150, pf6: 3234, pb5: 260, pb6: 1705}
-      t͡ʂ: {pf5: 3150, pf6: 3234, pb5: 260, pb6: 1705}
-      t͡ʃ: {pf5: 3150, pf6: 3234, pb5: 416, pb6: 2046}
-      # Turkish _tr vowels
-      a_tr: {cf1: 975, cf2: 1625, cf3: 3172, pf1: 975, pf2: 1625, pf3: 3172}
-      e_tr: {cf1: 598, cf2: 2600, cf3: 3355, pf1: 598, pf2: 2600, pf3: 3355}
-      i_tr: {cf1: 377, cf2: 3055, cf3: 3782, pf1: 377, pf2: 3055, pf3: 3782}
-      o_tr: {cf1: 572, cf2: 1105, cf3: 3172, pf1: 572, pf2: 1105, pf3: 3172}
-      u_tr: {cf1: 390, cf2: 910, cf3: 3111, pf1: 390, pf2: 910, pf3: 3111}
-      y_tr: {cf1: 377, cf2: 2535, cf3: 3050, pf1: 377, pf2: 2535, pf3: 3050}
-      ø_tr: {cf1: 546, cf2: 2080, cf3: 3050, pf1: 546, pf2: 2080, pf3: 3050}
-      ɯ_tr: {cf1: 494, cf2: 1365, cf3: 2989, pf1: 494, pf2: 1365, pf3: 2989}
-      ɛ_tr: {cf1: 715, cf2: 2405, cf3: 3233, pf1: 715, pf2: 2405, pf3: 3233}
-      æ_tr: {cf1: 845, cf2: 2275, cf3: 3050, pf1: 845, pf2: 2275, pf3: 3050}
-      ɪ_tr: {cf1: 494, cf2: 2470, cf3: 3233, pf1: 494, pf2: 2470, pf3: 3233}
-      ɔ_tr: {cf1: 650, cf2: 1105, cf3: 2989, pf1: 650, pf2: 1105, pf3: 2989}
-      œ_tr: {cf1: 650, cf2: 1885, cf3: 2928, pf1: 650, pf2: 1885, pf3: 2928}
-      ʊ_tr: {cf1: 481, cf2: 1105, cf3: 3050, pf1: 481, pf2: 1105, pf3: 3050}
-      aː_tr: {cf1: 975, cf2: 1625, cf3: 3172, pf1: 975, pf2: 1625, pf3: 3172}
-      œː_tr: {cf1: 650, cf2: 1885, cf3: 2928, pf1: 650, pf2: 1885, pf3: 2928}
-      oː_tr: {cf1: 572, cf2: 1105, cf3: 3172, pf1: 572, pf2: 1105, pf3: 3172}
-      øː_tr: {cf1: 546, cf2: 2080, cf3: 3050, pf1: 546, pf2: 2080, pf3: 3050}
-      ʊː_tr: {cf1: 481, cf2: 1105, cf3: 3050, pf1: 481, pf2: 1105, pf3: 3050}
-      # Turkish dental consonants — no formant overrides needed (frication
-      # spectral shape is set in the phoneme entry itself via pf5/pf6),
-      # but list them so Bobby profile discovery doesn't skip them.
-      s_tr: {cf1: 320, cf2: 1390, cf3: 2530, pf1: 320, pf2: 1390, pf3: 2530}
-      z_tr: {cf1: 240, cf2: 1390, cf3: 2530, pf1: 240, pf2: 1390, pf3: 2530}
+        fricationAmplitude_mul: 0.75
+        aspirationAmplitude_mul: 0.70
+        preFormantGain_mul: 0.82
+        outputGain_mul: 0.85
+    phonemeOverrides: {}
