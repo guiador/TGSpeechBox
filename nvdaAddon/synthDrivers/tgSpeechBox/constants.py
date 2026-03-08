@@ -127,6 +127,7 @@ voices = {
         "cf2_mul": 0.93,
         "cf3_mul": 0.95,
         "voicedTiltDbPerOct": 0.0,  # Explicit neutral tilt
+        "headSize": 100,            # Large pharynx — deep gruff quality
     },
     # -------------------------------------------------------------------------
     # Robert: Eloquence-inspired voice (BRIGHT, CRISP, SYNTHETIC)

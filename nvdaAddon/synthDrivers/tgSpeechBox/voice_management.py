@@ -107,7 +107,9 @@ class VoiceManagementMixin:
                 self._curAspirationTilt = self._perVoiceAspirationTilt.get(voice, 50)
                 self._curCascadeBwScale = self._perVoiceCascadeBwScale.get(voice, 50)
                 self._curVoiceTremor = self._perVoiceVoiceTremor.get(voice, 0)
-                self._curHeadSize = self._perVoiceHeadSize.get(voice, 50)
+                # Head size default: check voice preset for a per-voice default
+                hsDefault = voices.get(voice, {}).get("headSize", 50)
+                self._curHeadSize = self._perVoiceHeadSize.get(voice, hsDefault)
                 self._curFrameExCreakiness = self._perVoiceFrameExCreakiness.get(voice, 0)
                 self._curFrameExBreathiness = self._perVoiceFrameExBreathiness.get(voice, 0)
                 self._curFrameExJitter = self._perVoiceFrameExJitter.get(voice, 0)

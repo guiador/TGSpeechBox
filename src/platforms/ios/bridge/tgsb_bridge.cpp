@@ -37,6 +37,7 @@ typedef struct {
     int numOverrides;
     double voicedTiltDbPerOct;
     int hasVoicedTilt;
+    double f4FreqScale;  /* 0 = use default 1.0 */
 } VoicePreset;
 
 #define OFF(field) offsetof(speechPlayer_frame_t, field)
@@ -91,15 +92,15 @@ static const FrameOverride kRobertOverrides[] = {
     { OFF(pf5), 1.10, 1 }, { OFF(pf6), 1.00, 1 },
 };
 
-#define PRESET(name, arr, tilt, hasTilt) \
-    { name, arr, sizeof(arr)/sizeof(arr[0]), tilt, hasTilt }
+#define PRESET(name, arr, tilt, hasTilt, f4s) \
+    { name, arr, sizeof(arr)/sizeof(arr[0]), tilt, hasTilt, f4s }
 
 static const VoicePreset kPresets[] = {
-    PRESET("adam",     kAdamOverrides,     0.0,  0),
-    PRESET("benjamin", kBenjaminOverrides, 0.0,  0),
-    PRESET("caleb",    kCalebOverrides,    0.0,  0),
-    PRESET("david",    kDavidOverrides,    0.0,  0),
-    PRESET("robert",   kRobertOverrides,  -6.0,  1),
+    PRESET("adam",     kAdamOverrides,     0.0,  0, 0),
+    PRESET("benjamin", kBenjaminOverrides, 0.0,  0, 0),
+    PRESET("caleb",    kCalebOverrides,    0.0,  0, 0),
+    PRESET("david",    kDavidOverrides,    0.0,  0, 0.85),
+    PRESET("robert",   kRobertOverrides,  -6.0,  1, 0),
 };
 static const int kNumPresets = sizeof(kPresets) / sizeof(kPresets[0]);
 
@@ -287,6 +288,8 @@ int tgsb_set_voice(TgsbEngine *engine, const char *voiceName)
                 speechPlayer_getDefaultVoicingTone();
             if (kPresets[i].hasVoicedTilt)
                 tone.voicedTiltDbPerOct = kPresets[i].voicedTiltDbPerOct;
+            if (kPresets[i].f4FreqScale > 0.0)
+                tone.f4FreqScale = kPresets[i].f4FreqScale;
             speechPlayer_setVoicingTone(engine->player, &tone);
             return 1;
         }
