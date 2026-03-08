@@ -23,10 +23,14 @@ private:
     double pitchSyncB1Delta;
     double bwScale;  // Global cascade bandwidth multiplier from voicingTone
     double f1BwOffset;  // Source-tract coupling: extra F1 bandwidth (Hz)
+    double nasalBwScale;   // Nasal resonator bandwidth multiplier
+    double f4FreqScale;    // F4 frequency multiplier (pharynx length)
+    double nasalGainScale; // Nasal pole coupling amplitude multiplier
 
 public:
     CascadeFormantGenerator(int sr): sampleRate(sr), r1(sr), r2(sr), r3(sr), r4(sr), r5(sr), r6(sr), rN0(sr,true), rNP(sr),
-        pitchSyncF1Delta(0.0), pitchSyncB1Delta(0.0), bwScale(1.0), f1BwOffset(0.0) {}
+        pitchSyncF1Delta(0.0), pitchSyncB1Delta(0.0), bwScale(1.0), f1BwOffset(0.0),
+        nasalBwScale(1.0), f4FreqScale(1.0), nasalGainScale(1.0) {}
 
     void reset() {
         r1.reset(); r2.reset(); r3.reset(); r4.reset(); r5.reset(); r6.reset(); rN0.reset(); rNP.reset();
@@ -51,6 +55,24 @@ void setCascadeBwScale(double scale) {
         bwScale = scale;
     }
 
+    void setNasalBwScale(double scale) {
+        if (scale < 0.5) scale = 0.5;
+        if (scale > 2.0) scale = 2.0;
+        nasalBwScale = scale;
+    }
+
+    void setF4FreqScale(double scale) {
+        if (scale < 0.7) scale = 0.7;
+        if (scale > 1.5) scale = 1.5;
+        f4FreqScale = scale;
+    }
+
+    void setNasalGainScale(double scale) {
+        if (scale < 0.5) scale = 0.5;
+        if (scale > 1.5) scale = 1.5;
+        nasalGainScale = scale;
+    }
+
     void setF1BwOffset(double offset) {
         f1BwOffset = offset;
     }
@@ -63,12 +85,15 @@ void setCascadeBwScale(double scale) {
         // can audibly affect transitions (and can introduce clicks). So we preserve it.
 
         // Simple nasal fade: caNP crossfades between direct path and the NZ/NP path.
-        // This keeps behavior consistent with the original SpeechPlayer tuning.
-        const double n0Output = rN0.resonate(input, frame->cfN0, frame->cbN0);
+        // nasalBwScale widens/narrows nasal resonator bandwidths (female = wider).
+        // nasalGainScale adjusts coupling amplitude (how much nasal bleeds through).
+        const double n0Output = rN0.resonate(input, frame->cfN0, frame->cbN0 * nasalBwScale);
+        double scaledCaNP = frame->caNP * nasalGainScale;
+        if (scaledCaNP > 1.0) scaledCaNP = 1.0;
         double output = calculateValueAtFadePosition(
             input,
-            rNP.resonate(n0Output, frame->cfNP, frame->cbNP),
-            frame->caNP
+            rNP.resonate(n0Output, frame->cfNP, frame->cbNP * nasalBwScale),
+            scaledCaNP
         );
 
         // During within-phoneme formant sweeps (diphthongs), widen bandwidth as needed
@@ -133,8 +158,9 @@ void setCascadeBwScale(double scale) {
         output = preR5 + fade5 * (output - preR5);
 
         double preR4 = output;
-        output = r4.resonate(output, frame->cf4, cb4);
-        double fade4 = cascadeFade(frame->cf4);
+        double cf4Scaled = frame->cf4 * f4FreqScale;
+        output = r4.resonate(output, cf4Scaled, cb4);
+        double fade4 = cascadeFade(cf4Scaled);
         output = preR4 + fade4 * (output - preR4);
         output = r3.resonate(output, frame->cf3, cb3);
         output = r2.resonate(output, frame->cf2, cb2);
@@ -144,13 +170,20 @@ void setCascadeBwScale(double scale) {
     }
 };
 
-class ParallelFormantGenerator { 
+class ParallelFormantGenerator {
 private:
     int sampleRate;
     Resonator r1, r2, r3, r4, r5, r6;
+    double f4FreqScale;
 
 public:
-    ParallelFormantGenerator(int sr): sampleRate(sr), r1(sr), r2(sr), r3(sr), r4(sr), r5(sr), r6(sr) {}
+    ParallelFormantGenerator(int sr): sampleRate(sr), r1(sr), r2(sr), r3(sr), r4(sr), r5(sr), r6(sr), f4FreqScale(1.0) {}
+
+    void setF4FreqScale(double scale) {
+        if (scale < 0.7) scale = 0.7;
+        if (scale > 1.5) scale = 1.5;
+        f4FreqScale = scale;
+    }
 
     void reset() {
         r1.reset(); r2.reset(); r3.reset(); r4.reset(); r5.reset(); r6.reset();
@@ -179,7 +212,7 @@ public:
         output+=(r1.resonate(input,frame->pf1,pb1)-input)*frame->pa1;
         output+=(r2.resonate(input,frame->pf2,pb2)-input)*frame->pa2;
         output+=(r3.resonate(input,frame->pf3,pb3)-input)*frame->pa3;
-        output+=(r4.resonate(input,frame->pf4,frame->pb4)-input)*frame->pa4;
+        output+=(r4.resonate(input,frame->pf4 * f4FreqScale,frame->pb4)-input)*frame->pa4;
         output+=(r5.resonate(input,frame->pf5,frame->pb5)-input)*frame->pa5;
         output+=(r6.resonate(input,frame->pf6,frame->pb6)-input)*frame->pa6;
         return calculateValueAtFadePosition(output,input,frame->parallelBypass);

@@ -552,6 +552,9 @@ NVSP_FRONTEND_API int nvspFrontend_getVoicingTone(
   outTone->aspirationTiltDbPerOct = 0.0;
   outTone->cascadeBwScale = 1.0;
   outTone->tremorDepth = 0.0;
+  outTone->nasalBwScale = 1.0;
+  outTone->f4FreqScale = 1.0;
+  outTone->nasalGainScale = 1.0;
 
   // Check if we have a voice profile with voicing tone
   const std::string& profileName = h->pack.lang.voiceProfileName;
@@ -578,6 +581,9 @@ NVSP_FRONTEND_API int nvspFrontend_getVoicingTone(
   if (vt.aspirationTiltDbPerOct_set) outTone->aspirationTiltDbPerOct = vt.aspirationTiltDbPerOct;
   if (vt.cascadeBwScale_set) outTone->cascadeBwScale = vt.cascadeBwScale;
   if (vt.tremorDepth_set) outTone->tremorDepth = vt.tremorDepth;
+  if (vt.nasalBwScale_set) outTone->nasalBwScale = vt.nasalBwScale;
+  if (vt.f4FreqScale_set) outTone->f4FreqScale = vt.f4FreqScale;
+  if (vt.nasalGainScale_set) outTone->nasalGainScale = vt.nasalGainScale;
 
   return 1;  // Profile has explicit voicing tone
 }

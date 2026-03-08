@@ -205,7 +205,8 @@ class TgsbEngine: ObservableObject {
         let tremor   = (voiceTremor / 100.0) * 0.4
 
         tgsb_set_voicing_tone(eng, tilt, noiseMod, psF1, psB1,
-                              sqVal, aspTilt, bwVal, tremor)
+                              sqVal, aspTilt, bwVal, tremor,
+                              1.0, 1.0, 1.0)
     }
 
     /// Apply FrameEx defaults from 0–100 slider values.

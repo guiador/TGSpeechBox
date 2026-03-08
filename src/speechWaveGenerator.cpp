@@ -775,7 +775,13 @@ public:
         cascade.setPitchSyncParams(currentTone.pitchSyncF1DeltaHz,
                                    currentTone.pitchSyncB1DeltaHz + kGlottalCycleBwDelta);
         cascade.setCascadeBwScale(currentTone.cascadeBwScale);
-        
+
+        // Vocal tract shape parameters (v4)
+        cascade.setNasalBwScale(currentTone.nasalBwScale);
+        cascade.setF4FreqScale(currentTone.f4FreqScale);
+        cascade.setNasalGainScale(currentTone.nasalGainScale);
+        parallel.setF4FreqScale(currentTone.f4FreqScale);
+
         // Update tremor depth for elderly/shaky voice
         voiceGenerator.setTremorDepth(currentTone.tremorDepth);
     }

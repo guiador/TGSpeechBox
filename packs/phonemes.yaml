@@ -8758,6 +8758,9 @@ voiceProfiles:
       pitchSyncB1DeltaHz: 0.0
       speedQuotient: 1.60
       aspirationTiltDbPerOct: 0.00
+      nasalBwScale: 1.30
+      f4FreqScale: 1.08
+      nasalGainScale: 1.10
     classScales:
       vowel:
         voicePitch_mul: 1.80
@@ -8813,6 +8816,9 @@ voiceProfiles:
       highShelfGainDb: 2.0
       highShelfQ: 0.7
       speedQuotient: 2.20
+      nasalBwScale: 1.15
+      f4FreqScale: 1.20
+      nasalGainScale: 1.05
     classScales:
       vowel:
         voicePitch_mul: 2.40

@@ -56,7 +56,10 @@ void tgsb_set_voicing_tone(TgsbEngine *engine,
     double speedQuotient,
     double aspirationTiltDbPerOct,
     double cascadeBwScale,
-    double tremorDepth);
+    double tremorDepth,
+    double nasalBwScale,
+    double f4FreqScale,
+    double nasalGainScale);
 
 void tgsb_set_frame_ex_defaults(TgsbEngine *engine,
     double creakiness,

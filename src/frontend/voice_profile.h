@@ -103,7 +103,12 @@ struct VoicingTone {
   double aspirationTiltDbPerOct = 0.0; // Aspiration spectral tilt
   double cascadeBwScale = 1.0;       // Global cascade bandwidth multiplier (1.0 = neutral)
   double tremorDepth = 0.0;          // Tremor depth for elderly/shaky voice (0-0.5)
-  
+
+  // V4 parameters — vocal tract shape
+  double nasalBwScale = 1.0;        // Nasal resonator bandwidth multiplier
+  double f4FreqScale = 1.0;         // F4 frequency multiplier (pharynx length)
+  double nasalGainScale = 1.0;      // Nasal pole coupling amplitude multiplier
+
   // Track which fields were explicitly set in YAML
   bool voicingPeakPos_set = false;
   bool voicedPreEmphA_set = false;
@@ -119,6 +124,9 @@ struct VoicingTone {
   bool aspirationTiltDbPerOct_set = false;
   bool cascadeBwScale_set = false;
   bool tremorDepth_set = false;
+  bool nasalBwScale_set = false;
+  bool f4FreqScale_set = false;
+  bool nasalGainScale_set = false;
 };
 
 // A single voice profile definition.

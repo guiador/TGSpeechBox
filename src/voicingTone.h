@@ -287,6 +287,64 @@ typedef struct {
      */
     double tremorDepth;
 
+    /* ================================================================
+     * V4 additions: Vocal tract shape parameters for voice character
+     * ================================================================
+     *
+     * These model structural vocal tract differences between male,
+     * female, and child voices — NOT source differences (breathiness).
+     * Real female/child voices differ primarily in tract geometry
+     * (shorter pharynx, wider nasal passages), not in aspiration.
+     */
+
+    /**
+     * Nasal resonator bandwidth multiplier.
+     * Scales cbN0 (antiresonator) and cbNP (nasal pole) bandwidths.
+     *
+     * Female nasal passages are wider relative to tract size, creating
+     * more damped nasal resonances. This changes the overall voice
+     * color without affecting breathiness.
+     *
+     * Range: 0.5 to 2.0 (clamped by DSP)
+     *   - 0.8-0.9: Sharper nasal murmur (prominent nasality)
+     *   - 1.0: Default (no scaling)
+     *   - 1.2-1.4: Wider, more damped nasal resonances (female character)
+     *
+     * Default: 1.0
+     */
+    double nasalBwScale;
+
+    /**
+     * F4 frequency multiplier.
+     * Scales cf4 and pf4 (cascade and parallel fourth formant).
+     *
+     * F4 is primarily determined by pharynx length. Shorter pharynx
+     * (female/child) raises F4. This is one of the strongest acoustic
+     * cues for perceived vocal tract size independent of pitch.
+     *
+     * Range: 0.7 to 1.5 (clamped by DSP)
+     *   - 0.9-0.95: Larger pharynx (deep male)
+     *   - 1.0: Default (no scaling, base F4 ~3300 Hz)
+     *   - 1.05-1.10: Female pharynx (F4 ~3465-3630 Hz)
+     *   - 1.15-1.25: Child pharynx (F4 ~3795-4125 Hz)
+     *
+     * Default: 1.0
+     */
+    double f4FreqScale;
+
+    /**
+     * Nasal pole coupling amplitude multiplier.
+     * Scales caNP, controlling how much nasal resonance bleeds through.
+     *
+     * Range: 0.5 to 1.5 (clamped by DSP)
+     *   - 0.6-0.8: Reduced nasality (denasalized quality)
+     *   - 1.0: Default (no scaling)
+     *   - 1.1-1.3: Increased nasality (hypernasal quality)
+     *
+     * Default: 1.0
+     */
+    double nasalGainScale;
+
 } speechPlayer_voicingTone_t;
 
 /**
@@ -311,7 +369,10 @@ typedef struct {
     2.0,    /* speedQuotient (neutral, matches original behavior) */ \
     0.0,    /* aspirationTiltDbPerOct (no tilt by default) */ \
     0.9,    /* cascadeBwScale (mild narrowing for clearer vowels, less tubey than 0.8) */ \
-    0.0     /* tremorDepth (no tremor by default) */ \
+    0.0,    /* tremorDepth (no tremor by default) */ \
+    1.0,    /* nasalBwScale (no scaling) */ \
+    1.0,    /* f4FreqScale (no scaling, base F4 ~3300 Hz) */ \
+    1.0     /* nasalGainScale (no scaling) */ \
 }
 
 /**

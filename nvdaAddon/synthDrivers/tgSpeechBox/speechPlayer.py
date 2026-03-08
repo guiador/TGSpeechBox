@@ -199,6 +199,11 @@ class VoicingTone(Structure):
         ("aspirationTiltDbPerOct", c_double),  # Aspiration noise tilt (default 0.0)
         ("cascadeBwScale", c_double),            # Cascade bandwidth multiplier (0.4-1.4, default 1.0)
         ("tremorDepth", c_double),               # Tremor depth for elderly/shaky voice (0-0.5)
+
+        # New v4 parameters — vocal tract shape
+        ("nasalBwScale", c_double),              # Nasal resonator bandwidth multiplier (0.5-2.0, default 1.0)
+        ("f4FreqScale", c_double),               # F4 frequency multiplier (0.7-1.5, default 1.0)
+        ("nasalGainScale", c_double),            # Nasal pole coupling amplitude multiplier (0.5-1.5, default 1.0)
     ]
     
     @classmethod
@@ -230,6 +235,11 @@ class VoicingTone(Structure):
         tone.aspirationTiltDbPerOct = 0.0
         tone.cascadeBwScale = 1.0               # No scaling (default)
         tone.tremorDepth = 0.0                  # No tremor (default)
+
+        # New v4 parameters — vocal tract shape
+        tone.nasalBwScale = 1.0                 # No scaling (default)
+        tone.f4FreqScale = 1.0                  # No scaling (default)
+        tone.nasalGainScale = 1.0               # No scaling (default)
         return tone
 
 

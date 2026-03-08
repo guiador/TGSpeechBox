@@ -73,6 +73,10 @@ class VoicingTone(ctypes.Structure):
         ("aspirationTiltDbPerOct", ctypes.c_double),
         ("cascadeBwScale", ctypes.c_double),
         ("tremorDepth", ctypes.c_double),
+        # V4 parameters — vocal tract shape
+        ("nasalBwScale", ctypes.c_double),
+        ("f4FreqScale", ctypes.c_double),
+        ("nasalGainScale", ctypes.c_double),
     ]
 
 

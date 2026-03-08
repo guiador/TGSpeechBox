@@ -500,7 +500,10 @@ void tgsb_set_voicing_tone(TgsbEngine *engine,
     double speedQuotient,
     double aspirationTiltDbPerOct,
     double cascadeBwScale,
-    double tremorDepth)
+    double tremorDepth,
+    double nasalBwScale,
+    double f4FreqScale,
+    double nasalGainScale)
 {
     if (!engine || !engine->player) return;
 
@@ -527,6 +530,9 @@ void tgsb_set_voicing_tone(TgsbEngine *engine,
     tone.aspirationTiltDbPerOct = aspirationTiltDbPerOct;
     tone.cascadeBwScale = cascadeBwScale;
     tone.tremorDepth = tremorDepth;
+    tone.nasalBwScale = nasalBwScale;
+    tone.f4FreqScale = f4FreqScale;
+    tone.nasalGainScale = nasalGainScale;
 
     speechPlayer_setVoicingTone(engine->player, &tone);
 }

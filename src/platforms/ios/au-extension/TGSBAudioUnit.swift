@@ -453,7 +453,8 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
         let tremor   = (voiceTremor / 100.0) * 0.4
 
         tgsb_set_voicing_tone(eng, tilt, noiseMod, psF1, psB1,
-                              sq, aspTilt, bw, tremor)
+                              sq, aspTilt, bw, tremor,
+                              1.0, 1.0, 1.0)
 
         // FrameEx: convert 0–100 sliders to engine parameters
         let creak    = load("creakiness", 0) / 100.0

@@ -139,10 +139,15 @@ typedef struct nvspFrontend_VoicingTone {
   double aspirationTiltDbPerOct; /* Aspiration spectral tilt */
   double cascadeBwScale;        /* Global cascade bandwidth multiplier (1.0 = neutral) */
   double tremorDepth;           /* Tremor depth for elderly/shaky voice (0-0.5) */
+
+  /* V4 parameters — vocal tract shape */
+  double nasalBwScale;          /* Nasal resonator bandwidth multiplier (1.0 = neutral) */
+  double f4FreqScale;           /* F4 frequency multiplier for pharynx length (1.0 = neutral) */
+  double nasalGainScale;        /* Nasal pole coupling amplitude multiplier (1.0 = neutral) */
 } nvspFrontend_VoicingTone;
 
 /* Number of fields in VoicingTone struct */
-#define NVSP_FRONTEND_VOICINGTONE_NUM_PARAMS 14
+#define NVSP_FRONTEND_VOICINGTONE_NUM_PARAMS 17
 
 /*
   VoiceProfileSliders - the 12 user-adjustable slider values (ABI v2+).
