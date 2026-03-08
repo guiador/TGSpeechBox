@@ -676,7 +676,7 @@ private fun EditingVoiceDropdown(viewModel: TgsbViewModel) {
                 DropdownMenuItem(
                     text = { Text(voice.label) },
                     onClick = {
-                        viewModel.onVoiceSelected(index)
+                        viewModel.onEditingVoiceSelected(index)
                         expanded = false
                     }
                 )

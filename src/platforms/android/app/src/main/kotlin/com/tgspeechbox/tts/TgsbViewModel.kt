@@ -199,6 +199,13 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
         applyPitchSettings()
     }
 
+    /** Switch which voice's settings are shown in Engine Settings,
+     *  WITHOUT changing TalkBack's active voice or saving the preset. */
+    fun onEditingVoiceSelected(index: Int) {
+        selectedVoiceIndex.value = index
+        loadSettingsForVoice()
+    }
+
     /**
      * Reload all per-voice slider/setting StateFlows from SharedPreferences.
      * Called when the user switches voices so the UI reflects that voice's
