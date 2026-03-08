@@ -8760,146 +8760,50 @@ voiceProfiles:
       aspirationTiltDbPerOct: 0.00
     classScales:
       vowel:
-        voicePitch_mul: 1.65
-        endVoicePitch_mul: 1.65
+        voicePitch_mul: 1.80
+        endVoicePitch_mul: 1.80
         vibratoPitchOffset_mul: 0.75
         vibratoSpeed_mul: 0.98
-        voiceTurbulenceAmplitude_mul: 1.20
-        glottalOpenQuotient_mul: 0.70
-        voiceAmplitude_mul: 0.92
-        aspirationAmplitude_mul: 1.15
-        preFormantGain_mul: 0.82
-        outputGain_mul: 0.90
-        cf_mul: [1.18, 1.20, 1.14, 0.94, 0.88, 0.82]
-        pf_mul: [1.18, 1.20, 1.14, 0.94, 0.88, 0.82]
+        voiceTurbulenceAmplitude_mul: 1.10
+        glottalOpenQuotient_mul: 0.65
+        voiceAmplitude_mul: 0.60
+        aspirationAmplitude_mul: 1.30
+        preFormantGain_mul: 0.68
+        outputGain_mul: 0.85
+        cf_mul: [1.10, 1.15, 1.10, 0.94, 0.88, 0.82]
+        pf_mul: [1.10, 1.15, 1.10, 0.94, 0.88, 0.82]
         cb_mul: [1.10, 1.10, 1.10, 1.25, 1.35, 1.50]
         pb_mul: [1.10, 1.10, 1.10, 1.25, 1.35, 1.50]
       voicedConsonant:
-        voicePitch_mul: 1.65
-        endVoicePitch_mul: 1.65
+        voicePitch_mul: 1.80
+        endVoicePitch_mul: 1.80
         vibratoPitchOffset_mul: 0.75
         vibratoSpeed_mul: 0.98
-        voiceTurbulenceAmplitude_mul: 1.1
-        glottalOpenQuotient_mul: 0.72
-        voiceAmplitude_mul: 0.94
-        aspirationAmplitude_mul: 1.05
-        preFormantGain_mul: 0.88
-        outputGain_mul: 0.92
+        voiceTurbulenceAmplitude_mul: 1.0
+        glottalOpenQuotient_mul: 0.67
+        voiceAmplitude_mul: 0.62
+        aspirationAmplitude_mul: 1.15
+        preFormantGain_mul: 0.68
+        outputGain_mul: 0.85
       unvoicedFricative:
-        pf_mul: [1.16, 1.18, 1.12, 0.94, 0.84, 0.72]
-        pb_mul: [1, 1, 1, 1.10, 1.25, 1.45]
-        fricationAmplitude_mul: 0.85
-        aspirationAmplitude_mul: 0.90
-        preFormantGain_mul: 0.88
-        outputGain_mul: 0.92
+        fricationAmplitude_mul: 0.65
+        aspirationAmplitude_mul: 0.80
+        preFormantGain_mul: 0.68
+        outputGain_mul: 0.85
       voicedFricative:
-        pf_mul: [1.16, 1.18, 1.12, 0.94, 0.84, 0.72]
-        pb_mul: [1, 1, 1, 1.10, 1.25, 1.45]
-        fricationAmplitude_mul: 0.85
-        aspirationAmplitude_mul: 0.90
-        preFormantGain_mul: 0.88
-        outputGain_mul: 0.92
+        fricationAmplitude_mul: 0.65
+        aspirationAmplitude_mul: 0.80
+        preFormantGain_mul: 0.68
+        outputGain_mul: 0.85
       stop:
-        preFormantGain_mul: 0.88
-        outputGain_mul: 0.92
+        preFormantGain_mul: 0.68
+        outputGain_mul: 0.85
       affricate:
-        fricationAmplitude_mul: 0.80
-        aspirationAmplitude_mul: 0.85
-        preFormantGain_mul: 0.88
-        outputGain_mul: 0.92
-    phonemeOverrides:
-      0: {cf1: 568, cf2: 1630, cf3: 2539, pf1: 568, pf2: 1630, pf3: 2539}
-      3: {cf1: 379, cf2: 1718, cf3: 2539, pf1: 568, pf2: 1630, pf3: 2539}
-      @: {cf1: 568, cf2: 1630, cf3: 2539, pf1: 568, pf2: 1630, pf3: 2539}
-      E: {cf1: 601, cf2: 1937, cf3: 2750, pf1: 601, pf2: 1937, pf3: 2750}
-      I: {cf1: 458, cf2: 2066, cf3: 2823, pf1: 458, pf2: 2066, pf3: 2823}
-      O: {cf1: 513, cf2: 1031, cf3: 2823, pf1: 677, pf2: 1169, pf3: 2823}
-      U: {cf1: 463, cf2: 1066, cf3: 2666, pf1: 513, pf2: 1294, pf3: 2592}
-      V: {cf1: 698, cf2: 1429, cf3: 2802, pf1: 698, pf2: 1429, pf3: 2802}
-      a: {cf1: 677, cf2: 1663, cf3: 2750, pf1: 731, pf2: 1429, pf3: 2855}
-      e: {cf1: 491, cf2: 2174, cf3: 2959, pf1: 491, pf2: 2174, pf3: 2959}
-      i: {cf1: 357, cf2: 2301, cf3: 3229, pf1: 357, pf2: 2301, pf3: 3229}
-      o: {cf1: 612, cf2: 1180, cf3: 2539, pf1: 612, pf2: 1180, pf3: 2539}
-      u: {cf1: 334, cf2: 1123, cf3: 2518, pf1: 402, pf2: 1066, pf3: 2433}
-      y: {cf1: 312, cf2: 2012, cf3: 2380, pf1: 312, pf2: 2012, pf3: 2380}
-      Ã: {cf1: 623, cf2: 1350, cf3: 2645, pf1: 623, pf2: 1350, pf3: 2645}
-      á: {cf1: 911, cf2: 1795, cf3: 3011, pf1: 911, pf2: 1740, pf3: 3063}
-      ã: {cf1: 731, cf2: 1350, cf3: 2645, pf1: 731, pf2: 1350, pf3: 2645}
-      æ: {cf1: 698, cf2: 1915, cf3: 2676, pf1: 698, pf2: 1915, pf3: 2676}
-      é: {cf1: 435, cf2: 2386, cf3: 3218, pf1: 458, pf2: 2490, pf3: 3218}
-      í: {cf1: 334, cf2: 2438, cf3: 3229, pf1: 357, pf2: 2301, pf3: 3229}
-      ó: {cf1: 491, cf2: 950, cf3: 2539, pf1: 546, pf2: 1008, pf3: 2539}
-      õ: {cf1: 502, cf2: 1180, cf3: 2539, pf1: 502, pf2: 1180, pf3: 2539}
-      ø: {cf1: 513, cf2: 1630, cf3: 2750, pf1: 513, pf2: 1630, pf3: 2750}
-      ú: {cf1: 312, cf2: 1008, cf3: 2518, pf1: 402, pf2: 1066, pf3: 2433}
-      ĩ: {cf1: 357, cf2: 2301, cf3: 3229, pf1: 357, pf2: 2301, pf3: 3229}
-      ő: {cf1: 458, cf2: 1795, cf3: 2750, pf1: 513, pf2: 1630, pf3: 2750}
-      œ: {cf1: 601, cf2: 1740, cf3: 2592, pf1: 601, pf2: 1740, pf3: 2592}
-      ũ: {cf1: 334, cf2: 1123, cf3: 2518, pf1: 402, pf2: 1066, pf3: 2433}
-      ű: {cf1: 289, cf2: 1958, cf3: 2380, pf1: 312, pf2: 2012, pf3: 2380}
-      ɐ: {cf1: 601, cf2: 1530, cf3: 2645, pf1: 698, pf2: 1429, pf3: 2802}
-      # ɑ: Fronted PALM/START vowel (F2≈1550). Useful for Australian English!
-      # For proper UK RP, use ᵅ instead (F2≈1200, properly back "ah").
-      ɑ: {cf1: 784, cf2: 1552, cf3: 2855, pf1: 784, pf2: 1552, pf3: 2855}
-      # ᵅ: UK RP PALM/START vowel - properly back "ah" quality (based on older tuning).
-      # Research shows RP ɑː should have F2 around 1100-1200 Hz, not the fronted 1550+ of Australian.
-      ᵅ: {cf1: 700, cf2: 1200, cf3: 2600, pf1: 700, pf2: 1200, pf3: 2600}
-      ɒ: {cf1: 698, cf2: 1294, cf3: 2520, pf1: 784, pf2: 1429, pf3: 2600}
-      ɔ: {cf1: 513, cf2: 1031, cf3: 2550, pf1: 677, pf2: 1169, pf3: 2550}
-      ɘ: {cf1: 568, cf2: 1630, cf3: 2539, pf1: 568, pf2: 1630, pf3: 2539}
-      ə: {cf1: 568, cf2: 1630, cf3: 2539, pf1: 568, pf2: 1630, pf3: 2539}
-      ɚ: {cf1: 568, cf2: 1518, cf3: 2005, pf1: 568, pf2: 1518, pf3: 2005}
-      ɛ: {cf1: 601, cf2: 2012, cf3: 2750, pf1: 601, pf2: 2012, pf3: 2750}
-      ɜ: {cf1: 568, cf2: 1630, cf3: 2539, pf1: 568, pf2: 1630, pf3: 2539}
-      ɝ: {cf1: 524, cf2: 1518, cf3: 1897, pf1: 524, pf2: 1518, pf3: 1897}
-      ɤ: {cf1: 698, cf2: 1429, cf3: 2802, pf1: 698, pf2: 1429, pf3: 2802}
-      ɨ: {cf1: 388, cf2: 1740, cf3: 2424, pf1: 388, pf2: 1620, pf3: 2424}
-      ɪ: {cf1: 413, cf2: 2066, cf3: 2823, pf1: 458, pf2: 2066, pf3: 2823, cb1: 55, cb2: 50, cb3: 120}
-      ɯ: {cf1: 379, cf2: 1350, cf3: 2645, pf1: 379, pf2: 1350, pf3: 2645}
-      ɵ: {cf1: 513, cf2: 1630, cf3: 2750, pf1: 513, pf2: 1630, pf3: 2750}
-      ʉ: {cf1: 368, cf2: 1740, cf3: 2539, pf1: 402, pf2: 1740, pf3: 2539}
-      ʊ: {cf1: 463, cf2: 1066, cf3: 2666, pf1: 513, pf2: 1294, pf3: 2592, cb1: 100, cb2: 100, cb3: 180}
-      ʌ: {cf1: 698, cf2: 1429, cf3: 2600, pf1: 698, pf2: 1429, pf3: 2600}
-      ʏ: {cf1: 402, cf2: 1904, cf3: 2539, pf1: 402, pf2: 1904, pf3: 2539}
-      ᴀ: {cf1: 890, cf2: 1462, cf3: 2855, pf1: 402, pf2: 1574, pf3: 2855}
-      ᴇ: {cf1: 402, cf2: 2438, cf3: 3218, pf1: 458, pf2: 2490, pf3: 3218}
-      ᴏ: {cf1: 688, cf2: 1180, cf3: 2520, pf1: 677, pf2: 1169, pf3: 2550}
-      ᴐ: {cf1: 655, cf2: 1294, cf3: 2520, pf1: 633, pf2: 1169, pf3: 2550}
-      ᴒ: {cf1: 692, cf2: 1176, cf3: 2697, pf1: 629, pf2: 1120, pf3: 2750}
-      ᴜ: {cf1: 463, cf2: 1066, cf3: 2666, pf1: 513, pf2: 1294, pf3: 2592}
-      ᵁ: {cf1: 463, cf2: 1350, cf3: 2666, pf1: 513, pf2: 1462, pf3: 2592}
-      ᵃ: {cf1: 731, cf2: 1663, cf3: 2750, pf1: 784, pf2: 1429, pf3: 2855}
-      ᵒ: {cf1: 612, cf2: 1294, cf3: 2539, pf1: 612, pf2: 1294, pf3: 2539}
-      ᵻ: {cf1: 413, cf2: 1904, cf3: 2697, pf1: 458, pf2: 1904, pf3: 2697}
-      ᵾ: {cf1: 334, cf2: 1574, cf3: 2518, pf1: 402, pf2: 1462, pf3: 2433}
-      ᵿ: {cf1: 334, cf2: 1350, cf3: 2518, pf1: 402, pf2: 1350, pf3: 2433}
-      ẽ: {cf1: 491, cf2: 2174, cf3: 2959, pf1: 491, pf2: 2174, pf3: 2959}
-      oː: {cf1: 612, cf2: 1180, cf3: 2539, pf1: 612, pf2: 1180, pf3: 2539}
-      yː: {cf1: 346, cf2: 2066, cf3: 2959, pf1: 346, pf2: 2066, pf3: 2959}
-      øː: {cf1: 513, cf2: 1630, cf3: 2750, pf1: 513, pf2: 1630, pf3: 2750}
-      ɑj: {cf1: 741, cf2: 1406, cf3: 2802, pf1: 741, pf2: 1406, pf3: 2802}
-      ɑw: {cf1: 720, cf2: 1440, cf3: 2802, pf1: 720, pf2: 1440, pf3: 2802}
-      ɑ̃: {cf1: 655, cf2: 1237, cf3: 2645, pf1: 655, pf2: 1237, pf3: 2645}
-      ɔj: {cf1: 623, cf2: 1134, cf3: 2645, pf1: 623, pf2: 1134, pf3: 2645}
-      ʊ̞: {cf1: 491, cf2: 1203, cf3: 2666, pf1: 546, pf2: 1248, pf3: 2592}
-      ɔ_r: {cf1: 698, cf2: 1237, cf3: 2539, pf1: 698, pf2: 1237, pf3: 2539}
-      ə͡l: {cf1: 568, cf2: 1630, cf3: 2539, pf1: 568, pf2: 1630, pf3: 2539}
-      s: {pf5: 3300, pf6: 3780, pb5: 250, pb6: 1754}
-      z: {pf5: 3300, pf6: 3528, pb5: 250, pb6: 1754}
-      ɕ: {pf5: 3300, pf6: 3528, pb5: 250, pb6: 1595}
-      ʂ: {pf5: 3300, pf6: 3528, pb5: 250, pb6: 1595}
-      ʃ: {pf5: 3300, pf6: 3528, pb5: 250, pb6: 1754}
-      ʐ: {pf5: 3300, pf6: 3528, pb5: 250, pb6: 1595}
-      ʑ: {pf5: 3300, pf6: 3528, pb5: 250, pb6: 1595}
-      ʒ: {pf5: 3300, pf6: 3528, pb5: 250, pb6: 1754}
-      d͡z: {pf5: 3300, pf6: 3528, pb5: 250, pb6: 1595}
-      d͡ʐ: {pf5: 3300, pf6: 3528, pb5: 250, pb6: 1595}
-      d͡ʑ: {pf5: 3300, pf6: 3528, pb5: 250, pb6: 1595}
-      d͡ʒ: {pf5: 3300, pf6: 3528, pb5: 425, pb6: 2074}
-      t͡s: {pf5: 3300, pf6: 3780, pb5: 250, pb6: 1595}
-      t͡ɕ: {pf5: 3300, pf6: 3528, pb5: 250, pb6: 1595}
-      t͡ʂ: {pf5: 3300, pf6: 3528, pb5: 250, pb6: 1595}
-      t͡ʃ: {pf5: 3300, pf6: 3528, pb5: 400, pb6: 1914}
+        fricationAmplitude_mul: 0.60
+        aspirationAmplitude_mul: 0.75
+        preFormantGain_mul: 0.68
+        outputGain_mul: 0.85
+    phonemeOverrides: {}
   Bobby:
     voicingTone:
       voicingPeakPos: 0.88
@@ -8911,8 +8815,8 @@ voiceProfiles:
       speedQuotient: 2.20
     classScales:
       vowel:
-        voicePitch_mul: 1.95
-        endVoicePitch_mul: 2.05
+        voicePitch_mul: 2.40
+        endVoicePitch_mul: 2.50
         vibratoPitchOffset_mul: 0.8
         vibratoSpeed_mul: 1.1
         voiceTurbulenceAmplitude_mul: 1.0
@@ -8921,13 +8825,13 @@ voiceProfiles:
         aspirationAmplitude_mul: 0.50
         preFormantGain_mul: 0.82
         outputGain_mul: 0.85
-        cf_mul: [1.14, 1.12, 1.10, 0.94, 0.88, 0.82]
-        pf_mul: [1.14, 1.12, 1.10, 0.94, 0.88, 0.82]
+        cf_mul: [1, 1, 1, 0.94, 0.88, 0.82]
+        pf_mul: [1, 1, 1, 0.94, 0.88, 0.82]
         cb_mul: [1.05, 1.05, 1.0, 1.15, 1.30, 1.45]
         pb_mul: [1.05, 1.05, 1.0, 1.15, 1.30, 1.45]
       voicedConsonant:
-        voicePitch_mul: 1.95
-        endVoicePitch_mul: 2.05
+        voicePitch_mul: 2.40
+        endVoicePitch_mul: 2.50
         vibratoPitchOffset_mul: 0.8
         vibratoSpeed_mul: 1.1
         voiceTurbulenceAmplitude_mul: 1.0
@@ -8937,14 +8841,14 @@ voiceProfiles:
         preFormantGain_mul: 0.82
         outputGain_mul: 0.85
       unvoicedFricative:
-        pf_mul: [1.12, 1.10, 1.08, 0.94, 0.82, 0.70]
+        pf_mul: [1, 1, 1, 0.94, 0.82, 0.70]
         pb_mul: [1, 1, 1, 1.10, 1.30, 1.50]
         fricationAmplitude_mul: 0.80
         aspirationAmplitude_mul: 0.70
         preFormantGain_mul: 0.82
         outputGain_mul: 0.85
       voicedFricative:
-        pf_mul: [1.12, 1.10, 1.08, 0.94, 0.82, 0.70]
+        pf_mul: [1, 1, 1, 0.94, 0.82, 0.70]
         pb_mul: [1, 1, 1, 1.10, 1.30, 1.50]
         fricationAmplitude_mul: 0.80
         aspirationAmplitude_mul: 0.70
@@ -8958,4 +8862,119 @@ voiceProfiles:
         aspirationAmplitude_mul: 0.70
         preFormantGain_mul: 0.82
         outputGain_mul: 0.85
-    phonemeOverrides: {}
+    phonemeOverrides:
+      0: {cf1: 540, cf2: 1460, cf3: 2360, pf1: 540, pf2: 1460, pf3: 2360}
+      3: {cf1: 370, cf2: 1540, cf3: 2360, pf1: 540, pf2: 1460, pf3: 2360}
+      @: {cf1: 540, cf2: 1460, cf3: 2360, pf1: 540, pf2: 1460, pf3: 2360}
+      E: {cf1: 570, cf2: 1740, cf3: 2560, pf1: 570, pf2: 1740, pf3: 2560}
+      I: {cf1: 440, cf2: 1860, cf3: 2630, pf1: 440, pf2: 1860, pf3: 2630}
+      O: {cf1: 490, cf2: 930, cf3: 2630, pf1: 640, pf2: 1050, pf3: 2630}
+      U: {cf1: 445, cf2: 960, cf3: 2480, pf1: 490, pf2: 1160, pf3: 2410}
+      V: {cf1: 660, cf2: 1280, cf3: 2610, pf1: 660, pf2: 1280, pf3: 2610}
+      a: {cf1: 640, cf2: 1490, cf3: 2560, pf1: 690, pf2: 1280, pf3: 2660}
+      a_es: {cf1: 790, cf2: 1460, cf3: 2560, pf1: 790, pf2: 1460, pf3: 2560}
+      a_tr: {cf1: 790, cf2: 1310, cf3: 2660, pf1: 790, pf2: 1310, pf3: 2660}
+      aː_tr: {cf1: 790, cf2: 1310, cf3: 2660, pf1: 790, pf2: 1310, pf3: 2660}
+      e: {cf1: 470, cf2: 1960, cf3: 2760, pf1: 470, pf2: 1960, pf3: 2760}
+      e_es: {cf1: 490, cf2: 1910, cf3: 2710, pf1: 490, pf2: 1910, pf3: 2710}
+      e_tr: {cf1: 500, cf2: 2060, cf3: 2810, pf1: 500, pf2: 2060, pf3: 2810}
+      i: {cf1: 350, cf2: 2080, cf3: 3020, pf1: 350, pf2: 2080, pf3: 3020}
+      i_tr: {cf1: 330, cf2: 2410, cf3: 3160, pf1: 340, pf2: 2410, pf3: 3160}
+      j: {cf1: 330, cf2: 2060, cf3: 2980, pf1: 330, pf2: 2060, pf3: 2980}
+      j_es: {cf1: 340, cf2: 2260, cf3: 3060, pf1: 330, pf2: 2060, pf3: 2980}
+      n̩: {cf1: 320, cf2: 1610, cf3: 2800, pf1: 520, pf2: 1610, pf3: 2660}
+      o: {cf1: 580, cf2: 1060, cf3: 2360, pf1: 580, pf2: 1060, pf3: 2360}
+      o_es: {cf1: 530, cf2: 970, cf3: 2760, pf1: 520, pf2: 1010, pf3: 2610}
+      o_tr: {cf1: 480, cf2: 910, cf3: 2660, pf1: 480, pf2: 910, pf3: 2660}
+      oː: {cf1: 580, cf2: 1060, cf3: 2360, pf1: 580, pf2: 1060, pf3: 2360}
+      oː_tr: {cf1: 480, cf2: 910, cf3: 2660, pf1: 480, pf2: 910, pf3: 2660}
+      u: {cf1: 330, cf2: 1010, cf3: 2340, pf1: 390, pf2: 960, pf3: 2260}
+      u_es: {cf1: 340, cf2: 840, cf3: 2660, pf1: 390, pf2: 960, pf3: 2260}
+      u_tr: {cf1: 340, cf2: 760, cf3: 2610, pf1: 350, pf2: 760, pf3: 2610}
+      w: {cf1: 330, cf2: 670, cf3: 2210, pf1: 330, pf2: 670, pf3: 2210}
+      y: {cf1: 310, cf2: 1810, cf3: 2210, pf1: 310, pf2: 1810, pf3: 2210}
+      y_tr: {cf1: 330, cf2: 2010, cf3: 2560, pf1: 340, pf2: 2010, pf3: 2560}
+      yː: {cf1: 340, cf2: 1860, cf3: 2760, pf1: 340, pf2: 1860, pf3: 2760}
+      Ã: {cf1: 590, cf2: 1210, cf3: 2460, pf1: 590, pf2: 1210, pf3: 2460}
+      á: {cf1: 830, cf2: 1460, cf3: 2810, pf1: 830, pf2: 1460, pf3: 2860}
+      ã: {cf1: 690, cf2: 1210, cf3: 2460, pf1: 690, pf2: 1210, pf3: 2460}
+      ä: {cf1: 770, cf2: 1510, cf3: 2560, pf1: 770, pf2: 1510, pf3: 2660}
+      å: {cf1: 820, cf2: 1710, cf3: 2160, pf1: 820, pf2: 1710, pf3: 2210}
+      æ: {cf1: 660, cf2: 1720, cf3: 2490, pf1: 660, pf2: 1720, pf3: 2490}
+      æ_tr: {cf1: 690, cf2: 1810, cf3: 2560, pf1: 690, pf2: 1810, pf3: 2560}
+      é: {cf1: 420, cf2: 2160, cf3: 3010, pf1: 440, pf2: 2260, pf3: 3010}
+      í: {cf1: 330, cf2: 2210, cf3: 3020, pf1: 350, pf2: 2080, pf3: 3020}
+      ó: {cf1: 470, cf2: 860, cf3: 2360, pf1: 520, pf2: 910, pf3: 2360}
+      õ: {cf1: 480, cf2: 1060, cf3: 2360, pf1: 480, pf2: 1060, pf3: 2360}
+      ø: {cf1: 490, cf2: 1610, cf3: 2560, pf1: 490, pf2: 1610, pf3: 2560}
+      ø_tr: {cf1: 460, cf2: 1660, cf3: 2560, pf1: 460, pf2: 1660, pf3: 2560}
+      øː: {cf1: 490, cf2: 1610, cf3: 2560, pf1: 490, pf2: 1610, pf3: 2560}
+      øː_tr: {cf1: 460, cf2: 1660, cf3: 2560, pf1: 460, pf2: 1660, pf3: 2560}
+      ú: {cf1: 310, cf2: 910, cf3: 2340, pf1: 390, pf2: 960, pf3: 2260}
+      ĩ: {cf1: 350, cf2: 2080, cf3: 3020, pf1: 350, pf2: 2080, pf3: 3020}
+      ő: {cf1: 440, cf2: 1610, cf3: 2560, pf1: 490, pf2: 1610, pf3: 2560}
+      œ: {cf1: 570, cf2: 1560, cf3: 2410, pf1: 570, pf2: 1560, pf3: 2410}
+      œ_tr: {cf1: 540, cf2: 1510, cf3: 2460, pf1: 540, pf2: 1510, pf3: 2460}
+      œː_tr: {cf1: 540, cf2: 1510, cf3: 2460, pf1: 540, pf2: 1510, pf3: 2460}
+      ũ: {cf1: 330, cf2: 1010, cf3: 2340, pf1: 390, pf2: 960, pf3: 2260}
+      ű: {cf1: 290, cf2: 1760, cf3: 2210, pf1: 310, pf2: 1810, pf3: 2210}
+      ɐ: {cf1: 570, cf2: 1370, cf3: 2460, pf1: 660, pf2: 1280, pf3: 2610}
+      ɐ_au: {cf1: 780, cf2: 1350, cf3: 2610, pf1: 820, pf2: 1290, pf3: 2610}
+      ɑ: {cf1: 740, cf2: 1390, cf3: 2660, pf1: 740, pf2: 1390, pf3: 2660}
+      ɑj: {cf1: 700, cf2: 1260, cf3: 2610, pf1: 700, pf2: 1260, pf3: 2610}
+      ɑw: {cf1: 680, cf2: 1290, cf3: 2610, pf1: 680, pf2: 1290, pf3: 2610}
+      ɑ̃: {cf1: 620, cf2: 1110, cf3: 2460, pf1: 620, pf2: 1110, pf3: 2460}
+      ɒ: {cf1: 700, cf2: 1160, cf3: 2460, pf1: 760, pf2: 1210, pf3: 2510}
+      ɒ_au: {cf1: 725, cf2: 1060, cf3: 2510, pf1: 780, pf2: 1110, pf3: 2510}
+      ɔ: {cf1: 490, cf2: 930, cf3: 2460, pf1: 640, pf2: 1050, pf3: 2460}
+      ɔ_r: {cf1: 660, cf2: 1110, cf3: 2360, pf1: 660, pf2: 1110, pf3: 2360}
+      ɔ_tr: {cf1: 540, cf2: 910, cf3: 2510, pf1: 540, pf2: 910, pf3: 2510}
+      ɔj: {cf1: 590, cf2: 1020, cf3: 2460, pf1: 590, pf2: 1020, pf3: 2460}
+      ɔ̃: {cf1: 531, cf2: 1085, cf3: 2460, pf1: 531, pf2: 1085, pf3: 2460}
+      ɘ: {cf1: 540, cf2: 1460, cf3: 2360, pf1: 540, pf2: 1460, pf3: 2360}
+      ə: {cf1: 540, cf2: 1460, cf3: 2360, pf1: 540, pf2: 1460, pf3: 2360}
+      ə͡l: {cf1: 540, cf2: 1460, cf3: 2360, pf1: 540, pf2: 1460, pf3: 2360}
+      ɚ: {cf1: 540, cf2: 1360, cf3: 1860, pf1: 540, pf2: 1360, pf3: 1860}
+      ɛ: {cf1: 570, cf2: 1810, cf3: 2560, pf1: 570, pf2: 1810, pf3: 2560}
+      ɛ_tr: {cf1: 590, cf2: 1910, cf3: 2710, pf1: 590, pf2: 1910, pf3: 2710}
+      ɛ̃: {cf1: 514, cf2: 1810, cf3: 2560, pf1: 514, pf2: 1810, pf3: 2560}
+      ɜ: {cf1: 540, cf2: 1460, cf3: 2360, pf1: 540, pf2: 1460, pf3: 2360}
+      ɝ: {cf1: 500, cf2: 1360, cf3: 1760, pf1: 500, pf2: 1360, pf3: 1760}
+      ɤ: {cf1: 660, cf2: 1280, cf3: 2610, pf1: 660, pf2: 1280, pf3: 2610}
+      ɨ: {cf1: 428, cf2: 1800, cf3: 2484, pf1: 428, pf2: 1680, pf3: 2484}
+      ɪ: {cf1: 400, cf2: 1860, cf3: 2630, pf1: 440, pf2: 1860, pf3: 2630}
+      ɪ_au: {cf1: 385, cf2: 2110, cf3: 2760, pf1: 420, pf2: 2110, pf3: 2760}
+      ɪ_es: {cf1: 340, cf2: 2260, cf3: 3060, pf1: 440, pf2: 1860, pf3: 2630}
+      ɪ_tr: {cf1: 420, cf2: 1960, cf3: 2710, pf1: 430, pf2: 1960, pf3: 2710}
+      ɯ: {cf1: 370, cf2: 1210, cf3: 2460, pf1: 370, pf2: 1210, pf3: 2460}
+      ɯ_tr: {cf1: 420, cf2: 1110, cf3: 2510, pf1: 430, pf2: 1110, pf3: 2510}
+      ɵ: {cf1: 490, cf2: 1460, cf3: 2560, pf1: 490, pf2: 1460, pf3: 2560}
+      ʉ: {cf1: 360, cf2: 1560, cf3: 2360, pf1: 390, pf2: 1560, pf3: 2360}
+      ʊ: {cf1: 445, cf2: 960, cf3: 2480, pf1: 490, pf2: 1160, pf3: 2410}
+      ʊ_tr: {cf1: 410, cf2: 910, cf3: 2560, pf1: 420, pf2: 910, pf3: 2560}
+      ʊː_tr: {cf1: 410, cf2: 910, cf3: 2560, pf1: 420, pf2: 910, pf3: 2560}
+      ʊ̞: {cf1: 470, cf2: 1080, cf3: 2480, pf1: 520, pf2: 1120, pf3: 2410}
+      ʌ: {cf1: 620, cf2: 1260, cf3: 2610, pf1: 620, pf2: 1260, pf3: 2610}
+      ʏ: {cf1: 390, cf2: 1710, cf3: 2360, pf1: 390, pf2: 1710, pf3: 2360}
+      ʝ: {cf1: 340, cf2: 2160, cf3: 3160, pf1: 340, pf2: 2160, pf3: 3160}
+      ᴀ: {cf1: 840, cf2: 1310, cf3: 2660, pf1: 390, pf2: 1410, pf3: 2660}
+      ᴇ: {cf1: 390, cf2: 2210, cf3: 3010, pf1: 440, pf2: 2260, pf3: 3010}
+      ᴊ: {cf1: 400, cf2: 1910, cf3: 2710, pf1: 400, pf2: 1910, pf3: 2710}
+      ᴏ: {cf1: 650, cf2: 1060, cf3: 2440, pf1: 640, pf2: 1050, pf3: 2460}
+      ᴐ: {cf1: 620, cf2: 1160, cf3: 2440, pf1: 600, pf2: 1050, pf3: 2460}
+      ᴒ: {cf1: 660, cf2: 1060, cf3: 2510, pf1: 600, pf2: 1010, pf3: 2560}
+      ᴜ: {cf1: 445, cf2: 960, cf3: 2480, pf1: 490, pf2: 1160, pf3: 2410}
+      ᵁ: {cf1: 445, cf2: 1210, cf3: 2480, pf1: 490, pf2: 1310, pf3: 2410}
+      ᵂ: {cf1: 330, cf2: 670, cf3: 2210, pf1: 330, pf2: 670, pf3: 2210}
+      ᵃ: {cf1: 690, cf2: 1490, cf3: 2560, pf1: 740, pf2: 1280, pf3: 2660}
+      ᵅ: {cf1: 740, cf2: 1260, cf3: 2660, pf1: 740, pf2: 1260, pf3: 2660}
+      ᵉ: {cf1: 510, cf2: 2010, cf3: 2810, pf1: 510, pf2: 2010, pf3: 2810}
+      ᵊ: {cf1: 540, cf2: 1460, cf3: 2360, pf1: 540, pf2: 1460, pf3: 2360}
+      ᵒ: {cf1: 520, cf2: 1110, cf3: 2410, pf1: 520, pf2: 1110, pf3: 2410}
+      ᵘ: {cf1: 350, cf2: 1760, cf3: 2460, pf1: 380, pf2: 1760, pf3: 2460}
+      ᵻ: {cf1: 400, cf2: 1810, cf3: 2590, pf1: 440, pf2: 1810, pf3: 2590}
+      ᵾ: {cf1: 330, cf2: 1410, cf3: 2340, pf1: 390, pf2: 1310, pf3: 2260}
+      ᵿ: {cf1: 330, cf2: 1310, cf3: 2340, pf1: 390, pf2: 1260, pf3: 2260}
+      ẽ: {cf1: 470, cf2: 1960, cf3: 2760, pf1: 470, pf2: 1960, pf3: 2760}
+      ⁱ: {cf1: 360, cf2: 1980, cf3: 2860, pf1: 360, pf2: 1980, pf3: 2860}
+      : {cf1: 300, cf2: 2130, cf3: 3080, pf1: 300, pf2: 2130, pf3: 3080}
