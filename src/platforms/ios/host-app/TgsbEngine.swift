@@ -271,7 +271,8 @@ class TgsbEngine: ObservableObject {
             noiseGlottalMod: load("noiseGlottalMod", 0),
             pitchSyncF1: load("pitchSyncF1", 50),
             pitchSyncB1: load("pitchSyncB1", 50),
-            voiceTremor: load("voiceTremor", 0))
+            voiceTremor: load("voiceTremor", 0),
+            headSize: load("headSize", 50))
 
         applyFrameExFromSliders(
             creakiness: load("creakiness", 0),

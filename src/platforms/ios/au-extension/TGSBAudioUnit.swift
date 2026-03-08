@@ -438,7 +438,7 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
         let pitchSyncF1    = load("pitchSyncF1", 50)
         let pitchSyncB1    = load("pitchSyncB1", 50)
         let voiceTremor    = load("voiceTremor", 0)
-        let headSizeSlider = load("headSize", voiceName == "david" ? 100 : 50)
+        let headSizeSlider = load("headSize", voice == "david" ? 100 : 50)
 
         let tilt     = (voiceTilt - 50.0) * (24.0 / 50.0)
         let noiseMod = noiseGlottalMod / 100.0
