@@ -146,20 +146,31 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
 
     // MARK: - Voices
 
+    // Voice definitions: DSP presets + YAML voice profiles.
+    // isProfile voices use tgsb_set_voice_profile() instead of tgsb_set_voice().
+    private static let voiceDefs: [(name: String, gender: AVSpeechSynthesisVoiceGender, isProfile: Bool)] = [
+        ("Adam",     .male,   false),
+        ("Benjamin", .male,   false),
+        ("Caleb",    .male,   false),
+        ("David",    .male,   false),
+        ("Robert",   .male,   false),
+        ("Beth",     .female, true),
+        ("Bobby",    .male,   true),
+    ]
+
     public override var speechVoices: [AVSpeechSynthesisProviderVoice] {
         get {
-            let voiceNames = ["Adam", "Benjamin", "Caleb", "David", "Robert"]
             var voices: [AVSpeechSynthesisProviderVoice] = []
 
-            for name in voiceNames {
+            for vd in Self.voiceDefs {
                 for lang in Self.languageMap {
                     let voice = AVSpeechSynthesisProviderVoice(
-                        name: "\(name) (\(lang.bcp47))",
-                        identifier: "com.tgspeechbox.\(name.lowercased()).\(lang.bcp47.lowercased())",
+                        name: "\(vd.name) (\(lang.bcp47))",
+                        identifier: "com.tgspeechbox.\(vd.name.lowercased()).\(lang.bcp47.lowercased())",
                         primaryLanguages: [lang.bcp47],
                         supportedLanguages: [lang.bcp47]
                     )
-                    voice.gender = .male
+                    voice.gender = vd.gender
                     voices.append(voice)
                 }
             }
@@ -241,7 +252,17 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
         // voicing tone and tgsb_set_language reloads the pack (resetting
         // pitch mode). Engine settings must be applied AFTER these.
         if voiceName != cachedVoice {
-            tgsb_set_voice(eng, voiceName)
+            // Check if this is a YAML voice profile (Beth, Bobby)
+            let isProfile = Self.voiceDefs.first {
+                $0.name.lowercased() == voiceName
+            }?.isProfile ?? false
+
+            if isProfile {
+                tgsb_set_voice(eng, "adam")
+                tgsb_set_voice_profile(eng, voiceName.capitalized(with: nil))
+            } else {
+                tgsb_set_voice(eng, voiceName)
+            }
             cachedVoice = voiceName
         }
         let languageChanged = espeakLang != cachedEspeakLang || tgsbLang != cachedTgsbLang

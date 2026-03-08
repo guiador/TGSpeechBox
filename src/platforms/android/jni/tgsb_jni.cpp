@@ -421,6 +421,10 @@ Java_com_tgspeechbox_tts_TgsbTtsService_nativeSetVoice(
         if (strcmp(kPresets[i].name, name) == 0) {
             engine->voiceIndex = i;
 
+            /* Clear any active voice profile when switching to a DSP preset */
+            if (engine->frontend)
+                nvspFrontend_setVoiceProfile(engine->frontend, "");
+
             /* Apply VoicingTone changes for this preset */
             speechPlayer_voicingTone_t tone = speechPlayer_getDefaultVoicingTone();
             if (kPresets[i].hasVoicedTilt)
@@ -432,6 +436,47 @@ Java_com_tgspeechbox_tts_TgsbTtsService_nativeSetVoice(
         }
     }
     env->ReleaseStringUTFChars(voiceName, name);
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_tgspeechbox_tts_TgsbTtsService_nativeSetVoiceProfile(
+    JNIEnv *env, jobject thiz, jlong handle, jstring profileName
+) {
+    TgsbEngine *engine = (TgsbEngine *)(intptr_t)handle;
+    if (!engine || !engine->frontend) return;
+
+    const char *name = env->GetStringUTFChars(profileName, NULL);
+    nvspFrontend_setVoiceProfile(engine->frontend, name);
+    LOGI("Voice profile set to: %s", name);
+    env->ReleaseStringUTFChars(profileName, name);
+}
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_com_tgspeechbox_tts_TgsbTtsService_nativeGetVoiceProfileNames(
+    JNIEnv *env, jobject thiz, jlong handle
+) {
+    TgsbEngine *engine = (TgsbEngine *)(intptr_t)handle;
+    if (!engine || !engine->frontend) return env->NewStringUTF("");
+
+    const char *names = nvspFrontend_getVoiceProfileNames(engine->frontend);
+    return env->NewStringUTF(names ? names : "");
+}
+
+/* Standalone engine wrappers for voice profiles */
+extern "C" JNIEXPORT void JNICALL
+Java_com_tgspeechbox_tts_TgsbSpeakEngine_nativeSetVoiceProfile(
+    JNIEnv *env, jobject thiz, jlong handle, jstring profileName
+) {
+    Java_com_tgspeechbox_tts_TgsbTtsService_nativeSetVoiceProfile(
+        env, thiz, handle, profileName);
+}
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_com_tgspeechbox_tts_TgsbSpeakEngine_nativeGetVoiceProfileNames(
+    JNIEnv *env, jobject thiz, jlong handle
+) {
+    return Java_com_tgspeechbox_tts_TgsbTtsService_nativeGetVoiceProfileNames(
+        env, thiz, handle);
 }
 
 /*

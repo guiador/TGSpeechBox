@@ -44,10 +44,17 @@ let kLanguages: [TgsbLanguage] = [
     TgsbLanguage(id: "zh",    displayName: "Chinese (Mandarin)",espeakTag: "cmn",   tgsbTag: "zh"),
 ]
 
-/// Voice preset names (from C bridge).
+/// Voice preset names (from C bridge + YAML voice profiles).
 struct TgsbVoice: Identifiable, Hashable {
     let id: String
     let displayName: String
+    let isProfile: Bool  // true = YAML voice profile (Beth, Bobby)
+
+    init(id: String, displayName: String, isProfile: Bool = false) {
+        self.id = id
+        self.displayName = displayName
+        self.isProfile = isProfile
+    }
 }
 
 @MainActor
@@ -82,7 +89,7 @@ class TgsbEngine: ObservableObject {
     init() {
         self.sampleRate = Self.loadSampleRate()
 
-        // Gather voice names from C bridge
+        // Gather voice names: DSP presets from C bridge + YAML profiles
         let numVoices = tgsb_get_num_voices()
         var v: [TgsbVoice] = []
         for i in 0..<numVoices {
@@ -91,6 +98,13 @@ class TgsbEngine: ObservableObject {
                 v.append(TgsbVoice(id: name,
                                    displayName: name.capitalized))
             }
+        }
+        // Add YAML voice profiles (Beth, Bobby, etc.)
+        let profileNames = ["Beth", "Bobby"]
+        for name in profileNames {
+            v.append(TgsbVoice(id: name.lowercased(),
+                               displayName: name,
+                               isProfile: true))
         }
         self.voices = v
         self.selectedVoice = v.first ?? TgsbVoice(id: "adam",
@@ -121,10 +135,20 @@ class TgsbEngine: ObservableObject {
         tgsb_set_language(engine,
                           selectedLanguage.espeakTag,
                           selectedLanguage.tgsbTag)
-        tgsb_set_voice(engine, selectedVoice.id)
+        applySelectedVoice(engine!)
 
         print("[TgsbEngine] Engine ready")
         return true
+    }
+
+    /// Apply the selected voice — either a DSP preset or a YAML profile.
+    private func applySelectedVoice(_ eng: OpaquePointer) {
+        if selectedVoice.isProfile {
+            tgsb_set_voice(eng, "adam")
+            tgsb_set_voice_profile(eng, selectedVoice.displayName)
+        } else {
+            tgsb_set_voice(eng, selectedVoice.id)
+        }
     }
 
     func shutdown() {
@@ -426,7 +450,7 @@ class TgsbEngine: ObservableObject {
                           selectedLanguage.espeakTag,
                           selectedLanguage.tgsbTag)
         applyStoredOverrides(selectedLanguage.tgsbTag)
-        tgsb_set_voice(eng, selectedVoice.id)
+        applySelectedVoice(eng)
         applyEngineSettings()
         tgsb_set_inflection(eng, inflectionValue / 100.0)
 

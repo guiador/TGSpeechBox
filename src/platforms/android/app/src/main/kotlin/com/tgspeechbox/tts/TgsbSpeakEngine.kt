@@ -57,6 +57,8 @@ class TgsbSpeakEngine(private val context: Context) {
     ): Long
     private external fun nativeDestroy(handle: Long)
     private external fun nativeSetVoice(handle: Long, voiceName: String)
+    private external fun nativeSetVoiceProfile(handle: Long, profileName: String)
+    private external fun nativeGetVoiceProfileNames(handle: Long): String
     private external fun nativeSetLanguage(
         handle: Long, espeakLang: String, tgsbLang: String
     ): Int
@@ -212,7 +214,13 @@ class TgsbSpeakEngine(private val context: Context) {
 
     fun setVoice(voiceName: String) {
         if (nativeHandle == 0L) return
-        nativeSetVoice(nativeHandle, voiceName)
+        val voiceDef = TgsbTtsService.VOICES.find { it.id == voiceName }
+        if (voiceDef != null && voiceDef.isProfile) {
+            nativeSetVoice(nativeHandle, "adam")
+            nativeSetVoiceProfile(nativeHandle, voiceDef.id)
+        } else {
+            nativeSetVoice(nativeHandle, voiceName)
+        }
     }
 
     fun speak(text: String, speed: Double, pitchHz: Double) {

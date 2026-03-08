@@ -12,7 +12,7 @@
 
 import SwiftUI
 
-private let kVoiceNames = ["Adam", "Benjamin", "Caleb", "David", "Robert"]
+private let kVoiceNames = ["Adam", "Benjamin", "Caleb", "David", "Robert", "Beth", "Bobby"]
 
 private let kPitchModes = [
     ("espeak_style",   "eSpeak Style"),

@@ -279,6 +279,10 @@ int tgsb_set_voice(TgsbEngine *engine, const char *voiceName)
         if (strcmp(kPresets[i].name, voiceName) == 0) {
             engine->voiceIndex = i;
 
+            /* Clear any active voice profile when switching to a DSP preset */
+            if (engine->frontend)
+                nvspFrontend_setVoiceProfile(engine->frontend, "");
+
             speechPlayer_voicingTone_t tone =
                 speechPlayer_getDefaultVoicingTone();
             if (kPresets[i].hasVoicedTilt)
@@ -288,6 +292,20 @@ int tgsb_set_voice(TgsbEngine *engine, const char *voiceName)
         }
     }
     return 0;
+}
+
+int tgsb_set_voice_profile(TgsbEngine *engine, const char *profileName)
+{
+    if (!engine || !engine->frontend) return 0;
+    return nvspFrontend_setVoiceProfile(engine->frontend, profileName);
+}
+
+char *tgsb_get_voice_profile_names(TgsbEngine *engine)
+{
+    if (!engine || !engine->frontend) return NULL;
+    const char *names = nvspFrontend_getVoiceProfileNames(engine->frontend);
+    if (!names || names[0] == '\0') return NULL;
+    return strdup(names);
 }
 
 /*

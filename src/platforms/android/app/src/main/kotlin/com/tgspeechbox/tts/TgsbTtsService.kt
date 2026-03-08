@@ -37,8 +37,12 @@ class TgsbTtsService : TextToSpeechService() {
             System.loadLibrary("tgspeechbox_jni")
         }
 
-        /** Voice presets — timbre only, independent of language */
-        data class VoiceDef(val id: String, val label: String)
+        /** Voice presets — timbre only, independent of language.
+         *  isProfile=true means it's a YAML voice profile (phonemeOverrides
+         *  + voicingTone from phonemes.yaml) rather than a DSP preset. */
+        data class VoiceDef(
+            val id: String, val label: String, val isProfile: Boolean = false
+        )
 
         val VOICES = listOf(
             VoiceDef("adam",     "Adam"),
@@ -46,6 +50,8 @@ class TgsbTtsService : TextToSpeechService() {
             VoiceDef("caleb",    "Caleb"),
             VoiceDef("david",    "David"),
             VoiceDef("robert",   "Robert"),
+            VoiceDef("Beth",     "Beth",  isProfile = true),
+            VoiceDef("Bobby",    "Bobby", isProfile = true),
         )
 
         /**
@@ -172,6 +178,8 @@ class TgsbTtsService : TextToSpeechService() {
     ): Long
     private external fun nativeDestroy(handle: Long)
     private external fun nativeSetVoice(handle: Long, voiceName: String)
+    private external fun nativeSetVoiceProfile(handle: Long, profileName: String)
+    private external fun nativeGetVoiceProfileNames(handle: Long): String
     private external fun nativeQueueText(
         handle: Long, text: String, speechRate: Int, pitch: Int
     )
@@ -226,7 +234,7 @@ class TgsbTtsService : TextToSpeechService() {
             Log.e(TAG, "Failed to create native engine")
         } else {
             Log.i(TAG, "Native engine created (handle=$nativeHandle)")
-            nativeSetVoice(nativeHandle, currentPreset)
+            applyCurrentVoice()
 
             // Restore the last language from prefs (survives process kills).
             // nativeCreate initializes en-us, so if the saved language is
@@ -376,6 +384,19 @@ class TgsbTtsService : TextToSpeechService() {
         currentPreset = if (VOICES.any { it.id == saved }) saved else DEFAULT_PRESET
     }
 
+    /** Apply the current voice — either a DSP preset or a YAML profile. */
+    private fun applyCurrentVoice() {
+        if (nativeHandle == 0L) return
+        val voiceDef = VOICES.find { it.id == currentPreset }
+        if (voiceDef != null && voiceDef.isProfile) {
+            // YAML voice profile: set base voice to "adam" then apply profile
+            nativeSetVoice(nativeHandle, "adam")
+            nativeSetVoiceProfile(nativeHandle, voiceDef.id)
+        } else {
+            applyCurrentVoice()
+        }
+    }
+
     // ---- Asset extraction ----
 
     private fun extractAssets() {
@@ -490,7 +511,7 @@ class TgsbTtsService : TextToSpeechService() {
         // Re-read preset and advanced voice quality settings
         loadPresetFromPrefs()
         if (nativeHandle != 0L) {
-            nativeSetVoice(nativeHandle, currentPreset)
+            applyCurrentVoice()
         }
 
         // Set language BEFORE advanced settings — setPitchMode and
@@ -542,7 +563,7 @@ class TgsbTtsService : TextToSpeechService() {
 
         // Re-read timbre preset + advanced voice quality settings
         loadPresetFromPrefs()
-        nativeSetVoice(nativeHandle, currentPreset)
+        applyCurrentVoice()
 
         // Ensure the native side has the right language loaded BEFORE
         // applying advanced settings — setPitchMode writes to h->pack

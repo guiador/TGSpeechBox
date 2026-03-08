@@ -82,6 +82,23 @@ void tgsb_set_sample_rate(TgsbEngine *engine, int sampleRate);
 int tgsb_get_num_voices(void);
 const char *tgsb_get_voice_name(int index);
 
+/* --- Voice profiles (YAML-defined in phonemes.yaml) --- */
+
+/*
+ * Set a voice profile by name (e.g. "Beth", "Bobby").
+ * Profiles apply formant overrides and voicingTone from the pack.
+ * Pass NULL or "" to clear the active profile.
+ * Returns 1 on success, 0 if profile not found.
+ */
+int tgsb_set_voice_profile(TgsbEngine *engine, const char *profileName);
+
+/*
+ * Get available voice profile names (newline-separated).
+ * Caller must free() the returned string.
+ * Returns NULL if no profiles available.
+ */
+char *tgsb_get_voice_profile_names(TgsbEngine *engine);
+
 /* --- Pack settings editor --- */
 
 /*
