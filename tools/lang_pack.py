@@ -335,6 +335,7 @@ class LanguagePack:
     coarticulation_velar_pinch_f2_scale: float = 0.9
     coarticulation_velar_pinch_f3: float = 2400.0
     coarticulation_cross_syllable_scale: float = 0.70
+    year_splitting_enabled: bool = False
     special_coarticulation_enabled: bool = False
     special_coartic_max_delta_hz: float = 400.0
     cluster_timing_enabled: bool = False
@@ -487,6 +488,8 @@ class LanguagePack:
     rate_comp_floor_speed_scale: float = 0.0
     rate_comp_cluster_proportion_guard: bool = True
     rate_comp_cluster_max_ratio_shift: float = 0.4
+    rate_comp_sonorant_context_bonus_ms: float = 8.0
+    sonorant_context_amplitude_scale: float = 1.15
     rate_comp_schwa_reduction_enabled: bool = False
     rate_comp_schwa_threshold: float = 2.5
     rate_comp_schwa_scale: float = 0.8
@@ -858,6 +861,7 @@ def _merge_settings(lp: LanguagePack, s: dict):
     lp.coarticulation_velar_pinch_f2_scale = gn("coarticulationVelarPinchF2Scale", lp.coarticulation_velar_pinch_f2_scale)
     lp.coarticulation_velar_pinch_f3 = gn("coarticulationVelarPinchF3", lp.coarticulation_velar_pinch_f3)
     lp.coarticulation_cross_syllable_scale = gn("coarticulationCrossSyllableScale", lp.coarticulation_cross_syllable_scale)
+    lp.year_splitting_enabled = gb("yearSplittingEnabled", lp.year_splitting_enabled)
     lp.special_coarticulation_enabled = gb("specialCoarticulationEnabled", lp.special_coarticulation_enabled)
     lp.special_coartic_max_delta_hz = gn("specialCoarticMaxDeltaHz", lp.special_coartic_max_delta_hz)
     lp.cluster_timing_enabled = gb("clusterTimingEnabled", lp.cluster_timing_enabled)
@@ -1010,6 +1014,8 @@ def _merge_settings(lp: LanguagePack, s: dict):
     lp.rate_comp_floor_speed_scale = gn("rateCompFloorSpeedScale", lp.rate_comp_floor_speed_scale)
     lp.rate_comp_cluster_proportion_guard = gb("rateCompClusterProportionGuard", lp.rate_comp_cluster_proportion_guard)
     lp.rate_comp_cluster_max_ratio_shift = gn("rateCompClusterMaxRatioShift", lp.rate_comp_cluster_max_ratio_shift)
+    lp.rate_comp_sonorant_context_bonus_ms = gn("rateCompSonorantContextBonusMs", lp.rate_comp_sonorant_context_bonus_ms)
+    lp.sonorant_context_amplitude_scale = gn("sonorantContextAmplitudeScale", lp.sonorant_context_amplitude_scale)
     lp.rate_comp_schwa_reduction_enabled = gb("rateCompSchwaReductionEnabled", lp.rate_comp_schwa_reduction_enabled)
     lp.rate_comp_schwa_threshold = gn("rateCompSchwaThreshold", lp.rate_comp_schwa_threshold)
     lp.rate_comp_schwa_scale = gn("rateCompSchwaScale", lp.rate_comp_schwa_scale)
@@ -1140,6 +1146,7 @@ def _merge_settings(lp: LanguagePack, s: dict):
         lp.rate_comp_floor_speed_scale = _gn_from(_rc, "floorSpeedScale", lp.rate_comp_floor_speed_scale)
         lp.rate_comp_cluster_proportion_guard = _gb_from(_rc, "clusterProportionGuard", lp.rate_comp_cluster_proportion_guard)
         lp.rate_comp_cluster_max_ratio_shift = _gn_from(_rc, "clusterMaxRatioShift", lp.rate_comp_cluster_max_ratio_shift)
+        lp.rate_comp_sonorant_context_bonus_ms = _gn_from(_rc, "sonorantContextBonusMs", lp.rate_comp_sonorant_context_bonus_ms)
         if "minimumDurations" in _rc and isinstance(_rc["minimumDurations"], dict):
             _md = _rc["minimumDurations"]
             lp.rate_comp_vowel_floor_ms = _gn_from(_md, "vowelMs", lp.rate_comp_vowel_floor_ms)

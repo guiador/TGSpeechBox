@@ -42,6 +42,7 @@ typedef struct {
     /* VoicingTone delta (applied on top of defaults) */
     double voicedTiltDbPerOct;
     int hasVoicedTilt;
+    double f4FreqScale;  /* 0 = use default 1.0 */
 } VoicePreset;
 
 #define OFF(field) offsetof(speechPlayer_frame_t, field)
@@ -72,9 +73,9 @@ static const FrameOverride kCalebOverrides[] = {
 static const FrameOverride kDavidOverrides[] = {
     { OFF(voicePitch), 0.75, 1 },
     { OFF(endVoicePitch), 0.75, 1 },
-    { OFF(cf1), 0.75, 1 },
-    { OFF(cf2), 0.85, 1 },
-    { OFF(cf3), 0.85, 1 },
+    { OFF(cf1), 0.90, 1 },
+    { OFF(cf2), 0.93, 1 },
+    { OFF(cf3), 0.95, 1 },
 };
 
 static const FrameOverride kRobertOverrides[] = {
@@ -96,15 +97,15 @@ static const FrameOverride kRobertOverrides[] = {
     { OFF(pf5), 1.10, 1 }, { OFF(pf6), 1.00, 1 },
 };
 
-#define PRESET(name, arr, tilt, hasTilt) \
-    { name, arr, sizeof(arr)/sizeof(arr[0]), tilt, hasTilt }
+#define PRESET(name, arr, tilt, hasTilt, f4s) \
+    { name, arr, sizeof(arr)/sizeof(arr[0]), tilt, hasTilt, f4s }
 
 static const VoicePreset kPresets[] = {
-    PRESET("adam",     kAdamOverrides,     0.0,  0),
-    PRESET("benjamin", kBenjaminOverrides, 0.0,  0),
-    PRESET("caleb",    kCalebOverrides,    0.0,  0),
-    PRESET("david",    kDavidOverrides,    0.0,  0),
-    PRESET("robert",   kRobertOverrides,  -6.0,  1),
+    PRESET("adam",     kAdamOverrides,     0.0,  0, 0),
+    PRESET("benjamin", kBenjaminOverrides, 0.0,  0, 0),
+    PRESET("caleb",    kCalebOverrides,    0.0,  0, 0),
+    PRESET("david",    kDavidOverrides,    0.0,  0, 0),
+    PRESET("robert",   kRobertOverrides,  -6.0,  1, 0),
 };
 static const int kNumPresets = sizeof(kPresets) / sizeof(kPresets[0]);
 
@@ -270,9 +271,8 @@ static void synthesizeClauses(TgsbEngine *engine,
         memcpy(clause, clauseStart, len);
         clause[len] = '\0';
 
-        /* Pre-eSpeak compound splitting: "dogfood" → "dog food" so each
-         * half is phonemized independently with correct vowel quality. */
-        char *splitClause = nvspFrontend_splitCompounds(engine->frontend, clause);
+        /* Pre-eSpeak text normalization: compound splitting, date ordinals, etc. */
+        char *splitClause = nvspFrontend_prepareText(engine->frontend, clause);
         if (splitClause) {
             free(clause);
             clause = splitClause;
@@ -422,10 +422,16 @@ Java_com_tgspeechbox_tts_TgsbTtsService_nativeSetVoice(
         if (strcmp(kPresets[i].name, name) == 0) {
             engine->voiceIndex = i;
 
+            /* Clear any active voice profile when switching to a DSP preset */
+            if (engine->frontend)
+                nvspFrontend_setVoiceProfile(engine->frontend, "");
+
             /* Apply VoicingTone changes for this preset */
             speechPlayer_voicingTone_t tone = speechPlayer_getDefaultVoicingTone();
             if (kPresets[i].hasVoicedTilt)
                 tone.voicedTiltDbPerOct = kPresets[i].voicedTiltDbPerOct;
+            if (kPresets[i].f4FreqScale > 0.0)
+                tone.f4FreqScale = kPresets[i].f4FreqScale;
             speechPlayer_setVoicingTone(engine->player, &tone);
 
             LOGI("Voice set to: %s (index=%d)", name, i);
@@ -433,6 +439,47 @@ Java_com_tgspeechbox_tts_TgsbTtsService_nativeSetVoice(
         }
     }
     env->ReleaseStringUTFChars(voiceName, name);
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_tgspeechbox_tts_TgsbTtsService_nativeSetVoiceProfile(
+    JNIEnv *env, jobject thiz, jlong handle, jstring profileName
+) {
+    TgsbEngine *engine = (TgsbEngine *)(intptr_t)handle;
+    if (!engine || !engine->frontend) return;
+
+    const char *name = env->GetStringUTFChars(profileName, NULL);
+    nvspFrontend_setVoiceProfile(engine->frontend, name);
+    LOGI("Voice profile set to: %s", name);
+    env->ReleaseStringUTFChars(profileName, name);
+}
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_com_tgspeechbox_tts_TgsbTtsService_nativeGetVoiceProfileNames(
+    JNIEnv *env, jobject thiz, jlong handle
+) {
+    TgsbEngine *engine = (TgsbEngine *)(intptr_t)handle;
+    if (!engine || !engine->frontend) return env->NewStringUTF("");
+
+    const char *names = nvspFrontend_getVoiceProfileNames(engine->frontend);
+    return env->NewStringUTF(names ? names : "");
+}
+
+/* Standalone engine wrappers for voice profiles */
+extern "C" JNIEXPORT void JNICALL
+Java_com_tgspeechbox_tts_TgsbSpeakEngine_nativeSetVoiceProfile(
+    JNIEnv *env, jobject thiz, jlong handle, jstring profileName
+) {
+    Java_com_tgspeechbox_tts_TgsbTtsService_nativeSetVoiceProfile(
+        env, thiz, handle, profileName);
+}
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_com_tgspeechbox_tts_TgsbSpeakEngine_nativeGetVoiceProfileNames(
+    JNIEnv *env, jobject thiz, jlong handle
+) {
+    return Java_com_tgspeechbox_tts_TgsbTtsService_nativeGetVoiceProfileNames(
+        env, thiz, handle);
 }
 
 /*
@@ -569,7 +616,9 @@ static void applyVoicingTone(TgsbEngine *engine,
     double voicedTiltDbPerOct, double noiseGlottalModDepth,
     double pitchSyncF1DeltaHz, double pitchSyncB1DeltaHz,
     double speedQuotient, double aspirationTiltDbPerOct,
-    double cascadeBwScale, double tremorDepth)
+    double cascadeBwScale, double tremorDepth,
+    double nasalBwScale = 1.0, double f4FreqScale = 1.0,
+    double nasalGainScale = 1.0)
 {
     if (!engine || !engine->player) return;
 
@@ -596,6 +645,9 @@ static void applyVoicingTone(TgsbEngine *engine,
     tone.aspirationTiltDbPerOct = aspirationTiltDbPerOct;
     tone.cascadeBwScale = cascadeBwScale;
     tone.tremorDepth = tremorDepth;
+    tone.nasalBwScale = nasalBwScale;
+    tone.f4FreqScale = f4FreqScale;
+    tone.nasalGainScale = nasalGainScale;
 
     speechPlayer_setVoicingTone(engine->player, &tone);
 }
@@ -614,9 +666,10 @@ JNIEXPORT void JNICALL
 Java_com_tgspeechbox_tts_TgsbTtsService_nativeSetVoicingTone(
     JNIEnv *env, jobject thiz, jlong handle,
     jdouble a, jdouble b, jdouble c, jdouble d,
-    jdouble e, jdouble f, jdouble g, jdouble h
+    jdouble e, jdouble f, jdouble g, jdouble h,
+    jdouble nasalBw, jdouble f4Freq, jdouble nasalGain
 ) {
-    applyVoicingTone((TgsbEngine *)(intptr_t)handle, a,b,c,d,e,f,g,h);
+    applyVoicingTone((TgsbEngine *)(intptr_t)handle, a,b,c,d,e,f,g,h, nasalBw, f4Freq, nasalGain);
 }
 
 JNIEXPORT void JNICALL
@@ -849,9 +902,10 @@ JNIEXPORT void JNICALL
 Java_com_tgspeechbox_tts_TgsbSpeakEngine_nativeSetVoicingTone(
     JNIEnv *env, jobject thiz, jlong handle,
     jdouble a, jdouble b, jdouble c, jdouble d,
-    jdouble e, jdouble f, jdouble g, jdouble h
+    jdouble e, jdouble f, jdouble g, jdouble h,
+    jdouble nasalBw, jdouble f4Freq, jdouble nasalGain
 ) {
-    applyVoicingTone((TgsbEngine *)(intptr_t)handle, a,b,c,d,e,f,g,h);
+    applyVoicingTone((TgsbEngine *)(intptr_t)handle, a,b,c,d,e,f,g,h, nasalBw, f4Freq, nasalGain);
 }
 
 JNIEXPORT void JNICALL
@@ -908,6 +962,84 @@ Java_com_tgspeechbox_tts_TgsbSpeakEngine_nativeSetPauseMode(
 ) {
     Java_com_tgspeechbox_tts_TgsbTtsService_nativeSetPauseMode(
         env, thiz, handle, mode);
+}
+
+/* ------------------------------------------------------------------ */
+/* Pack settings editor API                                           */
+/* ------------------------------------------------------------------ */
+
+JNIEXPORT jstring JNICALL
+Java_com_tgspeechbox_tts_TgsbTtsService_nativeGetPackSettings(
+    JNIEnv *env, jobject thiz, jlong handle
+) {
+    (void)thiz;
+    TgsbEngine *engine = (TgsbEngine *)(intptr_t)handle;
+    if (!engine || !engine->frontend) return NULL;
+
+    char *settings = nvspFrontend_getPackSettings(engine->frontend);
+    if (!settings) return NULL;
+
+    jstring result = env->NewStringUTF(settings);
+    nvspFrontend_freeString(settings);
+    return result;
+}
+
+JNIEXPORT jint JNICALL
+Java_com_tgspeechbox_tts_TgsbTtsService_nativeApplySettingOverrides(
+    JNIEnv *env, jobject thiz, jlong handle, jstring yamlSnippet
+) {
+    (void)thiz;
+    TgsbEngine *engine = (TgsbEngine *)(intptr_t)handle;
+    if (!engine || !engine->frontend || !yamlSnippet) return 0;
+
+    const char *snippet = env->GetStringUTFChars(yamlSnippet, NULL);
+    if (!snippet) return 0;
+
+    int ok = nvspFrontend_applySettingOverrides(engine->frontend, snippet);
+    env->ReleaseStringUTFChars(yamlSnippet, snippet);
+    return (jint)ok;
+}
+
+JNIEXPORT jstring JNICALL
+Java_com_tgspeechbox_tts_TgsbTtsService_nativeGetAvailableLanguages(
+    JNIEnv *env, jobject thiz, jlong handle
+) {
+    (void)thiz;
+    TgsbEngine *engine = (TgsbEngine *)(intptr_t)handle;
+    if (!engine || !engine->frontend) return NULL;
+
+    char *langs = nvspFrontend_getAvailableLanguages(engine->frontend);
+    if (!langs) return NULL;
+
+    jstring result = env->NewStringUTF(langs);
+    nvspFrontend_freeString(langs);
+    return result;
+}
+
+/* SpeakEngine delegates */
+
+JNIEXPORT jstring JNICALL
+Java_com_tgspeechbox_tts_TgsbSpeakEngine_nativeGetPackSettings(
+    JNIEnv *env, jobject thiz, jlong handle
+) {
+    return Java_com_tgspeechbox_tts_TgsbTtsService_nativeGetPackSettings(
+        env, thiz, handle);
+}
+
+JNIEXPORT jint JNICALL
+Java_com_tgspeechbox_tts_TgsbSpeakEngine_nativeApplySettingOverrides(
+    JNIEnv *env, jobject thiz, jlong handle, jstring yamlSnippet
+) {
+    return Java_com_tgspeechbox_tts_TgsbTtsService_nativeApplySettingOverrides(
+        env, thiz, handle, yamlSnippet);
+}
+
+JNIEXPORT jstring JNICALL
+Java_com_tgspeechbox_tts_TgsbSpeakEngine_nativeGetAvailableLanguages(
+    JNIEnv *env, jobject thiz, jlong handle
+) {
+    return Java_com_tgspeechbox_tts_TgsbTtsService_nativeGetAvailableLanguages(
+        env, thiz, handle);
 }
 
 } /* extern "C" */

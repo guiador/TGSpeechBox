@@ -19,7 +19,7 @@ from logHandler import log
 from synthDriverHandler import SynthDriver as _SynthDriverBase, VoiceInfo
 
 from autoSettingsUtils.driverSetting import (
-    DriverSetting, NumericDriverSetting,
+    BooleanDriverSetting, DriverSetting, NumericDriverSetting,
 )
 
 # Local module imports
@@ -66,8 +66,10 @@ class SynthDriver(
         _SynthDriverBase.LanguageSetting(),
         _SynthDriverBase.RateSetting(),
         _SynthDriverBase.PitchSetting(),
+        DriverSetting("legacyPitchMode", _("Pitch mode"), availableInSettingsRing=True),
         _SynthDriverBase.InflectionSetting(),
         _SynthDriverBase.VolumeSetting(),
+        BooleanDriverSetting("yearSplitting", _("Year splitting (4-digit numbers as digit pairs)"), defaultVal=True),
         NumericDriverSetting("voiceTilt", _("Voice tilt (brightness)"), defaultVal=50),
         NumericDriverSetting("noiseGlottalMod", _("Noise glottal modulation"), defaultVal=0),
         NumericDriverSetting("pitchSyncF1", _("Pitch-sync F1 delta"), defaultVal=50),
@@ -76,6 +78,7 @@ class SynthDriver(
         NumericDriverSetting("aspirationTilt", _("Aspiration tilt (breath color)"), defaultVal=50),
         NumericDriverSetting("cascadeBwScale", _("Formant sharpness (cascade bandwidth)"), defaultVal=50),
         NumericDriverSetting("voiceTremor", _("Voice tremor (shakiness)"), defaultVal=0),
+        NumericDriverSetting("headSize", _("Head size (pharynx length)"), defaultVal=50),
         # FrameEx voice quality params (DSP v5+) - for creaky voice, breathiness, etc.
         NumericDriverSetting("frameExCreakiness", _("Creakiness (laryngealization)"), defaultVal=0),
         NumericDriverSetting("frameExBreathiness", _("Breathiness"), defaultVal=0),
@@ -91,11 +94,6 @@ class SynthDriver(
         DriverSetting("stopClosureMode", _("Stop closure mode")),
         DriverSetting("spellingDiphthongMode", _("Spelling diphthong mode")),
     ]
-
-    # Only expose legacyPitchMode combo - all other booleans are YAML-only.
-    _supportedSettings.append(
-        DriverSetting("legacyPitchMode", _("Pitch mode")),
-    )
 
     supportedSettings = tuple(_supportedSettings)
 
@@ -537,6 +535,11 @@ class SynthDriver(
         try:
             if getattr(self, "_frontend", None):
                 self._applyFrontendLangTag(resolved)
+                # Re-apply voice profile after language change — setLanguage
+                # replaces the entire PackSet, so the profile's phonetic
+                # transforms need to be re-applied on the new pack data.
+                if getattr(self, "_usingVoiceProfile", False) and getattr(self, "_activeProfileName", ""):
+                    self._frontend.setVoiceProfile(self._activeProfileName)
         except Exception:
             log.error("TGSpeechBox: error setting frontend language", exc_info=True)
 
@@ -907,6 +910,8 @@ class SynthDriver(
     _set_cascadeBwScale = VoicingToneMixin._set_cascadeBwScale
     _get_voiceTremor = VoicingToneMixin._get_voiceTremor
     _set_voiceTremor = VoicingToneMixin._set_voiceTremor
+    _get_headSize = VoicingToneMixin._get_headSize
+    _set_headSize = VoicingToneMixin._set_headSize
     _get_frameExCreakiness = VoicingToneMixin._get_frameExCreakiness
     _set_frameExCreakiness = VoicingToneMixin._set_frameExCreakiness
     _get_frameExBreathiness = VoicingToneMixin._get_frameExBreathiness

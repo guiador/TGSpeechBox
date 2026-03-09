@@ -391,6 +391,14 @@ settings:
 | `notAfterFlags` | list | Exclude if previous phoneme has ANY listed flag |
 | `beforeFlags` | list | Next phoneme must have ALL listed flags |
 | `notBeforeFlags` | list | Exclude if next phoneme has ANY listed flag |
+| `afterClass` | string | Previous phoneme's base char must be in named class (e.g. `VOWELS`) |
+| `notAfterClass` | string | Previous phoneme's base char must NOT be in named class |
+| `beforeClass` | string | Next phoneme's base char must be in named class |
+| `notBeforeClass` | string | Next phoneme's base char must NOT be in named class |
+| `nextWordStartsClass` | string | Next word's first char must be in named class (use with `atWordEnd`) |
+| `nextWordStartsNotClass` | string | Next word's first char must NOT be in named class (use with `atWordEnd`) |
+| `prevWordEndsClass` | string | Previous word's last char must be in named class (use with `atWordStart`) |
+| `prevWordEndsNotClass` | string | Previous word's last char must NOT be in named class (use with `atWordStart`) |
 
 #### Action types
 
@@ -461,6 +469,23 @@ The `place` field filters by articulatory position, derived from the phoneme's I
 ```
 
 Place mappings: **labial** (/p,b,m,f,v,w,ʍ,ɸ,β/), **alveolar** (/t,d,n,s,z,l,r,ɹ,ɾ,θ,ð,ɬ,ɮ,ɻ,ɖ,ʈ,ɳ,ɽ/), **palatal** (/ʃ,ʒ,t͡ʃ,d͡ʒ,j,ɲ,ç,ʝ,c,ɟ,ʎ/ — tie-bar affricates recognized), **velar** (/k,g,ŋ,x,ɣ,ɰ/). Phonemes not in any group return `Unknown` and won't match any place filter.
+
+#### Cross-word boundary conditions
+
+The `nextWordStartsClass`/`nextWordStartsNotClass` and `prevWordEndsClass`/`prevWordEndsNotClass` fields let rules look across word boundaries. These are only meaningful when combined with `atWordEnd: true` or `atWordStart: true` respectively. Classes reference named character sets defined in the pack's `classes:` block.
+
+```yaml
+# Spanish: word-final /ɾ/ trills before consonants or silence,
+# but stays a tap before vowels across word boundaries.
+# "buscar esto" → tap links smoothly; "buscar pan" → trill.
+- from: "ɾ"
+  to: "ɾ_wfᵊɾ_wf"
+  when:
+    atWordEnd: true
+    nextWordStartsNotClass: VOWELS
+```
+
+This is useful for any language with word-boundary-sensitive allophones: Spanish rhotics, English linking-r, French liaison, etc.
 
 #### Important notes
 
@@ -1808,6 +1833,27 @@ settings:
 All fields also have flat-key equivalents (e.g. `rateCompVowelFloorMs: 25`). Old `rateReductionEnabled` keys are mapped to the new system automatically for backward compatibility.
 
 A separate universal `nasalMinDurationMs` field (default 18.0) in pack.h enforces a nasal floor in `calculateTimes` for all languages regardless of whether rate compensation is enabled. Rate compensation's `nasalMs` floor is a second layer on top.
+
+#### Sonorant-context vowel protection
+
+Unstressed vowels flanked by sonorants (nasals, liquids, semivowels) get masked at higher speech rates because the smooth formant transitions between sonorants hide the short vowel. For example, "animals" loses its middle syllable /ə/ between /m/ and /l/ at even moderate rates.
+
+Two settings address this with a duration bonus and an amplitude boost:
+
+```yaml
+settings:
+  rateCompensation:
+    sonorantContextBonusMs: 8     # extra ms added to vowel floor
+
+  sonorantContextAmplitudeScale: 1.15  # 1.0 = no boost
+```
+
+- **Duration bonus** (`sonorantContextBonusMs`, default `8.0`): Added to the vowel floor in rate compensation Phase 1b. Only fires for unstressed vowels (stress=0) where both the previous and next non-silence, non-synthetic tokens are sonorants. The bonus is subject to the same `floorSpeedScale` as other floors.
+- **Amplitude boost** (`sonorantContextAmplitudeScale`, default `1.15`): Multiplies `voiceAmplitude` for the same context. Applied at the end of the prominence pass, after all other amplitude adjustments. Set to `1.0` to disable.
+
+A "sonorant" is any token classified as nasal, liquid, or semivowel. The check skips silence and synthetic gap tokens (closure, aspiration, hiatus) to find the real neighbors.
+
+This applies cross-linguistically — defaults in pack.h benefit all languages. Words like English "animals"/"mineral"/"memory", Spanish "animal"/"mínimo", Hungarian "lemondani" all benefit.
 
 ### Word-final schwa reduction
 

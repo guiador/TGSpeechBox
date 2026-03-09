@@ -330,6 +330,7 @@ settings:
           pa3: 0.60
           pa4: 0.50
           pa5: 0.40
+          pa6: 0.30
 
     # ── Velar word-final boost ─────────────────────────────────────
     # Velar stops have "compact" burst energy in mid-frequencies.
@@ -523,10 +524,13 @@ settings:
     floorSpeedScale: 0.0
     clusterProportionGuard: true
     clusterMaxRatioShift: 0.4
+    sonorantContextBonusMs: 8
     schwaReduction:
       enabled: false
       threshold: 2.5
       scale: 0.8
+
+  sonorantContextAmplitudeScale: 1.15
 
   # ── Syllable duration ──────────────────────────────────────────
   syllableDuration:

@@ -68,6 +68,10 @@ static inline bool isFricativeLike(const Token& t) {
   return v > 0.05;
 }
 
+static inline bool isSonorant(const Token& t) {
+  return isNasal(t) || isLiquid(t) || isSemivowel(t);
+}
+
 static inline bool isSchwaKey(const std::u32string& key) {
   return key == U"@" || key == U"ə";
 }
@@ -168,6 +172,44 @@ bool runRateCompensation(
     double effective = scaleFloor(floor, lang.rateCompFloorSpeedScale, ctx.speed);
     if (t.durationMs < effective) {
       t.durationMs = effective;
+    }
+  }
+
+  // ── Phase 1b: Sonorant-context vowel protection ──
+  // Unstressed vowels flanked by sonorants (nasals, liquids, semivowels)
+  // get masked by smooth formant transitions.  Add extra floor time.
+  if (lang.rateCompSonorantContextBonusMs > 0.0) {
+    for (size_t i = 0; i < tokens.size(); ++i) {
+      Token& t = tokens[i];
+      if (isSilenceOrMissing(t) || !isVowel(t)) continue;
+      if (t.stress != 0) continue;  // only unstressed vowels need help
+
+      // Find prev and next non-silence, non-synthetic tokens.
+      bool prevSon = false, nextSon = false;
+      for (size_t j = i; j > 0; --j) {
+        const Token& p = tokens[j - 1];
+        if (isSyntheticGap(p) || p.silence) continue;
+        prevSon = isSonorant(p);
+        break;
+      }
+      for (size_t j = i + 1; j < tokens.size(); ++j) {
+        const Token& n = tokens[j];
+        if (isSyntheticGap(n) || n.silence) continue;
+        nextSon = isSonorant(n);
+        break;
+      }
+
+      if (prevSon && nextSon) {
+        double bonus = scaleFloor(
+            lang.rateCompSonorantContextBonusMs,
+            lang.rateCompFloorSpeedScale, ctx.speed);
+        double boostedFloor = scaleFloor(
+            lang.rateCompVowelFloorMs, lang.rateCompFloorSpeedScale, ctx.speed)
+            + bonus;
+        if (t.durationMs < boostedFloor) {
+          t.durationMs = boostedFloor;
+        }
+      }
     }
   }
 

@@ -56,7 +56,10 @@ void tgsb_set_voicing_tone(TgsbEngine *engine,
     double speedQuotient,
     double aspirationTiltDbPerOct,
     double cascadeBwScale,
-    double tremorDepth);
+    double tremorDepth,
+    double nasalBwScale,
+    double f4FreqScale,
+    double nasalGainScale);
 
 void tgsb_set_frame_ex_defaults(TgsbEngine *engine,
     double creakiness,
@@ -81,6 +84,46 @@ void tgsb_set_sample_rate(TgsbEngine *engine, int sampleRate);
 /* --- Voice preset info --- */
 int tgsb_get_num_voices(void);
 const char *tgsb_get_voice_name(int index);
+
+/* --- Voice profiles (YAML-defined in phonemes.yaml) --- */
+
+/*
+ * Set a voice profile by name (e.g. "Beth", "Bobby").
+ * Profiles apply formant overrides and voicingTone from the pack.
+ * Pass NULL or "" to clear the active profile.
+ * Returns 1 on success, 0 if profile not found.
+ */
+int tgsb_set_voice_profile(TgsbEngine *engine, const char *profileName);
+
+/*
+ * Get available voice profile names (newline-separated).
+ * Caller must free() the returned string.
+ * Returns NULL if no profiles available.
+ */
+char *tgsb_get_voice_profile_names(TgsbEngine *engine);
+
+/* --- Pack settings editor --- */
+
+/*
+ * Get all effective pack settings as "key\tvalue\n" pairs.
+ * Caller must free() the returned string.
+ */
+char *tgsb_get_pack_settings(TgsbEngine *engine);
+
+/*
+ * Apply setting overrides from a YAML snippet ("key: value\n...").
+ * Returns 1 on success, 0 on failure.
+ */
+int tgsb_apply_setting_overrides(TgsbEngine *engine, const char *yamlSnippet);
+
+/*
+ * Get available language tags (newline-separated).
+ * Caller must free() the returned string.
+ */
+char *tgsb_get_available_languages(TgsbEngine *engine);
+
+/* Free a string returned by tgsb_get_pack_settings or tgsb_get_available_languages. */
+void tgsb_free_string(char *str);
 
 #ifdef __cplusplus
 }

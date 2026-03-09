@@ -37,6 +37,7 @@ typedef struct {
     int numOverrides;
     double voicedTiltDbPerOct;
     int hasVoicedTilt;
+    double f4FreqScale;  /* 0 = use default 1.0 */
 } VoicePreset;
 
 #define OFF(field) offsetof(speechPlayer_frame_t, field)
@@ -67,9 +68,9 @@ static const FrameOverride kCalebOverrides[] = {
 static const FrameOverride kDavidOverrides[] = {
     { OFF(voicePitch), 0.75, 1 },
     { OFF(endVoicePitch), 0.75, 1 },
-    { OFF(cf1), 0.75, 1 },
-    { OFF(cf2), 0.85, 1 },
-    { OFF(cf3), 0.85, 1 },
+    { OFF(cf1), 0.90, 1 },
+    { OFF(cf2), 0.93, 1 },
+    { OFF(cf3), 0.95, 1 },
 };
 
 static const FrameOverride kRobertOverrides[] = {
@@ -91,15 +92,15 @@ static const FrameOverride kRobertOverrides[] = {
     { OFF(pf5), 1.10, 1 }, { OFF(pf6), 1.00, 1 },
 };
 
-#define PRESET(name, arr, tilt, hasTilt) \
-    { name, arr, sizeof(arr)/sizeof(arr[0]), tilt, hasTilt }
+#define PRESET(name, arr, tilt, hasTilt, f4s) \
+    { name, arr, sizeof(arr)/sizeof(arr[0]), tilt, hasTilt, f4s }
 
 static const VoicePreset kPresets[] = {
-    PRESET("adam",     kAdamOverrides,     0.0,  0),
-    PRESET("benjamin", kBenjaminOverrides, 0.0,  0),
-    PRESET("caleb",    kCalebOverrides,    0.0,  0),
-    PRESET("david",    kDavidOverrides,    0.0,  0),
-    PRESET("robert",   kRobertOverrides,  -6.0,  1),
+    PRESET("adam",     kAdamOverrides,     0.0,  0, 0),
+    PRESET("benjamin", kBenjaminOverrides, 0.0,  0, 0),
+    PRESET("caleb",    kCalebOverrides,    0.0,  0, 0),
+    PRESET("david",    kDavidOverrides,    0.0,  0, 0),
+    PRESET("robert",   kRobertOverrides,  -6.0,  1, 0),
 };
 static const int kNumPresets = sizeof(kPresets) / sizeof(kPresets[0]);
 
@@ -279,15 +280,35 @@ int tgsb_set_voice(TgsbEngine *engine, const char *voiceName)
         if (strcmp(kPresets[i].name, voiceName) == 0) {
             engine->voiceIndex = i;
 
+            /* Clear any active voice profile when switching to a DSP preset */
+            if (engine->frontend)
+                nvspFrontend_setVoiceProfile(engine->frontend, "");
+
             speechPlayer_voicingTone_t tone =
                 speechPlayer_getDefaultVoicingTone();
             if (kPresets[i].hasVoicedTilt)
                 tone.voicedTiltDbPerOct = kPresets[i].voicedTiltDbPerOct;
+            if (kPresets[i].f4FreqScale > 0.0)
+                tone.f4FreqScale = kPresets[i].f4FreqScale;
             speechPlayer_setVoicingTone(engine->player, &tone);
             return 1;
         }
     }
     return 0;
+}
+
+int tgsb_set_voice_profile(TgsbEngine *engine, const char *profileName)
+{
+    if (!engine || !engine->frontend) return 0;
+    return nvspFrontend_setVoiceProfile(engine->frontend, profileName);
+}
+
+char *tgsb_get_voice_profile_names(TgsbEngine *engine)
+{
+    if (!engine || !engine->frontend) return NULL;
+    const char *names = nvspFrontend_getVoiceProfileNames(engine->frontend);
+    if (!names || names[0] == '\0') return NULL;
+    return strdup(names);
 }
 
 /*
@@ -379,10 +400,8 @@ void tgsb_queue_text(TgsbEngine *engine,
         memcpy(clause, clauseStart, len);
         clause[len] = '\0';
 
-        /* Pre-eSpeak compound splitting: "dogfood" → "dog food" so each
-         * half is phonemized independently with correct vowel quality. */
-        char *splitClause = nvspFrontend_splitCompounds(engine->frontend,
-                                                         clause);
+        /* Pre-eSpeak text normalization: compound splitting, date ordinals, etc. */
+        char *splitClause = nvspFrontend_prepareText(engine->frontend, clause);
         if (splitClause) {
             free(clause);
             clause = splitClause;
@@ -484,7 +503,10 @@ void tgsb_set_voicing_tone(TgsbEngine *engine,
     double speedQuotient,
     double aspirationTiltDbPerOct,
     double cascadeBwScale,
-    double tremorDepth)
+    double tremorDepth,
+    double nasalBwScale,
+    double f4FreqScale,
+    double nasalGainScale)
 {
     if (!engine || !engine->player) return;
 
@@ -511,6 +533,9 @@ void tgsb_set_voicing_tone(TgsbEngine *engine,
     tone.aspirationTiltDbPerOct = aspirationTiltDbPerOct;
     tone.cascadeBwScale = cascadeBwScale;
     tone.tremorDepth = tremorDepth;
+    tone.nasalBwScale = nasalBwScale;
+    tone.f4FreqScale = f4FreqScale;
+    tone.nasalGainScale = nasalGainScale;
 
     speechPlayer_setVoicingTone(engine->player, &tone);
 }
@@ -590,6 +615,33 @@ void tgsb_set_sample_rate(TgsbEngine *engine, int sampleRate)
             tone.voicedTiltDbPerOct = vp->voicedTiltDbPerOct;
         speechPlayer_setVoicingTone(engine->player, &tone);
     }
+}
+
+/* ------------------------------------------------------------------ */
+/* Pack settings editor API                                           */
+/* ------------------------------------------------------------------ */
+
+char *tgsb_get_pack_settings(TgsbEngine *engine)
+{
+    if (!engine || !engine->frontend) return NULL;
+    return nvspFrontend_getPackSettings(engine->frontend);
+}
+
+int tgsb_apply_setting_overrides(TgsbEngine *engine, const char *yamlSnippet)
+{
+    if (!engine || !engine->frontend || !yamlSnippet) return 0;
+    return nvspFrontend_applySettingOverrides(engine->frontend, yamlSnippet);
+}
+
+char *tgsb_get_available_languages(TgsbEngine *engine)
+{
+    if (!engine || !engine->frontend) return NULL;
+    return nvspFrontend_getAvailableLanguages(engine->frontend);
+}
+
+void tgsb_free_string(char *str)
+{
+    nvspFrontend_freeString(str);
 }
 
 } /* extern "C" */

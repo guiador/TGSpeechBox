@@ -176,6 +176,12 @@ struct RuleWhen {
   std::string afterClass;     // name from classes - match only if prev char is in class
   std::string notBeforeClass; // name from classes - match only if next char is NOT in class
   std::string notAfterClass;  // name from classes - match only if prev char is NOT in class
+  // Cross-word conditions: look at the first/last char of adjacent words.
+  // Only meaningful when atWordEnd/atWordStart is also true.
+  std::string nextWordStartsClass;     // match only if next word's first char is in class
+  std::string nextWordStartsNotClass;  // match only if next word's first char is NOT in class
+  std::string prevWordEndsClass;       // match only if prev word's last char is in class
+  std::string prevWordEndsNotClass;    // match only if prev word's last char is NOT in class
 };
 
 struct ReplacementRule {
@@ -316,6 +322,7 @@ struct NumberExpansionRules {
   std::string million;                  // "million"
   std::string billion;                  // "billion"
   std::string conjunction;              // "" (en-us) or "and" (en-gb)
+  std::string ohDigit;                  // "oh" (en) — replaces zero in year pairs like "09"
 };
 
 struct LanguagePack {
@@ -836,6 +843,11 @@ double lengthContrastPreGeminateVowelScale = 0.85;
   // Number expansion rules for text parser alignment.
   NumberExpansionRules numberExpansion;
 
+  // Year splitting: split 4-digit numbers into two 2-digit pairs
+  // so "1995" → "19 95" (eSpeak says "nineteen ninety-five").
+  // Off by default — users opt in via setSettings.
+  bool yearSplittingEnabled = false;
+
   // Special coarticulation rules (language-specific Hz deltas).
   bool specialCoarticulationEnabled = false;
   std::vector<SpecialCoarticRule> specialCoarticRules;
@@ -1136,6 +1148,12 @@ double liquidDynamicsLabialGlideTransitionPct = 0.60;
   bool rateCompClusterProportionGuard = true;
   double rateCompClusterMaxRatioShift = 0.4;
 
+  // Sonorant-context vowel protection: unstressed vowels flanked by
+  // sonorants (nasals, liquids, semivowels) get masked by smooth formant
+  // transitions.  Extra duration floor and amplitude boost keep them audible.
+  double rateCompSonorantContextBonusMs = 8.0;
+  double sonorantContextAmplitudeScale = 1.15;  // 1.0 = no boost
+
   // Absorbed from old reduction pass: rate-dependent schwa shortening.
   // At speeds above threshold, unstressed schwas shorten. Floor still
   // enforced — this can't create sub-threshold segments.
@@ -1253,6 +1271,19 @@ bool hasPhoneme(const PackSet& pack, const std::u32string& key);
 
 // Map a frame field name (e.g. "cf1") to FieldId. Returns true on success.
 bool parseFieldId(const std::string& name, FieldId& out);
+
+// Get effective scalar settings for a language as "key\tvalue\n" lines.
+// Reads the YAML file chain (default → en → en-us), extracts settings: blocks,
+// flattens nested keys with dot notation, merges in order.
+// Returns empty string on error.
+std::string getEffectiveSettings(const std::string& packDir, const std::string& langTag);
+
+// Get available language tags by scanning packs/lang/*.yaml.
+std::vector<std::string> getAvailableLanguages(const std::string& packDir);
+
+// Apply a YAML snippet of setting overrides to a loaded LanguagePack.
+// The snippet should contain "key: value" lines (flat or nested).
+bool applySettingOverrides(LanguagePack& lp, const std::string& yamlSnippet);
 
 } // namespace nvsp_frontend
 

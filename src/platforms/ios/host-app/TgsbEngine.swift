@@ -44,10 +44,17 @@ let kLanguages: [TgsbLanguage] = [
     TgsbLanguage(id: "zh",    displayName: "Chinese (Mandarin)",espeakTag: "cmn",   tgsbTag: "zh"),
 ]
 
-/// Voice preset names (from C bridge).
+/// Voice preset names (from C bridge + YAML voice profiles).
 struct TgsbVoice: Identifiable, Hashable {
     let id: String
     let displayName: String
+    let isProfile: Bool  // true = YAML voice profile (Beth, Bobby)
+
+    init(id: String, displayName: String, isProfile: Bool = false) {
+        self.id = id
+        self.displayName = displayName
+        self.isProfile = isProfile
+    }
 }
 
 @MainActor
@@ -59,7 +66,7 @@ class TgsbEngine: ObservableObject {
     @Published var pitch: Double = 110.0
     @Published var inflectionValue: Double = 50.0  // 0–100 slider
 
-    let voices: [TgsbVoice]
+    @Published var voices: [TgsbVoice]
 
     private var engine: OpaquePointer?
     private var sampleRate: Int
@@ -82,7 +89,7 @@ class TgsbEngine: ObservableObject {
     init() {
         self.sampleRate = Self.loadSampleRate()
 
-        // Gather voice names from C bridge
+        // Gather voice names: DSP presets from C bridge + YAML profiles
         let numVoices = tgsb_get_num_voices()
         var v: [TgsbVoice] = []
         for i in 0..<numVoices {
@@ -92,6 +99,10 @@ class TgsbEngine: ObservableObject {
                                    displayName: name.capitalized))
             }
         }
+        // Add known YAML voice profiles as fallback (replaced by
+        // dynamic discovery in start() if engine finds more).
+        v.append(TgsbVoice(id: "beth", displayName: "Beth", isProfile: true))
+        v.append(TgsbVoice(id: "bobby", displayName: "Bobby", isProfile: true))
         self.voices = v
         self.selectedVoice = v.first ?? TgsbVoice(id: "adam",
                                                    displayName: "Adam")
@@ -121,10 +132,36 @@ class TgsbEngine: ObservableObject {
         tgsb_set_language(engine,
                           selectedLanguage.espeakTag,
                           selectedLanguage.tgsbTag)
-        tgsb_set_voice(engine, selectedVoice.id)
+        // Discover YAML voice profiles now that engine is available
+        if let namesPtr = tgsb_get_voice_profile_names(engine!) {
+            let names = String(cString: namesPtr)
+            free(namesPtr)
+            var updatedVoices = self.voices
+            for name in names.split(separator: "\n") where !name.isEmpty {
+                let n = String(name)
+                if !updatedVoices.contains(where: { $0.id == n.lowercased() }) {
+                    updatedVoices.append(TgsbVoice(id: n.lowercased(),
+                                                    displayName: n,
+                                                    isProfile: true))
+                }
+            }
+            self.voices = updatedVoices
+        }
+
+        applySelectedVoice(engine!)
 
         print("[TgsbEngine] Engine ready")
         return true
+    }
+
+    /// Apply the selected voice — either a DSP preset or a YAML profile.
+    private func applySelectedVoice(_ eng: OpaquePointer) {
+        if selectedVoice.isProfile {
+            tgsb_set_voice(eng, "adam")
+            tgsb_set_voice_profile(eng, selectedVoice.displayName)
+        } else {
+            tgsb_set_voice(eng, selectedVoice.id)
+        }
     }
 
     func shutdown() {
@@ -150,7 +187,8 @@ class TgsbEngine: ObservableObject {
         voiceTilt: Double, speedQuotient sq: Double,
         aspirationTilt: Double, cascadeBwScale bw: Double,
         noiseGlottalMod: Double, pitchSyncF1: Double,
-        pitchSyncB1: Double, voiceTremor: Double
+        pitchSyncB1: Double, voiceTremor: Double,
+        headSize: Double
     ) {
         guard let eng = engine else { return }
 
@@ -163,12 +201,16 @@ class TgsbEngine: ObservableObject {
             : 2.0 + ((sq - 50.0) / 50.0) * 2.0
         let aspTilt  = (aspirationTilt - 50.0) * 0.24
         let bwVal    = bw <= 50.0
-            ? 2.0 - (bw / 50.0) * 1.1
-            : 0.9 - ((bw - 50.0) / 50.0) * 0.6
+            ? 2.0 - (bw / 50.0) * 1.0
+            : 1.0 - ((bw - 50.0) / 50.0) * 0.7
         let tremor   = (voiceTremor / 100.0) * 0.4
+        let hs       = headSize <= 50.0
+            ? 1.25 - (headSize / 50.0) * 0.25
+            : 1.0 - ((headSize - 50.0) / 50.0) * 0.15
 
         tgsb_set_voicing_tone(eng, tilt, noiseMod, psF1, psB1,
-                              sqVal, aspTilt, bwVal, tremor)
+                              sqVal, aspTilt, bwVal, tremor,
+                              1.0, hs, 1.0)
     }
 
     /// Apply FrameEx defaults from 0–100 slider values.
@@ -229,7 +271,8 @@ class TgsbEngine: ObservableObject {
             noiseGlottalMod: load("noiseGlottalMod", 0),
             pitchSyncF1: load("pitchSyncF1", 50),
             pitchSyncB1: load("pitchSyncB1", 50),
-            voiceTremor: load("voiceTremor", 0))
+            voiceTremor: load("voiceTremor", 0),
+            headSize: load("headSize", 50))
 
         applyFrameExFromSliders(
             creakiness: load("creakiness", 0),
@@ -248,6 +291,175 @@ class TgsbEngine: ObservableObject {
         setPauseMode(pauseMode)
     }
 
+    // MARK: - Pack settings editor
+
+    /// Settings managed by Engine Settings sliders — hidden from editor.
+    private static let hiddenKeys: Set<String> = [
+        "legacyPitchMode", "legacyPitchInflectionScale"
+    ]
+
+    enum SettingType { case bool_, number, text }
+
+    struct PackSetting: Identifiable {
+        let id: String  // key
+        let key: String
+        let displayName: String
+        let value: String
+        let isOverridden: Bool
+        let type: SettingType
+    }
+
+    @Published var editorLanguages: [String] = []
+    @Published var editorSettings: [PackSetting] = []
+    private var editorLangTag: String = ""
+
+    func loadEditorLanguages() {
+        guard let eng = engine else { return }
+        guard let ptr = tgsb_get_available_languages(eng) else { return }
+        let raw = String(cString: ptr)
+        tgsb_free_string(ptr)
+        editorLanguages = raw.split(separator: "\n").map(String.init).sorted()
+    }
+
+    func loadEditorSettings(langTag: String) {
+        guard let eng = engine else { return }
+        editorLangTag = langTag
+
+        // Temporarily switch language to read its settings
+        let curLang = selectedLanguage
+        tgsb_set_language(eng, langTag, langTag)
+
+        guard let ptr = tgsb_get_pack_settings(eng) else {
+            tgsb_set_language(eng, curLang.espeakTag, curLang.tgsbTag)
+            applyStoredOverrides(curLang.tgsbTag)
+            return
+        }
+        let raw = String(cString: ptr)
+        tgsb_free_string(ptr)
+
+        let overrides = loadOverrides(langTag)
+        if !overrides.isEmpty {
+            let yaml = overrides.map { "\($0.key): \($0.value)" }.joined(separator: "\n")
+            _ = tgsb_apply_setting_overrides(eng, yaml)
+        }
+
+        var settings: [PackSetting] = []
+        for line in raw.split(separator: "\n") {
+            guard let tabIdx = line.firstIndex(of: "\t") else { continue }
+            let key = String(line[line.startIndex..<tabIdx])
+            if Self.hiddenKeys.contains(key) { continue }
+            let baseValue = String(line[line.index(after: tabIdx)...])
+            let effectiveValue = overrides[key] ?? baseValue
+            let type = detectType(effectiveValue)
+            settings.append(PackSetting(
+                id: key, key: key,
+                displayName: camelToDisplay(key),
+                value: effectiveValue,
+                isOverridden: overrides[key] != nil,
+                type: type))
+        }
+        editorSettings = settings
+
+        // Restore
+        tgsb_set_language(eng, curLang.espeakTag, curLang.tgsbTag)
+        applyStoredOverrides(curLang.tgsbTag)
+    }
+
+    func setEditorOverride(langTag: String, key: String, value: String) {
+        let baseValues = getBaseValues(langTag)
+        var overrides = loadOverrides(langTag)
+        if baseValues[key] == value {
+            overrides.removeValue(forKey: key)
+        } else {
+            overrides[key] = value
+        }
+        saveOverrides(langTag, overrides)
+        reloadCurrentLanguage()
+        loadEditorSettings(langTag: langTag)
+    }
+
+    func removeEditorOverride(langTag: String, key: String) {
+        var overrides = loadOverrides(langTag)
+        overrides.removeValue(forKey: key)
+        saveOverrides(langTag, overrides)
+        reloadCurrentLanguage()
+        loadEditorSettings(langTag: langTag)
+    }
+
+    func resetAllEditorOverrides(langTag: String) {
+        let d = UserDefaults(suiteName: kAppGroupId)
+        d?.removeObject(forKey: "pack_overrides_\(langTag)")
+        d?.synchronize()
+        reloadCurrentLanguage()
+        loadEditorSettings(langTag: langTag)
+    }
+
+    func applyStoredOverrides(_ tgsbLang: String) {
+        guard let eng = engine else { return }
+        let overrides = loadOverrides(tgsbLang)
+        if overrides.isEmpty { return }
+        let yaml = overrides.map { "\($0.key): \($0.value)" }.joined(separator: "\n")
+        tgsb_apply_setting_overrides(eng, yaml)
+    }
+
+    private func reloadCurrentLanguage() {
+        guard let eng = engine else { return }
+        tgsb_set_language(eng, selectedLanguage.espeakTag, selectedLanguage.tgsbTag)
+        applyStoredOverrides(selectedLanguage.tgsbTag)
+    }
+
+    private func getBaseValues(_ langTag: String) -> [String: String] {
+        guard let eng = engine else { return [:] }
+        tgsb_set_language(eng, langTag, langTag)
+        guard let ptr = tgsb_get_pack_settings(eng) else { return [:] }
+        let raw = String(cString: ptr)
+        tgsb_free_string(ptr)
+        var map: [String: String] = [:]
+        for line in raw.split(separator: "\n") {
+            guard let tabIdx = line.firstIndex(of: "\t") else { continue }
+            map[String(line[line.startIndex..<tabIdx])] = String(line[line.index(after: tabIdx)...])
+        }
+        return map
+    }
+
+    private func loadOverrides(_ langTag: String) -> [String: String] {
+        let d = UserDefaults(suiteName: kAppGroupId)
+        guard let json = d?.string(forKey: "pack_overrides_\(langTag)"),
+              let data = json.data(using: .utf8),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: String]
+        else { return [:] }
+        return obj
+    }
+
+    private func saveOverrides(_ langTag: String, _ overrides: [String: String]) {
+        let d = UserDefaults(suiteName: kAppGroupId)
+        if overrides.isEmpty {
+            d?.removeObject(forKey: "pack_overrides_\(langTag)")
+        } else if let data = try? JSONSerialization.data(withJSONObject: overrides),
+                  let json = String(data: data, encoding: .utf8) {
+            d?.set(json, forKey: "pack_overrides_\(langTag)")
+        }
+        d?.synchronize()
+    }
+
+    private func detectType(_ value: String) -> SettingType {
+        if value == "true" || value == "false" { return .bool_ }
+        if Double(value) != nil { return .number }
+        return .text
+    }
+
+    private func camelToDisplay(_ key: String) -> String {
+        let dotReplaced = key.replacingOccurrences(of: ".", with: ": ")
+        var result = ""
+        for c in dotReplaced {
+            if c.isUppercase && !result.isEmpty && result.last?.isLowercase == true {
+                result.append(" ")
+            }
+            result.append(c)
+        }
+        return result.prefix(1).uppercased() + result.dropFirst()
+    }
+
     func speak(_ text: String) {
         guard let eng = engine else { return }
         stopSpeaking()
@@ -256,7 +468,8 @@ class TgsbEngine: ObservableObject {
         tgsb_set_language(eng,
                           selectedLanguage.espeakTag,
                           selectedLanguage.tgsbTag)
-        tgsb_set_voice(eng, selectedVoice.id)
+        applyStoredOverrides(selectedLanguage.tgsbTag)
+        applySelectedVoice(eng)
         applyEngineSettings()
         tgsb_set_inflection(eng, inflectionValue / 100.0)
 

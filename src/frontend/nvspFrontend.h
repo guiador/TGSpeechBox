@@ -139,10 +139,15 @@ typedef struct nvspFrontend_VoicingTone {
   double aspirationTiltDbPerOct; /* Aspiration spectral tilt */
   double cascadeBwScale;        /* Global cascade bandwidth multiplier (1.0 = neutral) */
   double tremorDepth;           /* Tremor depth for elderly/shaky voice (0-0.5) */
+
+  /* V4 parameters — vocal tract shape */
+  double nasalBwScale;          /* Nasal resonator bandwidth multiplier (1.0 = neutral) */
+  double f4FreqScale;           /* F4 frequency multiplier for pharynx length (1.0 = neutral) */
+  double nasalGainScale;        /* Nasal pole coupling amplitude multiplier (1.0 = neutral) */
 } nvspFrontend_VoicingTone;
 
 /* Number of fields in VoicingTone struct */
-#define NVSP_FRONTEND_VOICINGTONE_NUM_PARAMS 14
+#define NVSP_FRONTEND_VOICINGTONE_NUM_PARAMS 17
 
 /*
   VoiceProfileSliders - the 12 user-adjustable slider values (ABI v2+).
@@ -490,19 +495,47 @@ NVSP_FRONTEND_API void nvspFrontend_setLegacyPitchInflectionScale(
   the returned text to eSpeak instead of the original, so each half is
   phonemized independently with correct vowel quality.
 
-  Returns NULL if no compounds were found (use original text unchanged).
-  Returns a malloc'd UTF-8 string if compounds were split.  The caller
+  Returns NULL if no transforms were applied (use original text unchanged).
+  Returns a malloc'd UTF-8 string if any transforms fired.  The caller
   must free the returned pointer with nvspFrontend_freeString().
 */
-NVSP_FRONTEND_API char* nvspFrontend_splitCompounds(
+NVSP_FRONTEND_API char* nvspFrontend_prepareText(
   nvspFrontend_handle_t handle,
   const char* textUtf8
 );
 
+// Backwards-compatible alias for older callers.
+#define nvspFrontend_splitCompounds nvspFrontend_prepareText
+
 /*
-  Free a string returned by nvspFrontend_splitCompounds().
+  Free a string returned by nvspFrontend_prepareText().
 */
 NVSP_FRONTEND_API void nvspFrontend_freeString(char* str);
+
+/*
+  Get effective scalar settings for the current language as "key\tvalue\n" lines.
+  Reads the YAML file chain and flattens nested keys with dot notation.
+  Returns NULL if no language is loaded.
+  Caller must free with nvspFrontend_freeString().
+*/
+NVSP_FRONTEND_API char* nvspFrontend_getPackSettings(nvspFrontend_handle_t handle);
+
+/*
+  Apply setting overrides on top of the currently loaded language pack.
+  yamlSnippetUtf8 is a mini YAML snippet containing "key: value" lines.
+  Dot-notation keys (e.g. "boundarySmoothing.enabled: true") are supported.
+  Must be called after setLanguage. Returns 1 on success, 0 on failure.
+*/
+NVSP_FRONTEND_API int nvspFrontend_applySettingOverrides(
+  nvspFrontend_handle_t handle,
+  const char* yamlSnippetUtf8
+);
+
+/*
+  Get available language tags by scanning packs/lang/*.yaml.
+  Returns a malloc'd "langTag\n" string. Caller must free with nvspFrontend_freeString().
+*/
+NVSP_FRONTEND_API char* nvspFrontend_getAvailableLanguages(nvspFrontend_handle_t handle);
 
 #ifdef __cplusplus
 }

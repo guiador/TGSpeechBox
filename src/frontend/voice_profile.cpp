@@ -159,7 +159,12 @@ static bool parseVoicingTone(const yaml_min::Node& node, VoicingTone& out, std::
   parseParam("aspirationTiltDbPerOct", out.aspirationTiltDbPerOct, out.aspirationTiltDbPerOct_set);
   parseParam("cascadeBwScale", out.cascadeBwScale, out.cascadeBwScale_set);
   parseParam("tremorDepth", out.tremorDepth, out.tremorDepth_set);
-  
+
+  // V4 parameters — vocal tract shape
+  parseParam("nasalBwScale", out.nasalBwScale, out.nasalBwScale_set);
+  parseParam("f4FreqScale", out.f4FreqScale, out.f4FreqScale_set);
+  parseParam("nasalGainScale", out.nasalGainScale, out.nasalGainScale_set);
+
   return true;
 }
 

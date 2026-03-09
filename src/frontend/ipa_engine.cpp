@@ -361,6 +361,32 @@ static bool isWordBoundaryAfter(const std::u32string& text, size_t posAfter) {
   return text[posAfter] == U' ';
 }
 
+// Find the first IPA character of the next word (skip space + stress marks).
+// Returns the index, or text.size() if no next word.
+static size_t nextWordFirstChar(const std::u32string& text, size_t posAfterMatch) {
+  size_t i = posAfterMatch;
+  // Skip to space
+  while (i < text.size() && text[i] != U' ') ++i;
+  // Skip space(s)
+  while (i < text.size() && text[i] == U' ') ++i;
+  // Skip stress marks
+  while (i < text.size() && isStressMark(text[i])) ++i;
+  return i;
+}
+
+// Find the last IPA character of the previous word (skip space + stress marks backwards).
+// Returns the index, or SIZE_MAX if no previous word.
+static size_t prevWordLastChar(const std::u32string& text, size_t matchStart) {
+  if (matchStart == 0) return SIZE_MAX;
+  size_t i = matchStart - 1;
+  // Skip space(s) backwards
+  while (i > 0 && text[i] == U' ') --i;
+  if (text[i] == U' ') return SIZE_MAX;  // was at start
+  // Skip stress marks backwards
+  while (i > 0 && isStressMark(text[i])) --i;
+  return i;
+}
+
 static inline bool isTieBar(char32_t c) {
   return c == U'͡' || c == U'͜';
 }
@@ -543,6 +569,39 @@ static void applyRules(std::u32string& text, const PackSet& pack, const std::vec
           }
         }
 
+        // Cross-word class conditions: look at adjacent words' boundary chars.
+        if (ok && !rule.when.nextWordStartsClass.empty()) {
+          size_t nwi = nextWordFirstChar(text, matchEnd);
+          if (nwi >= text.size()) {
+            ok = false;  // no next word = silence; doesn't match
+          } else {
+            ok = classContainsNext(pack.lang.classes, rule.when.nextWordStartsClass, text, nwi);
+          }
+        }
+        if (ok && !rule.when.nextWordStartsNotClass.empty()) {
+          size_t nwi = nextWordFirstChar(text, matchEnd);
+          // No next word (silence) passes the NOT condition
+          if (nwi < text.size() &&
+              classContainsNext(pack.lang.classes, rule.when.nextWordStartsNotClass, text, nwi)) {
+            ok = false;
+          }
+        }
+        if (ok && !rule.when.prevWordEndsClass.empty()) {
+          size_t pwi = prevWordLastChar(text, matchStart);
+          if (pwi == SIZE_MAX) {
+            ok = false;  // no prev word
+          } else {
+            ok = classContainsPrev(pack.lang.classes, rule.when.prevWordEndsClass, text, pwi);
+          }
+        }
+        if (ok && !rule.when.prevWordEndsNotClass.empty()) {
+          size_t pwi = prevWordLastChar(text, matchStart);
+          if (pwi != SIZE_MAX &&
+              classContainsPrev(pack.lang.classes, rule.when.prevWordEndsNotClass, text, pwi)) {
+            ok = false;
+          }
+        }
+
         // Don't replace inside a tied sequence.  A tie bar immediately
         // before the match means this phoneme is bound to its predecessor
         // (e.g. "s" inside "t͡s") and must not be split out independently.
@@ -623,6 +682,13 @@ static void applyAliases(std::u32string& text, const PackSet& pack) {
 
 static std::u32string normalizeIpaText(const PackSet& pack, const std::string& ipaUtf8) {
   std::u32string t = utf8ToU32(ipaUtf8);
+
+  // Strip any codepoints in Supplementary PUA-A (U+F0000–U+FFFFD) from the
+  // input.  We use this range internally to protect characters during allophone
+  // cascade processing; any PUA-A arriving from eSpeak or user dictionaries
+  // would collide with our escape/unescape logic.
+  t.erase(std::remove_if(t.begin(), t.end(),
+      [](char32_t c) { return c >= 0xF0000 && c <= 0xFFFFF; }), t.end());
 
   // Normalize tie bar variants early so pack rules can match reliably.
   replaceAll(t, U"͜", U"͡");

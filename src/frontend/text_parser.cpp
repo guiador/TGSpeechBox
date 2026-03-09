@@ -705,7 +705,7 @@ std::string runTextParser(
   if (text.empty()) return ipa;
 
   // ── Compound split boundary tracking ──────────────────────────────────
-  // splitCompoundsInText() uses \x1F (Unit Separator) between compound
+  // prepareTextForEspeak() uses \x1F (Unit Separator) between compound
   // halves instead of space.  Scan for these markers and record which
   // adjacent word pairs came from our compound splitting (vs. the user
   // writing separate words).  Replace \x1F with space for normal parsing.
@@ -768,12 +768,12 @@ std::string runTextParser(
 
   auto ipaChunks = splitIpaWords(ipa);
 
-  // When number expansion made textWords longer than ipaChunks, eSpeak
-  // merged some number sub-words (e.g. "wˈʌnhˈʌndɹɪd" = one+hundred).
-  // Split multi-stress IPA chunks to recover them.  Safe here because the
-  // excess text words are known to be from number expansion.
-  // Without expansion, splitting is deferred to reassembly as before.
-  if (numberRules.enabled && textWords.size() > ipaChunks.size()) {
+  // eSpeak sometimes merges number sub-words into a single IPA chunk
+  // (e.g. "wˈʌnhˈʌndɹɪd" = one+hundred).  Always split multi-stress
+  // chunks when number expansion is active — the old size() guard missed
+  // cases where other numbers expanded to MORE IPA chunks, masking the
+  // merge (e.g. "100 ... 1.95" → 13 text words but 15 IPA chunks).
+  if (numberRules.enabled) {
     splitMultiStressChunks(ipaChunks);
   }
 
@@ -1120,7 +1120,9 @@ std::string runTextParser(
   return result;
 }
 
-std::string splitCompoundsInText(
+// ── Compound splitting (internal) ──
+
+static std::string splitCompoundsInText(
     const std::string& text,
     const std::unordered_map<std::string, std::vector<std::string>>& compoundMap)
 {
@@ -1185,6 +1187,235 @@ std::string splitCompoundsInText(
     result += token.substr(hi);  // trailing punctuation
 
     TPLOG("  splitCompound: \"%s\" -> halves[%zu]\n", token.c_str(), halves.size());
+  }
+
+  return result;
+}
+
+// ── English date ordinals ──
+//
+// "June 6" → "June 6th", "6 June" → "6th June"
+// Only bare numbers 1-31 adjacent to a month name.
+
+static const char* const kEnglishMonths[] = {
+  "january", "february", "march", "april", "may", "june",
+  "july", "august", "september", "october", "november", "december",
+  "jan", "feb", "mar", "apr", "jun", "jul", "aug", "sep", "sept", "oct", "nov", "dec"
+};
+static const int kNumMonthNames = sizeof(kEnglishMonths) / sizeof(kEnglishMonths[0]);
+
+static bool isEnglishMonth(const std::string& word) {
+  // Require first letter uppercase — "March 23" is a date, "march 23" may be a verb.
+  if (word.empty() || !std::isupper(static_cast<unsigned char>(word[0]))) return false;
+  std::string lower = word;
+  for (auto& c : lower) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+  for (int i = 0; i < kNumMonthNames; ++i) {
+    if (lower == kEnglishMonths[i]) return true;
+  }
+  return false;
+}
+
+static const char* ordinalSuffix(int n) {
+  if (n >= 11 && n <= 13) return "th";
+  switch (n % 10) {
+    case 1: return "st";
+    case 2: return "nd";
+    case 3: return "rd";
+    default: return "th";
+  }
+}
+
+static std::string insertDateOrdinals(const std::string& text) {
+  // Split into whitespace-separated tokens, preserving whitespace.
+  struct Tok { std::string s; bool isWs; };
+  std::vector<Tok> toks;
+  size_t i = 0;
+  while (i < text.size()) {
+    size_t start = i;
+    bool ws = (text[i] == ' ' || text[i] == '\t' || text[i] == '\n' || text[i] == '\r');
+    if (ws) {
+      while (i < text.size() && (text[i] == ' ' || text[i] == '\t' ||
+             text[i] == '\n' || text[i] == '\r')) ++i;
+    } else {
+      while (i < text.size() && text[i] != ' ' && text[i] != '\t' &&
+             text[i] != '\n' && text[i] != '\r') ++i;
+    }
+    toks.push_back({text.substr(start, i - start), ws});
+  }
+
+  // Look for month + bare number or bare number + month patterns.
+  bool changed = false;
+  for (size_t t = 0; t < toks.size(); ++t) {
+    if (toks[t].isWs) continue;
+
+    // Check if this token is a bare number 1-31 (no existing suffix).
+    const std::string& s = toks[t].s;
+    // Strip trailing punctuation for the digit check.
+    size_t numEnd = s.size();
+    while (numEnd > 0 && std::ispunct(static_cast<unsigned char>(s[numEnd - 1])) &&
+           !std::isdigit(static_cast<unsigned char>(s[numEnd - 1]))) --numEnd;
+    if (numEnd == 0) continue;
+
+    bool allDigits = true;
+    for (size_t c = 0; c < numEnd; ++c) {
+      if (!std::isdigit(static_cast<unsigned char>(s[c]))) { allDigits = false; break; }
+    }
+    if (!allDigits) continue;
+
+    int val = std::atoi(s.substr(0, numEnd).c_str());
+    if (val < 1 || val > 31) continue;
+
+    // Already has ordinal suffix? (e.g. "6th", "1st")
+    if (numEnd < s.size()) {
+      std::string trail = s.substr(numEnd);
+      std::string trailLower = trail;
+      for (auto& c : trailLower) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+      if (trailLower == "st" || trailLower == "nd" || trailLower == "rd" || trailLower == "th") continue;
+    }
+
+    // Look for adjacent month (skipping whitespace tokens).
+    auto adjacentMonth = [&](int dir) -> bool {
+      for (size_t j = t + dir; j < toks.size(); j += dir) {
+        if (toks[j].isWs) continue;
+        return isEnglishMonth(toks[j].s);
+      }
+      return false;
+    };
+
+    if (adjacentMonth(+1) || adjacentMonth(-1)) {
+      // Insert ordinal suffix after the digits, before trailing punctuation.
+      // Use the parsed int to strip leading zeros ("06" → "6th").
+      const char* suf = ordinalSuffix(val);
+      toks[t].s = std::to_string(val) + suf + s.substr(numEnd);
+      changed = true;
+      TPLOG("  dateOrdinal: \"%s\" -> \"%s\"\n", s.c_str(), toks[t].s.c_str());
+    }
+  }
+
+  if (!changed) return text;
+
+  std::string result;
+  result.reserve(text.size() + 32);
+  for (const auto& tok : toks) result += tok.s;
+  return result;
+}
+
+// ── Year splitting ──
+//
+// Split 4-digit numbers into two 2-digit pairs so eSpeak reads them
+// as digit pairs: "1995" → "19 95" ("nineteen ninety-five").
+// Only pure 4-digit tokens (no leading zeros, not part of a larger number).
+
+static std::string splitYears(const std::string& text, const std::string& ohDigit) {
+  struct Tok { std::string s; bool isWs; };
+  std::vector<Tok> toks;
+  size_t i = 0;
+  while (i < text.size()) {
+    size_t start = i;
+    bool ws = (text[i] == ' ' || text[i] == '\t' || text[i] == '\n' || text[i] == '\r');
+    if (ws) {
+      while (i < text.size() && (text[i] == ' ' || text[i] == '\t' ||
+             text[i] == '\n' || text[i] == '\r')) ++i;
+    } else {
+      while (i < text.size() && text[i] != ' ' && text[i] != '\t' &&
+             text[i] != '\n' && text[i] != '\r') ++i;
+    }
+    toks.push_back({text.substr(start, i - start), ws});
+  }
+
+  bool changed = false;
+  for (auto& tok : toks) {
+    if (tok.isWs) continue;
+
+    // Strip trailing punctuation to find the numeric core.
+    const std::string& s = tok.s;
+    size_t numEnd = s.size();
+    while (numEnd > 0 && std::ispunct(static_cast<unsigned char>(s[numEnd - 1])) &&
+           !std::isdigit(static_cast<unsigned char>(s[numEnd - 1]))) --numEnd;
+
+    // Strip leading punctuation too.
+    size_t numStart = 0;
+    while (numStart < numEnd && std::ispunct(static_cast<unsigned char>(s[numStart])) &&
+           !std::isdigit(static_cast<unsigned char>(s[numStart]))) ++numStart;
+
+    size_t numLen = numEnd - numStart;
+    if (numLen != 4) continue;
+
+    // Must be exactly 4 digits.
+    bool allDigits = true;
+    for (size_t c = numStart; c < numEnd; ++c) {
+      if (!std::isdigit(static_cast<unsigned char>(s[c]))) { allDigits = false; break; }
+    }
+    if (!allDigits) continue;
+
+    // Don't split if first pair starts with 0 (e.g. "0512").
+    if (s[numStart] == '0') continue;
+
+    // Don't split when the second pair is "00" — "4000" should be
+    // "four thousand", not "forty oh zero".
+    if (s[numStart + 2] == '0' && s[numStart + 3] == '0') continue;
+
+    // Don't split "20XX" when XX is 01–09 — eSpeak says "two thousand one"
+    // which is more natural than "twenty oh one".  But DO split other
+    // centuries: "1708" → "17 oh eight", "3709" → "37 oh nine".
+    if (s[numStart] == '2' && s[numStart + 1] == '0' && s[numStart + 2] == '0') continue;
+
+    // Split: "1995" → "19 95", "3709" → "37 oh nine"
+    // When the second pair has a leading zero (e.g. "09") and the
+    // language pack provides an ohDigit word, use it instead of
+    // letting eSpeak read "zero" — matches natural English year/number
+    // pronunciation (Eloquence-style).  Non-English packs leave ohDigit
+    // empty to skip this.
+    std::string secondPair;
+    if (s[numStart + 2] == '0' && !ohDigit.empty()) {
+      secondPair = ohDigit + " " + s.substr(numStart + 3, 1);
+    } else {
+      secondPair = s.substr(numStart + 2, 2);
+    }
+    std::string split = s.substr(0, numStart)
+        + s.substr(numStart, 2) + " " + secondPair
+        + s.substr(numEnd);
+    TPLOG("  yearSplit: \"%s\" -> \"%s\"\n", s.c_str(), split.c_str());
+    tok.s = split;
+    changed = true;
+  }
+
+  if (!changed) return text;
+
+  std::string result;
+  result.reserve(text.size() + 32);
+  for (const auto& tok : toks) result += tok.s;
+  return result;
+}
+
+// ── Public API ──
+
+std::string prepareTextForEspeak(
+    const std::string& text,
+    const std::unordered_map<std::string, std::vector<std::string>>& compoundMap,
+    const std::string& langTag,
+    bool yearSplitting,
+    const std::string& ohDigit)
+{
+  if (text.empty()) return text;
+
+  std::string result = text;
+
+  // 1. Compound splitting.
+  if (!compoundMap.empty()) {
+    result = splitCompoundsInText(result, compoundMap);
+  }
+
+  // 2. English date ordinals ("June 6" → "June 6th").
+  if (langTag.size() >= 2 && (langTag[0] == 'e' || langTag[0] == 'E') &&
+      (langTag[1] == 'n' || langTag[1] == 'N') &&
+      (langTag.size() == 2 || langTag[2] == '-' || langTag[2] == '_')) {
+    result = insertDateOrdinals(result);
+  }
+
+  // 3. Year splitting ("1995" → "19 95").
+  if (yearSplitting) {
+    result = splitYears(result, ohDigit);
   }
 
   return result;

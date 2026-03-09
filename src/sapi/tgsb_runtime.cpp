@@ -718,8 +718,19 @@ HRESULT runtime::queue_text(const std::wstring& text, const speak_params& params
         }
     }
 
+    // Pre-eSpeak text normalization: compound splitting, date ordinals, etc.
+    std::wstring prepared_text = text;
+    if (frontend_) {
+        const std::string text_utf8 = utils::wstring_to_string(text);
+        char* prepared = nvspFrontend_prepareText(frontend_, text_utf8.c_str());
+        if (prepared) {
+            prepared_text = utils::string_to_wstring(std::string(prepared));
+            nvspFrontend_freeString(prepared);
+        }
+    }
+
     ipa_buf_.clear();
-    text_to_ipa_utf8(text, ipa_buf_);
+    text_to_ipa_utf8(prepared_text, ipa_buf_);
     if (ipa_buf_.empty()) return S_OK;
 
     if (!frontend_) return E_FAIL;
@@ -731,7 +742,7 @@ HRESULT runtime::queue_text(const std::wstring& text, const speak_params& params
     ctx.params = &params;
 
     // Always use the latest API (ExWithText) — frontend is statically linked.
-    const std::string text_utf8 = utils::wstring_to_string(text);
+    const std::string text_utf8 = utils::wstring_to_string(prepared_text);
     int ok = nvspFrontend_queueIPA_ExWithText(
         frontend_,
         text_utf8.c_str(),
@@ -808,9 +819,9 @@ void runtime::apply_preset_and_volume(void* frame_ptr, const speak_params& param
     else if (eq(preset, L"David")) {
         f.voicePitch *= 0.75;
         f.endVoicePitch *= 0.75;
-        f.cf1 *= 0.75;
-        f.cf2 *= 0.85;
-        f.cf3 *= 0.85;
+        f.cf1 *= 0.90;
+        f.cf2 *= 0.93;
+        f.cf3 *= 0.95;
     }
     else if (eq(preset, L"Robert")) {
         f.voicePitch *= 1.10;
@@ -856,7 +867,7 @@ void runtime::apply_preset_and_volume(void* frame_ptr, const speak_params& param
 
     f.preFormantGain *= v;
 
-    constexpr double k_output_gain_boost_at_max = 0.95;
+    constexpr double k_output_gain_boost_at_max = 0.50;
     const double out_v = v * (1.0 + k_output_gain_boost_at_max * v);
     f.outputGain *= out_v;
 }

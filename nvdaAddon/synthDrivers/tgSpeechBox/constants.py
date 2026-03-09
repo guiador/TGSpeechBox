@@ -123,10 +123,11 @@ voices = {
     "David": {
         "voicePitch_mul": 0.75,
         "endVoicePitch_mul": 0.75,
-        "cf1_mul": 0.75,
-        "cf2_mul": 0.85,
-        "cf3_mul": 0.85,
+        "cf1_mul": 0.90,
+        "cf2_mul": 0.93,
+        "cf3_mul": 0.95,
         "voicedTiltDbPerOct": 0.0,  # Explicit neutral tilt
+        "headSize": 100,            # Large pharynx — deep gruff quality
     },
     # -------------------------------------------------------------------------
     # Robert: Eloquence-inspired voice (BRIGHT, CRISP, SYNTHETIC)

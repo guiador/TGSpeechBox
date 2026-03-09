@@ -187,6 +187,30 @@ class VoicingToneMixin:
         except Exception:
             pass
 
+    # ---- Head Size (F4 Frequency Scale) slider ----
+    # 0 = 0.7 (large pharynx, deep male), 50 = 1.0 (neutral),
+    # 100 = 1.5 (small pharynx, child)
+
+    def _get_headSize(self):
+        return int(getattr(self, "_curHeadSize", 50))
+
+    def _set_headSize(self, val):
+        try:
+            newVal = int(val)
+            if newVal == getattr(self, "_curHeadSize", 50):
+                return
+            self._curHeadSize = newVal
+            if not getattr(self, "_initComplete", False):
+                return
+            curVoice = getattr(self, "_curVoice", "Adam") or "Adam"
+            if curVoice.startswith(VOICE_PROFILE_PREFIX):
+                profileName = curVoice[len(VOICE_PROFILE_PREFIX):]
+            else:
+                profileName = ""
+            self._applyVoicingTone(profileName)
+        except Exception:
+            pass
+
     # ---- Voice Tremor slider ----
 
     def _get_voiceTremor(self):
@@ -358,6 +382,9 @@ class VoicingToneMixin:
                         tone.speedQuotient = frontendTone.speedQuotient
                         tone.aspirationTiltDbPerOct = frontendTone.aspirationTiltDbPerOct
                         tone.cascadeBwScale = frontendTone.cascadeBwScale
+                        tone.nasalBwScale = frontendTone.nasalBwScale
+                        tone.f4FreqScale = frontendTone.f4FreqScale
+                        tone.nasalGainScale = frontendTone.nasalGainScale
 
             # Helper for slider values
             def safe_float(val, default=0.0):
@@ -400,18 +427,29 @@ class VoicingToneMixin:
             # Above 50: wider formants (softer, more blended)
             bwSlider = safe_float(getattr(self, "_curCascadeBwScale", 50), 50.0)
             if bwSlider <= 50.0:
-                # 0 -> 2.0 (wide/muffled), 50 -> 0.9 (neutral)
-                tone.cascadeBwScale = 2.0 - (bwSlider / 50.0) * 1.1
+                # 0 -> 2.0 (wide/muffled), 50 -> 1.0 (neutral)
+                tone.cascadeBwScale = 2.0 - (bwSlider / 50.0) * 1.0
             else:
-                # 50 -> 0.9 (neutral), 100 -> 0.3 (sharp/ringy)
-                tone.cascadeBwScale = 0.9 - ((bwSlider - 50.0) / 50.0) * 0.6
-            # Safety clamp
-                tone.cascadeBwScale = max(0.2, min(2.0, tone.cascadeBwScale))
+                # 50 -> 1.0 (neutral), 100 -> 0.3 (sharp/ringy)
+                tone.cascadeBwScale = 1.0 - ((bwSlider - 50.0) / 50.0) * 0.7
+            tone.cascadeBwScale = max(0.3, min(2.0, tone.cascadeBwScale))
 
             # Apply voice tremor from slider (0-100 maps to 0.0-0.4 depth)
             tremorSlider = safe_float(getattr(self, "_curVoiceTremor", 0), 0.0)
             tone.tremorDepth = (tremorSlider / 100.0) * 0.4
             tone.tremorDepth = max(0.0, min(0.5, tone.tremorDepth))
+
+            # Apply head size (F4 frequency scale) from slider
+            # 0 = small head (F4 high, 1.25), 50 = neutral (1.0), 100 = large head (F4 low, 0.85)
+            # Tighter range keeps the effect perceptually useful throughout.
+            headSizeSlider = safe_float(getattr(self, "_curHeadSize", 50), 50.0)
+            if headSizeSlider <= 50.0:
+                # 0 -> 1.25 (small), 50 -> 1.0 (neutral)
+                tone.f4FreqScale = 1.25 - (headSizeSlider / 50.0) * 0.25
+            else:
+                # 50 -> 1.0 (neutral), 100 -> 0.85 (large)
+                tone.f4FreqScale = 1.0 - ((headSizeSlider - 50.0) / 50.0) * 0.15
+            tone.f4FreqScale = max(0.7, min(1.5, tone.f4FreqScale))
 
             # Apply to player
             self._player.setVoicingTone(tone)

@@ -76,6 +76,14 @@ fun AdvancedScreen(
             .verticalScroll(rememberScrollState())
             .padding(20.dp)
     ) {
+        Text(
+            text = stringResource(R.string.advanced_subtitle),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        Spacer(Modifier.height(12.dp))
+
         // ── Voice selector (per-voice settings, matching iOS) ────────
         Column(modifier = Modifier.semantics { isTraversalGroup = true }) {
             EditingVoiceDropdown(viewModel)
@@ -181,6 +189,12 @@ fun AdvancedScreen(
                 label = stringResource(R.string.voice_tremor_label),
                 flow = viewModel.voiceTremor,
                 onChange = { viewModel.onVoiceTremorChanged(it) },
+                format = { v -> "${v.roundToInt()}" }
+            )
+            VoicingToneSlider(
+                label = stringResource(R.string.head_size_label),
+                flow = viewModel.headSize,
+                onChange = { viewModel.onHeadSizeChanged(it) },
                 format = { v -> "${v.roundToInt()}" }
             )
         }
@@ -662,7 +676,7 @@ private fun EditingVoiceDropdown(viewModel: TgsbViewModel) {
                 DropdownMenuItem(
                     text = { Text(voice.label) },
                     onClick = {
-                        viewModel.onVoiceSelected(index)
+                        viewModel.onEditingVoiceSelected(index)
                         expanded = false
                     }
                 )

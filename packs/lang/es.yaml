@@ -138,13 +138,16 @@ normalization:
       when:
         afterClass: VOWELS
         beforeClass: VOWELS
-    # Word-final tap for  r: use ɾ_wf allophone which has fricationAmplitude
+    # Word-final tap for r: use ɾ_wf allophone which has fricationAmplitude
     # for a tongue-flick release and raised F2 to distinguish from /n/.
     # Without this, utterance-final taps sound nasal ("perdén", "amón").
+    # Only trill when next word starts with a consonant or at end of phrase.
+    # Before vowels ("buscar esto"), the tap links smoothly — no trill (#42).
     - from: "ɾ"
       to: "ɾ_wfᵊɾ_wf"
       when:
         atWordEnd: true
+        nextWordStartsNotClass: VOWELS
     # ===== Espeak =====
     # Section 1: fix espeak's pronounciation mistakes like 'prueba', when 'u' is preceded by a stressed vowel. That always should be 'w', diphthong.
     - from: "uˈ"

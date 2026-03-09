@@ -2456,6 +2456,11 @@ msgstr ""
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Rate Comp Sonorant Context Bonus (ms)"
+msgstr "Sebesség-kompenzáció: szonoráns kontextus bónusz (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Rate Comp Stop Floor (ms)"
 msgstr ""
 
@@ -2508,6 +2513,16 @@ msgstr "Szegmenshatár Skip Magánhangzó likvidára"
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Segment Boundary Skip Vowel To Vowel"
 msgstr "Szegmenshatár Skip Magánhangzó magánhangzóra"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Sonorant Context Amplitude Scale"
+msgstr "Szonoráns kontextus amplitúdó skála"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Rate Compensation: Sonorant Context Bonus (ms)"
+msgstr "Sebesség-kompenzáció: szonoráns kontextus bónusz (ms)"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
@@ -2873,3 +2888,13 @@ msgstr "Szóvégi svá redukció engedélyezve"
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Word Final Schwa Scale"
 msgstr "Szóvégi svá skála"
+
+#. Driver setting: year splitting checkbox
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "Year splitting (4-digit numbers as digit pairs)"
+msgstr "Évszám-bontás (4 jegyű számok számpárokként)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Year Splitting Enabled"
+msgstr "Évszám-bontás engedélyezve"

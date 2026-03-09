@@ -5,8 +5,20 @@
     <!-- Bottom navigation tabs -->
     <string name="tab_speak">Speak</string>
     <string name="tab_advanced">Engine Settings</string>
+    <string name="tab_editor">Editor</string>
+
+    <!-- Editor tab -->
+    <string name="editor_packs_section">Packs</string>
+    <string name="editor_select_language">Select a language to edit</string>
+    <string name="editor_no_settings">No settings found</string>
+    <string name="editor_reset_all">Reset All Overrides</string>
+    <string name="editor_reset_all_confirm">Remove all custom overrides for this language?</string>
+    <string name="editor_reset_setting">Reset</string>
+    <string name="editor_edit_value">Edit Value</string>
+    <string name="editor_overridden">Customized</string>
 
     <!-- Speak tab -->
+    <string name="speak_subtitle">Preview and test the voice</string>
     <string name="text_input_label">Text to speak</string>
     <string name="text_input_placeholder">Enter text here</string>
     <string name="language_label">Language</string>
@@ -20,6 +32,8 @@
     <string name="tts_not_ready">TTS engine not ready</string>
     <string name="tts_connecting">Connecting to TTS engine\u2026</string>
 
+    <!-- Advanced tab -->
+    <string name="advanced_subtitle">Applies to TalkBack and Speak</string>
     <!-- Advanced tab: Pitch -->
     <string name="pitch_section_title">Pitch</string>
     <string name="pitch_mode_label">Pitch Mode</string>
@@ -47,6 +61,7 @@
     <string name="pitch_sync_f1_label">Pitch-Sync F1</string>
     <string name="pitch_sync_b1_label">Pitch-Sync B1</string>
     <string name="voice_tremor_label">Voice Tremor</string>
+    <string name="head_size_label">Head Size</string>
 
     <!-- Advanced tab: Per-Frame Voice Quality (FrameEx) -->
     <string name="frame_quality_title">Per-Frame Voice Quality</string>

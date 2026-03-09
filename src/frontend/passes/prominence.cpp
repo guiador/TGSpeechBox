@@ -21,6 +21,26 @@ static inline bool isSilenceOrMissing(const Token& t) {
   return t.silence || !t.def;
 }
 
+static inline bool isNasal(const Token& t) {
+  return t.def && ((t.def->flags & kIsNasal) != 0);
+}
+
+static inline bool isLiquid(const Token& t) {
+  return t.def && ((t.def->flags & kIsLiquid) != 0);
+}
+
+static inline bool isSemivowel(const Token& t) {
+  return t.def && ((t.def->flags & kIsSemivowel) != 0);
+}
+
+static inline bool isSonorant(const Token& t) {
+  return isNasal(t) || isLiquid(t) || isSemivowel(t);
+}
+
+static inline bool isSyntheticGap(const Token& t) {
+  return t.preStopGap || t.postStopAspiration || t.vowelHiatusGap;
+}
+
 }  // namespace
 
 bool runProminence(PassContext& ctx, std::vector<Token>& tokens, std::string& outError) {
@@ -219,7 +239,10 @@ bool runProminence(PassContext& ctx, std::vector<Token>& tokens, std::string& ou
         for (size_t i = wStart; i < wEnd; ++i) {
           const Token& t = tokens[i];
           if (isSilenceOrMissing(t)) continue;
-          if (t.baseChar != 0) wordShape.push_back(t.baseChar);
+          if (t.baseChar != 0) {
+            wordShape.push_back(t.baseChar);
+            for (int l = 0; l < t.lengthened; ++l) wordShape.push_back(U'\u02D0'); // ː
+          }
         }
         bool excluded = false;
         for (const auto& pat : lang.prominenceMonosyllableExclude) {
@@ -245,6 +268,12 @@ bool runProminence(PassContext& ctx, std::vector<Token>& tokens, std::string& ou
 
   const double fullVowelFloor = lang.prominenceFullVowelFloor;
   if (fullVowelFloor > 0.0) {
+    // Pre-build excluded word shapes for function-word check.
+    // Reuse the monosyllable exclusion list — it already contains
+    // function words whose full vowels should NOT be promoted
+    // (e.g. "for" /fɔː/, "or" /ɔː/, "was" /wɒz/).
+    const auto& fvExclude = lang.prominenceMonosyllableExclude;
+
     for (size_t i = 0; i < tokens.size(); ++i) {
       Token& t = tokens[i];
       if (isSilenceOrMissing(t) || !isVowel(t)) continue;
@@ -273,9 +302,32 @@ bool runProminence(PassContext& ctx, std::vector<Token>& tokens, std::string& ou
         }
       }
 
-      if (!isReduced) {
-        t.prominence = fullVowelFloor;
+      if (isReduced) continue;
+
+      // Function word check: don't promote full vowels in words like
+      // "for", "or", "was" — they should stay reduced despite having
+      // a non-schwa vowel.
+      if (!fvExclude.empty()) {
+        size_t wIdx = wordIndexOf(i);
+        size_t wStart = words[wIdx].start;
+        size_t wEnd = (wIdx + 1 < words.size()) ? words[wIdx + 1].start : tokens.size();
+        std::u32string wordShape;
+        for (size_t j = wStart; j < wEnd; ++j) {
+          const Token& tj = tokens[j];
+          if (isSilenceOrMissing(tj)) continue;
+          if (tj.baseChar != 0) {
+            wordShape.push_back(tj.baseChar);
+            for (int l = 0; l < tj.lengthened; ++l) wordShape.push_back(U'\u02D0'); // ː
+          }
+        }
+        bool excluded = false;
+        for (const auto& pat : fvExclude) {
+          if (wordShape == pat) { excluded = true; break; }
+        }
+        if (excluded) continue;
       }
+
+      t.prominence = fullVowelFloor;
     }
   }
 
@@ -452,6 +504,45 @@ bool runProminence(PassContext& ctx, std::vector<Token>& tokens, std::string& ou
         double linearScale = std::pow(10.0, dbChange / 20.0);
         t.field[vaIdx] = currentAmp * linearScale;
         t.setMask |= (1ULL << vaIdx);
+      }
+    }
+  }
+
+  // ── Sonorant-context amplitude boost ──
+  // Unstressed vowels between sonorants get masked by smooth transitions.
+  // A small amplitude boost keeps them audible at higher rates.
+  const double sonAmpScale = lang.sonorantContextAmplitudeScale;
+  if (sonAmpScale > 1.0) {
+    for (size_t i = 0; i < tokens.size(); ++i) {
+      Token& t = tokens[i];
+      if (isSilenceOrMissing(t) || !isVowel(t)) continue;
+      if (t.stress != 0) continue;
+
+      bool prevSon = false, nextSon = false;
+      for (size_t j = i; j > 0; --j) {
+        const Token& p = tokens[j - 1];
+        if (isSyntheticGap(p) || p.silence) continue;
+        prevSon = isSonorant(p);
+        break;
+      }
+      for (size_t j = i + 1; j < tokens.size(); ++j) {
+        const Token& n = tokens[j];
+        if (isSyntheticGap(n) || n.silence) continue;
+        nextSon = isSonorant(n);
+        break;
+      }
+
+      if (prevSon && nextSon) {
+        double currentAmp = 0.0;
+        if (t.setMask & (1ULL << vaIdx)) {
+          currentAmp = t.field[vaIdx];
+        } else if (t.def) {
+          currentAmp = t.def->field[vaIdx];
+        }
+        if (currentAmp > 0.0) {
+          t.field[vaIdx] = currentAmp * sonAmpScale;
+          t.setMask |= (1ULL << vaIdx);
+        }
       }
     }
   }

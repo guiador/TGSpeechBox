@@ -12,6 +12,7 @@ package com.tgspeechbox.tts
 
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
@@ -36,9 +37,10 @@ import androidx.navigation.compose.rememberNavController
 private sealed class Screen(val route: String, val labelRes: Int) {
     data object Speak : Screen("speak", R.string.tab_speak)
     data object Advanced : Screen("advanced", R.string.tab_advanced)
+    data object Editor : Screen("editor", R.string.tab_editor)
 }
 
-private val screens = listOf(Screen.Speak, Screen.Advanced)
+private val screens = listOf(Screen.Speak, Screen.Advanced, Screen.Editor)
 
 @Composable
 fun TgsbApp(viewModel: TgsbViewModel) {
@@ -74,6 +76,10 @@ fun TgsbApp(viewModel: TgsbViewModel) {
                                         Icons.Default.Settings,
                                         contentDescription = null
                                     )
+                                    Screen.Editor -> Icon(
+                                        Icons.Default.Edit,
+                                        contentDescription = null
+                                    )
                                 }
                             },
                             label = { Text(stringResource(screen.labelRes)) }
@@ -92,6 +98,9 @@ fun TgsbApp(viewModel: TgsbViewModel) {
                 }
                 composable(Screen.Advanced.route) {
                     AdvancedScreen(viewModel, snackbarHostState)
+                }
+                composable(Screen.Editor.route) {
+                    EditorScreen(viewModel)
                 }
             }
         }

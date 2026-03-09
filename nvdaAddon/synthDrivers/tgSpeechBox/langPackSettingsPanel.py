@@ -403,6 +403,7 @@ def _getPanelClass():
                 "rateCompensation.schwaReduction.enabled",
                 "rateCompensation.schwaReduction.scale",
                 "rateCompensation.schwaReduction.threshold",
+                "rateCompensation.sonorantContextBonusMs",
                 "rateCompensation.wordFinalBonusMs",
 
                 # --- Special coarticulation ---
@@ -701,6 +702,8 @@ def _getPanelClass():
                 "wordFinalSchwaMinDurationMs",
                 "wordFinalSchwaReductionEnabled",
                 "wordFinalSchwaScale",
+                # --- Year splitting ---
+                "yearSplittingEnabled",
             ]
             for k in _extraKeys:
                 if k not in self._knownKeys:
@@ -732,7 +735,9 @@ def _getPanelClass():
                     "postStopAspirationEnabled",
                     "primaryStressDiv",
                     "rateCompEnabled",
+                    "rateCompSonorantContextBonusMs",
                     "secondaryStressDiv",
+                    "sonorantContextAmplitudeScale",
                     "semivowelOffglideScale",
                     "stopClosureMode",
                     "stopClosureVowelFadeMs",
@@ -1261,12 +1266,12 @@ def _getPanelClass():
                 speedQuotient = 2.0 + ((sqSlider - 50.0) / 50.0) * 2.0
             aspTiltDbPerOct = (aspTiltSlider - 50.0) * 0.24
 
-            # Cascade bandwidth scale (0-100 -> 0.4-1.4, 50 = 1.0)
+            # Cascade bandwidth scale (0-100 -> 0.3-2.0, 50 = 1.0)
             if bwSlider <= 50.0:
-                cascadeBwScale = 0.4 + (bwSlider / 50.0) * 0.6
+                cascadeBwScale = 2.0 - (bwSlider / 50.0) * 1.0
             else:
-                cascadeBwScale = 1.0 + ((bwSlider - 50.0) / 50.0) * 0.4
-            cascadeBwScale = max(0.4, min(1.4, cascadeBwScale))
+                cascadeBwScale = 1.0 - ((bwSlider - 50.0) / 50.0) * 0.7
+            cascadeBwScale = max(0.3, min(2.0, cascadeBwScale))
 
             # Tremor depth (0-100 -> 0.0-0.4, clamped to 0.0-0.5)
             tremorDepth = (tremorSlider / 100.0) * 0.4

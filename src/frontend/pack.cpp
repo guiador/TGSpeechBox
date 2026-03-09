@@ -640,6 +640,9 @@ getNum("primaryStressDiv", lp.primaryStressDiv);
   getNum("coarticulationVelarPinchF3", lp.coarticulationVelarPinchF3);
   getNum("coarticulationCrossSyllableScale", lp.coarticulationCrossSyllableScale);
 
+  // Year splitting
+  getBool("yearSplittingEnabled", lp.yearSplittingEnabled);
+
   // Special coarticulation rules (language-specific Hz deltas)
   getBool("specialCoarticulationEnabled", lp.specialCoarticulationEnabled);
   getNum("specialCoarticMaxDeltaHz", lp.specialCoarticMaxDeltaHz);
@@ -894,6 +897,7 @@ getNum("liquidDynamicsLabialGlideTransitionPct", lp.liquidDynamicsLabialGlideTra
     getNumFrom(*rc, "floorSpeedScale", lp.rateCompFloorSpeedScale);
     getBoolFrom(*rc, "clusterProportionGuard", lp.rateCompClusterProportionGuard);
     getNumFrom(*rc, "clusterMaxRatioShift", lp.rateCompClusterMaxRatioShift);
+    getNumFrom(*rc, "sonorantContextBonusMs", lp.rateCompSonorantContextBonusMs);
     if (const yaml_min::Node* sr = rc->get("schwaReduction"); sr && sr->isMap()) {
       getBoolFrom(*sr, "enabled", lp.rateCompSchwaReductionEnabled);
       getNumFrom(*sr, "threshold", lp.rateCompSchwaThreshold);
@@ -917,6 +921,8 @@ getNum("liquidDynamicsLabialGlideTransitionPct", lp.liquidDynamicsLabialGlideTra
   getNum("rateCompFloorSpeedScale", lp.rateCompFloorSpeedScale);
   getBool("rateCompClusterProportionGuard", lp.rateCompClusterProportionGuard);
   getNum("rateCompClusterMaxRatioShift", lp.rateCompClusterMaxRatioShift);
+  getNum("rateCompSonorantContextBonusMs", lp.rateCompSonorantContextBonusMs);
+  getNum("sonorantContextAmplitudeScale", lp.sonorantContextAmplitudeScale);
   getBool("rateCompSchwaReductionEnabled", lp.rateCompSchwaReductionEnabled);
   getNum("rateCompSchwaThreshold", lp.rateCompSchwaThreshold);
   getNum("rateCompSchwaScale", lp.rateCompSchwaScale);
@@ -1029,6 +1035,7 @@ if (const yaml_min::Node* ne = settings.get("numberExpansion"); ne && ne->isMap(
   getStrFrom(*ne, "million",     lp.numberExpansion.million);
   getStrFrom(*ne, "billion",     lp.numberExpansion.billion);
   getStrFrom(*ne, "conjunction", lp.numberExpansion.conjunction);
+  getStrFrom(*ne, "ohDigit",     lp.numberExpansion.ohDigit);
 }
 
 if (const yaml_min::Node* tl = settings.get("trajectoryLimit"); tl && tl->isMap()) {
@@ -1456,6 +1463,23 @@ static void parseWhen(const yaml_min::Node& whenNode, RuleWhen& when) {
   {
     const yaml_min::Node* n = whenNode.get("notAfterClass");
     if (n && n->isScalar()) when.notAfterClass = n->scalar;
+  }
+  // Cross-word conditions
+  {
+    const yaml_min::Node* n = whenNode.get("nextWordStartsClass");
+    if (n && n->isScalar()) when.nextWordStartsClass = n->scalar;
+  }
+  {
+    const yaml_min::Node* n = whenNode.get("nextWordStartsNotClass");
+    if (n && n->isScalar()) when.nextWordStartsNotClass = n->scalar;
+  }
+  {
+    const yaml_min::Node* n = whenNode.get("prevWordEndsClass");
+    if (n && n->isScalar()) when.prevWordEndsClass = n->scalar;
+  }
+  {
+    const yaml_min::Node* n = whenNode.get("prevWordEndsNotClass");
+    if (n && n->isScalar()) when.prevWordEndsNotClass = n->scalar;
   }
 }
 
@@ -2025,6 +2049,138 @@ bool loadPackSet(
 
 bool hasPhoneme(const PackSet& pack, const std::u32string& key) {
   return pack.phonemes.find(key) != pack.phonemes.end();
+}
+
+// ── Public helpers for mobile pack settings editor ──
+
+// Flatten a yaml_min::Node settings block into "key\tvalue\n" lines.
+// Nested maps use dot notation: "boundarySmoothing.enabled\ttrue\n"
+static void flattenSettings(const yaml_min::Node& node, const std::string& prefix,
+                            std::vector<std::pair<std::string, std::string>>& out) {
+  if (!node.isMap()) return;
+  for (const auto& key : node.keyOrder) {
+    auto it = node.map.find(key);
+    if (it == node.map.end()) continue;
+    const auto& child = it->second;
+    std::string fullKey = prefix.empty() ? key : (prefix + "." + key);
+    if (child.isScalar()) {
+      out.emplace_back(fullKey, child.scalar);
+    } else if (child.isMap()) {
+      flattenSettings(child, fullKey, out);
+    }
+    // Skip sequences and other complex types — not scalar-editable.
+  }
+}
+
+std::string getEffectiveSettings(const std::string& packDir, const std::string& langTag) {
+  std::string err;
+  fs::path packsRoot = findPacksRoot(packDir, err);
+  if (packsRoot.empty()) return {};
+
+  const std::string normalized = normalizeLangTag(langTag);
+  const auto chain = buildLangFileChain(normalized);
+  const fs::path langDir = packsRoot / "lang";
+
+  // Collect all scalar settings from the file chain, later files override earlier.
+  std::unordered_map<std::string, std::string> merged;
+  std::vector<std::string> keyOrder;  // preserve first-seen order
+
+  for (const auto& name : chain) {
+    fs::path file = langDir / (name + ".yaml");
+    if (!fs::exists(file)) continue;
+
+    yaml_min::Node root;
+    std::string parseErr;
+    if (!yaml_min::loadFile(file.string(), root, parseErr)) continue;
+
+    const yaml_min::Node* settings = root.get("settings");
+    if (!settings || !settings->isMap()) continue;
+
+    std::vector<std::pair<std::string, std::string>> flat;
+    flattenSettings(*settings, "", flat);
+    for (auto& [k, v] : flat) {
+      if (merged.find(k) == merged.end()) {
+        keyOrder.push_back(k);
+      }
+      merged[k] = v;
+    }
+  }
+
+  // Build tab-separated output.
+  std::string result;
+  result.reserve(keyOrder.size() * 40);
+  for (const auto& key : keyOrder) {
+    result += key;
+    result += '\t';
+    result += merged[key];
+    result += '\n';
+  }
+  return result;
+}
+
+std::vector<std::string> getAvailableLanguages(const std::string& packDir) {
+  std::string err;
+  fs::path packsRoot = findPacksRoot(packDir, err);
+  if (packsRoot.empty()) return {};
+
+  fs::path langDir = packsRoot / "lang";
+  if (!fs::exists(langDir) || !fs::is_directory(langDir)) return {};
+
+  std::vector<std::string> langs;
+  for (const auto& entry : fs::directory_iterator(langDir)) {
+    if (!entry.is_regular_file()) continue;
+    std::string name = entry.path().stem().string();
+    if (name == "default") continue;
+    langs.push_back(name);
+  }
+  std::sort(langs.begin(), langs.end());
+  return langs;
+}
+
+bool applySettingOverrides(LanguagePack& lp, const std::string& yamlSnippet) {
+  if (yamlSnippet.empty()) return true;
+
+  // Parse flat "key: value" lines. Support dot-notation by building nested nodes.
+  // Simple approach: parse the snippet as YAML, wrap in a settings node.
+  yaml_min::Node root;
+  std::string err;
+  if (!yaml_min::loadString(yamlSnippet, root, err)) return false;
+  if (!root.isMap()) return false;
+
+  // The snippet may contain flat keys ("yearSplittingEnabled: true") or
+  // dot-notation keys ("boundarySmoothing.enabled: true"). Convert dot-notation
+  // to nested nodes for mergeSettings.
+  yaml_min::Node expanded;
+  expanded.type = yaml_min::Node::Type::Map;
+
+  for (const auto& key : root.keyOrder) {
+    auto it = root.map.find(key);
+    if (it == root.map.end()) continue;
+
+    auto dotPos = key.find('.');
+    if (dotPos == std::string::npos) {
+      // Flat key — pass through.
+      expanded.map[key] = it->second;
+      expanded.keyOrder.push_back(key);
+    } else {
+      // Dot-notation — build nested structure.
+      std::string outer = key.substr(0, dotPos);
+      std::string inner = key.substr(dotPos + 1);
+      auto& outerNode = expanded.map[outer];
+      if (outerNode.type != yaml_min::Node::Type::Map) {
+        outerNode.type = yaml_min::Node::Type::Map;
+        expanded.keyOrder.push_back(outer);
+      }
+      yaml_min::Node scalar;
+      scalar.type = yaml_min::Node::Type::Scalar;
+      scalar.scalar = it->second.scalar;
+      outerNode.map[inner] = scalar;
+      outerNode.keyOrder.push_back(inner);
+    }
+  }
+
+  mergeSettings(lp, expanded);
+  return true;
 }
 
 } // namespace nvsp_frontend

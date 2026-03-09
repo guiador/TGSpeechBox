@@ -57,6 +57,8 @@ class TgsbSpeakEngine(private val context: Context) {
     ): Long
     private external fun nativeDestroy(handle: Long)
     private external fun nativeSetVoice(handle: Long, voiceName: String)
+    private external fun nativeSetVoiceProfile(handle: Long, profileName: String)
+    private external fun nativeGetVoiceProfileNames(handle: Long): String
     private external fun nativeSetLanguage(
         handle: Long, espeakLang: String, tgsbLang: String
     ): Int
@@ -76,7 +78,10 @@ class TgsbSpeakEngine(private val context: Context) {
         speedQuotient: Double,
         aspirationTiltDbPerOct: Double,
         cascadeBwScale: Double,
-        tremorDepth: Double
+        tremorDepth: Double,
+        nasalBwScale: Double,
+        f4FreqScale: Double,
+        nasalGainScale: Double
     )
     private external fun nativeSetFrameExDefaults(
         handle: Long,
@@ -92,6 +97,9 @@ class TgsbSpeakEngine(private val context: Context) {
     private external fun nativeSetVolume(handle: Long, value: Double)
     private external fun nativeSetSampleRate(handle: Long, sampleRate: Int)
     private external fun nativeSetPauseMode(handle: Long, mode: Int)
+    private external fun nativeGetPackSettings(handle: Long): String?
+    private external fun nativeApplySettingOverrides(handle: Long, yamlSnippet: String): Int
+    private external fun nativeGetAvailableLanguages(handle: Long): String?
 
     // ── Lifecycle ────────────────────────────────────────────────────
 
@@ -137,7 +145,8 @@ class TgsbSpeakEngine(private val context: Context) {
         speedQuotient: Double,
         aspirationTiltDbPerOct: Double,
         cascadeBwScale: Double,
-        tremorDepth: Double
+        tremorDepth: Double,
+        f4FreqScale: Double = 1.0
     ) {
         if (nativeHandle == 0L) return
         nativeSetVoicingTone(
@@ -145,7 +154,8 @@ class TgsbSpeakEngine(private val context: Context) {
             voicedTiltDbPerOct, noiseGlottalModDepth,
             pitchSyncF1DeltaHz, pitchSyncB1DeltaHz,
             speedQuotient, aspirationTiltDbPerOct,
-            cascadeBwScale, tremorDepth
+            cascadeBwScale, tremorDepth,
+            1.0, f4FreqScale, 1.0
         )
     }
 
@@ -209,7 +219,13 @@ class TgsbSpeakEngine(private val context: Context) {
 
     fun setVoice(voiceName: String) {
         if (nativeHandle == 0L) return
-        nativeSetVoice(nativeHandle, voiceName)
+        val voiceDef = TgsbTtsService.VOICES.find { it.id == voiceName }
+        if (voiceDef != null && voiceDef.isProfile) {
+            nativeSetVoice(nativeHandle, "adam")
+            nativeSetVoiceProfile(nativeHandle, voiceDef.id)
+        } else {
+            nativeSetVoice(nativeHandle, voiceName)
+        }
     }
 
     fun speak(text: String, speed: Double, pitchHz: Double) {
@@ -250,6 +266,24 @@ class TgsbSpeakEngine(private val context: Context) {
                 setSpeaking(false)
             }
         }, "TgsbSynth").also { it.start() }
+    }
+
+    // ── Pack settings editor ────────────────────────────────────────
+
+    fun getPackSettings(): String? {
+        if (nativeHandle == 0L) return null
+        return nativeGetPackSettings(nativeHandle)
+    }
+
+    fun applySettingOverrides(yamlSnippet: String): Boolean {
+        if (nativeHandle == 0L) return false
+        return nativeApplySettingOverrides(nativeHandle, yamlSnippet) != 0
+    }
+
+    fun getAvailableLanguages(): List<String> {
+        if (nativeHandle == 0L) return emptyList()
+        val raw = nativeGetAvailableLanguages(nativeHandle) ?: return emptyList()
+        return raw.trim().split('\n').filter { it.isNotEmpty() }
     }
 
     fun stop() {
@@ -330,7 +364,7 @@ class TgsbSpeakEngine(private val context: Context) {
     // ── Asset extraction (same logic as TgsbTtsService) ─────────────
 
     private fun extractAssets() {
-        val assetVersion = 4
+        val assetVersion = 6
         val marker = File(context.filesDir, ".assets_v$assetVersion")
         if (marker.exists()) return
 

@@ -989,12 +989,14 @@ static std::vector<std::string> knownLanguageSettingKeys() {
     "rateCompSchwaScale",
     "rateCompSchwaThreshold",
     "rateCompSemivowelFloorMs",
+    "rateCompSonorantContextBonusMs",
     "rateCompStopFloorMs",
     "rateCompTapFloorMs",
     "rateCompTrillFloorMs",
     "rateCompVoicedConsonantFloorMs",
     "rateCompVowelFloorMs",
     "rateCompWordFinalBonusMs",
+    "sonorantContextAmplitudeScale",
     "secondaryStressDiv",
     "segmentBoundaryFadeMs",
     "segmentBoundaryGapMs",
@@ -1049,6 +1051,7 @@ static std::vector<std::string> knownLanguageSettingKeys() {
     "wordFinalSchwaMinDurationMs",
     "wordFinalSchwaReductionEnabled",
     "wordFinalSchwaScale",
+    "yearSplittingEnabled",
   };
 }
 

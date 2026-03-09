@@ -14,17 +14,26 @@ struct ContentView: View {
     @State private var text = "Hello world. This is TGSpeechBox running on Apple."
     @State private var engineStarted = false
     @State private var errorMessage: String?
+    @State private var selectedTab = 0
 
     var body: some View {
-        TabView {
+        TabView(selection: $selectedTab) {
             speakTab
+                .tag(0)
                 .tabItem {
                     Label("Speak", systemImage: "play.circle")
                 }
 
             EngineSettingsView(engine: engine, engineStarted: $engineStarted)
+                .tag(1)
                 .tabItem {
                     Label("Engine", systemImage: "slider.horizontal.3")
+                }
+
+            PackEditorView(engine: engine, engineStarted: $engineStarted)
+                .tag(2)
+                .tabItem {
+                    Label("Editor", systemImage: "pencil")
                 }
         }
         #if os(macOS)
@@ -42,6 +51,9 @@ struct ContentView: View {
             Text("TGSpeechBox")
                 .font(.largeTitle)
                 .accessibilityAddTraits(.isHeader)
+            Text("Preview and test the voice")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
 
             if let error = errorMessage {
                 Text(error)

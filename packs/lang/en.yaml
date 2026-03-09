@@ -78,6 +78,11 @@ settings:
     million: "million"
     billion: "billion"
     conjunction: ""
+    ohDigit: "oh"
+
+  # Year splitting: 4-digit numbers → two 2-digit pairs
+  # "1995" → "19 95" (eSpeak says "nineteen ninety-five").
+  yearSplittingEnabled: true
 
 normalization:
   classes:

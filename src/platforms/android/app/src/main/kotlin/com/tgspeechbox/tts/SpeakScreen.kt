@@ -79,6 +79,11 @@ fun SpeakScreen(viewModel: TgsbViewModel) {
                 style = MaterialTheme.typography.headlineLarge,
                 modifier = Modifier.semantics { heading() }
             )
+            Text(
+                text = stringResource(R.string.speak_subtitle),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
 
             Spacer(Modifier.height(16.dp))
 

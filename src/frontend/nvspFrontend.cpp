@@ -131,8 +131,18 @@ NVSP_FRONTEND_API int nvspFrontend_setLanguage(nvspFrontend_handle_t handle, con
     return 0;
   }
 
+  // Preserve voice profile name across language changes.
+  // loadPackSet produces a fresh PackSet with empty voiceProfileName,
+  // but the caller expects the active profile to survive.
+  std::string savedProfile = h->pack.lang.voiceProfileName;
+
   h->pack = std::move(pack);
   h->packLoaded = true;
+
+  // Restore the voice profile that was active before the language change.
+  if (!savedProfile.empty()) {
+    h->pack.lang.voiceProfileName = savedProfile;
+  }
 
   // Apply any settings that were set before the language was loaded.
   if (!h->pendingPitchMode.empty()) {
@@ -540,8 +550,11 @@ NVSP_FRONTEND_API int nvspFrontend_getVoicingTone(
   outTone->pitchSyncB1DeltaHz = 0.0;
   outTone->speedQuotient = 2.0;
   outTone->aspirationTiltDbPerOct = 0.0;
-  outTone->cascadeBwScale = 0.9;
+  outTone->cascadeBwScale = 1.0;
   outTone->tremorDepth = 0.0;
+  outTone->nasalBwScale = 1.0;
+  outTone->f4FreqScale = 1.0;
+  outTone->nasalGainScale = 1.0;
 
   // Check if we have a voice profile with voicing tone
   const std::string& profileName = h->pack.lang.voiceProfileName;
@@ -568,6 +581,9 @@ NVSP_FRONTEND_API int nvspFrontend_getVoicingTone(
   if (vt.aspirationTiltDbPerOct_set) outTone->aspirationTiltDbPerOct = vt.aspirationTiltDbPerOct;
   if (vt.cascadeBwScale_set) outTone->cascadeBwScale = vt.cascadeBwScale;
   if (vt.tremorDepth_set) outTone->tremorDepth = vt.tremorDepth;
+  if (vt.nasalBwScale_set) outTone->nasalBwScale = vt.nasalBwScale;
+  if (vt.f4FreqScale_set) outTone->f4FreqScale = vt.f4FreqScale;
+  if (vt.nasalGainScale_set) outTone->nasalGainScale = vt.nasalGainScale;
 
   return 1;  // Profile has explicit voicing tone
 }
@@ -943,7 +959,7 @@ NVSP_FRONTEND_API void nvspFrontend_setLegacyPitchInflectionScale(
   h->pack.lang.legacyPitchInflectionScale = scale;
 }
 
-NVSP_FRONTEND_API char* nvspFrontend_splitCompounds(
+NVSP_FRONTEND_API char* nvspFrontend_prepareText(
   nvspFrontend_handle_t handle,
   const char* textUtf8
 ) {
@@ -952,10 +968,12 @@ NVSP_FRONTEND_API char* nvspFrontend_splitCompounds(
   if (!h || !textUtf8 || !textUtf8[0]) return nullptr;
 
   std::lock_guard<std::mutex> lock(h->mu);
-  if (!h->packLoaded || h->pack.compoundMap.empty()) return nullptr;
+  if (!h->packLoaded) return nullptr;
 
   std::string input(textUtf8);
-  std::string result = splitCompoundsInText(input, h->pack.compoundMap);
+  std::string result = prepareTextForEspeak(input, h->pack.compoundMap, h->langTag,
+                                             h->pack.lang.yearSplittingEnabled,
+                                             h->pack.lang.numberExpansion.ohDigit);
 
   if (result == input) return nullptr;  // no changes
 
@@ -967,6 +985,59 @@ NVSP_FRONTEND_API char* nvspFrontend_splitCompounds(
 
 NVSP_FRONTEND_API void nvspFrontend_freeString(char* str) {
   std::free(str);
+}
+
+NVSP_FRONTEND_API char* nvspFrontend_getPackSettings(nvspFrontend_handle_t handle) {
+  using namespace nvsp_frontend;
+  Handle* h = asHandle(handle);
+  if (!h) return nullptr;
+
+  std::lock_guard<std::mutex> lock(h->mu);
+  if (!h->packLoaded) return nullptr;
+
+  std::string result = getEffectiveSettings(h->packDir, h->langTag);
+  if (result.empty()) return nullptr;
+
+  char* out = static_cast<char*>(std::malloc(result.size() + 1));
+  if (!out) return nullptr;
+  std::memcpy(out, result.c_str(), result.size() + 1);
+  return out;
+}
+
+NVSP_FRONTEND_API int nvspFrontend_applySettingOverrides(
+  nvspFrontend_handle_t handle,
+  const char* yamlSnippetUtf8
+) {
+  using namespace nvsp_frontend;
+  Handle* h = asHandle(handle);
+  if (!h || !yamlSnippetUtf8 || !yamlSnippetUtf8[0]) return 0;
+
+  std::lock_guard<std::mutex> lock(h->mu);
+  if (!h->packLoaded) return 0;
+
+  return applySettingOverrides(h->pack.lang, std::string(yamlSnippetUtf8)) ? 1 : 0;
+}
+
+NVSP_FRONTEND_API char* nvspFrontend_getAvailableLanguages(nvspFrontend_handle_t handle) {
+  using namespace nvsp_frontend;
+  Handle* h = asHandle(handle);
+  if (!h) return nullptr;
+
+  std::lock_guard<std::mutex> lock(h->mu);
+
+  auto langs = getAvailableLanguages(h->packDir);
+  if (langs.empty()) return nullptr;
+
+  std::string result;
+  for (const auto& lang : langs) {
+    result += lang;
+    result += '\n';
+  }
+
+  char* out = static_cast<char*>(std::malloc(result.size() + 1));
+  if (!out) return nullptr;
+  std::memcpy(out, result.c_str(), result.size() + 1);
+  return out;
 }
 
 } // extern "C"

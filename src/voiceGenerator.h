@@ -104,6 +104,13 @@ private:
     // Radiation Mix: 0.0 = Flow (Warm), 1.0 = Derivative (Bright)
     double radiationMix;
 
+    // Noise amplitude compensation for sample rate.
+    // White noise spectral density drops at higher sample rates (same energy
+    // spread over wider bandwidth), making aspiration sound thinner at 44100 Hz.
+    // Scale by sqrt(sr/22050) to maintain consistent spectral density through
+    // the resonator bank.
+    double noiseAmplitudeScale;
+
     static double clampDouble(double v, double lo, double hi) {
         if (v < lo) return lo;
         if (v > hi) return hi;
@@ -353,6 +360,10 @@ public:
         if (tiltRefHz < 500.0) tiltRefHz = 500.0;
 
         radiationDerivGain = kRadiationDerivGainBase * ((double)sampleRate / kRadiationDerivGainRefSr);
+
+        // Fourth root: gentler than sqrt. At 44100 Hz gives ~1.19× (19% boost)
+        // instead of sqrt's 1.41× (41%) which over-thickened stop bursts.
+        noiseAmplitudeScale = pow((double)sampleRate / 22050.0, 0.25);
 
         speechPlayer_voicingTone_t defaults = SPEECHPLAYER_VOICINGTONE_DEFAULTS;
         voicingPeakPos = defaults.voicingPeakPos;
@@ -646,8 +657,9 @@ public:
 
         // Aspiration noise: use WHITE noise (flat spectrum) so tilt filter can shape it
         // Base gain 0.1, breathiness lifts it up to 0.25
+        // noiseAmplitudeScale compensates for spectral density at different sample rates
         double aspBase = 0.10 + (0.15 * breathiness);
-        double aspiration = aspirationGen.white() * aspBase * noiseMod;
+        double aspiration = aspirationGen.white() * aspBase * noiseAmplitudeScale * noiseMod;
         
         // Apply tilt filter to aspiration (color the noise)
         aspiration = applyAspirationTilt(aspiration);
@@ -981,6 +993,7 @@ public:
     }
 
     double getLastAspOut() const { return lastAspOut; }
+    double getNoiseAmplitudeScale() const { return noiseAmplitudeScale; }
 };
 
 #endif // TGSPEECHBOX_VOICEGENERATOR_H

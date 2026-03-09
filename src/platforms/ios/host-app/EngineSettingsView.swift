@@ -12,7 +12,7 @@
 
 import SwiftUI
 
-private let kVoiceNames = ["Adam", "Benjamin", "Caleb", "David", "Robert"]
+private let kVoiceNames = ["Adam", "Benjamin", "Caleb", "David", "Robert", "Beth", "Bobby"]
 
 private let kPitchModes = [
     ("espeak_style",   "eSpeak Style"),
@@ -51,6 +51,7 @@ struct EngineSettingsView: View {
     @State private var pitchSyncF1: Double
     @State private var pitchSyncB1: Double
     @State private var voiceTremor: Double
+    @State private var headSize: Double
 
     // FrameEx sliders (0–100)
     @State private var creakiness: Double
@@ -95,6 +96,7 @@ struct EngineSettingsView: View {
         _pitchSyncF1     = State(initialValue: Self.loadV(d, "pitchSyncF1", 50, voice))
         _pitchSyncB1     = State(initialValue: Self.loadV(d, "pitchSyncB1", 50, voice))
         _voiceTremor     = State(initialValue: Self.loadV(d, "voiceTremor", 0, voice))
+        _headSize        = State(initialValue: Self.loadV(d, "headSize", voice == "david" ? 100 : 50, voice))
 
         _creakiness       = State(initialValue: Self.loadV(d, "creakiness", 0, voice))
         _breathiness      = State(initialValue: Self.loadV(d, "breathiness", 0, voice))
@@ -127,6 +129,12 @@ struct EngineSettingsView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+        Text("Applies to VoiceOver and Speak")
+            .font(.subheadline)
+            .foregroundColor(.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 20)
+            .padding(.top, 10)
         Button("Reset to Defaults") { showResetAlert = true }
             .padding(.horizontal, 20)
             .padding(.vertical, 10)
@@ -220,6 +228,7 @@ struct EngineSettingsView: View {
                 toneSlider("Pitch-Sync F1", $pitchSyncF1, "pitchSyncF1")
                 toneSlider("Pitch-Sync B1", $pitchSyncB1, "pitchSyncB1")
                 toneSlider("Voice Tremor", $voiceTremor, "voiceTremor")
+                toneSlider("Head Size", $headSize, "headSize")
 
                 Divider()
 
@@ -276,6 +285,7 @@ struct EngineSettingsView: View {
                     Slider(value: $systemVolume, in: 0.1...1.0, step: 0.05)
                         .onChange(of: systemVolume) { val in
                             defaults?.set(val, forKey: "systemVolume")
+                            defaults?.synchronize()
                         }
                 }
                 .accessibilityElement(children: .combine)
@@ -301,6 +311,7 @@ struct EngineSettingsView: View {
         pitchSyncF1     = Self.loadV(d, "pitchSyncF1", 50, voice)
         pitchSyncB1     = Self.loadV(d, "pitchSyncB1", 50, voice)
         voiceTremor     = Self.loadV(d, "voiceTremor", 0, voice)
+        headSize        = Self.loadV(d, "headSize", voice == "david" ? 100 : 50, voice)
 
         creakiness       = Self.loadV(d, "creakiness", 0, voice)
         breathiness      = Self.loadV(d, "breathiness", 0, voice)
@@ -323,6 +334,7 @@ struct EngineSettingsView: View {
         aspirationTilt = 50;  cascadeBwScale = 50
         noiseGlottalMod = 0;  pitchSyncF1 = 50
         pitchSyncB1 = 50;     voiceTremor = 0
+        headSize = 50
 
         creakiness = 0;       breathiness = 0
         jitter = 0;           shimmer = 0
@@ -350,6 +362,7 @@ struct EngineSettingsView: View {
             d?.set(50.0, forKey: "adv_pitchSyncF1.\(v)")
             d?.set(50.0, forKey: "adv_pitchSyncB1.\(v)")
             d?.set(0.0,  forKey: "adv_voiceTremor.\(v)")
+            d?.set(50.0, forKey: "adv_headSize.\(v)")
             d?.set(0.0,  forKey: "adv_creakiness.\(v)")
             d?.set(0.0,  forKey: "adv_breathiness.\(v)")
             d?.set(0.0,  forKey: "adv_jitter.\(v)")
@@ -409,7 +422,8 @@ struct EngineSettingsView: View {
             noiseGlottalMod: noiseGlottalMod,
             pitchSyncF1: pitchSyncF1,
             pitchSyncB1: pitchSyncB1,
-            voiceTremor: voiceTremor)
+            voiceTremor: voiceTremor,
+            headSize: headSize)
 
         engine.applyFrameExFromSliders(
             creakiness: creakiness,
@@ -428,6 +442,9 @@ struct EngineSettingsView: View {
         let d = defaults
         let ver = (d?.integer(forKey: "adv_settingsVersion") ?? 0) + 1
         d?.set(ver, forKey: "adv_settingsVersion")
+        // Flush to disk so the AU extension (separate process) sees the
+        // updated values immediately via its own synchronize() call.
+        d?.synchronize()
     }
 
     // MARK: - UserDefaults loader (per-voice with global fallback)

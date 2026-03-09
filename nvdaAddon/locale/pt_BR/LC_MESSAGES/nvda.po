@@ -2456,6 +2456,11 @@ msgstr ""
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Rate Comp Sonorant Context Bonus (ms)"
+msgstr "Comp. velocidade: bônus contexto soante (ms)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Rate Comp Stop Floor (ms)"
 msgstr ""
 
@@ -2508,6 +2513,16 @@ msgstr "Limite de Segmento Skip Vogal para Líquida"
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Segment Boundary Skip Vowel To Vowel"
 msgstr "Limite de Segmento Skip Vogal para Vogal"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Sonorant Context Amplitude Scale"
+msgstr "Escala de amplitude em contexto soante"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Rate Compensation: Sonorant Context Bonus (ms)"
+msgstr "Compensação de velocidade: bônus contexto soante (ms)"
 
 #. Setting key display name
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
@@ -2873,3 +2888,13 @@ msgstr "Redução de Schwa Final de Palavra Habilitada"
 #: synthDrivers/tgspeechbox/langPackSettingsPanel.py
 msgid "Word Final Schwa Scale"
 msgstr "Escala de Schwa Final de Palavra"
+
+#. Driver setting: year splitting checkbox
+#: synthDrivers/tgspeechbox/__init__.py
+msgid "Year splitting (4-digit numbers as digit pairs)"
+msgstr "Divisão de anos (números de 4 dígitos como pares)"
+
+#. Setting key display name
+#: synthDrivers/tgspeechbox/langPackSettingsPanel.py
+msgid "Year Splitting Enabled"
+msgstr "Divisão de Anos Habilitada"

@@ -54,7 +54,7 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
         ("en-US", "en-us", "en-us"),
         ("en-GB", "en-gb", "en-gb"),
         ("en-CA", "en-us", "en-us"),
-        ("en-AU", "en",    "en"),
+        ("en-AU", "en",    "en-au"),
         ("fr-FR", "fr",    "fr"),
         ("fr-CA", "fr",    "fr"),
         ("es-ES", "es",    "es"),
@@ -84,6 +84,9 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
 
     private static func loadDspRate() -> Int {
         let d = UserDefaults(suiteName: "group.com.tgspeechbox.app")
+        // Force cross-process sync so AU extension sees host app's writes.
+        // Required for App Group containers after VoiceOver restart.
+        d?.synchronize()
         let valid: Set<Int> = [11025, 16000, 22050, 44100]
         if let d = d, d.object(forKey: "adv_sampleRate") != nil {
             let saved = d.integer(forKey: "adv_sampleRate")
@@ -143,19 +146,51 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
 
     // MARK: - Voices
 
+    /// Discover all available voices: DSP presets + YAML voice profiles.
+    /// Profile names are queried dynamically from the engine so that
+    /// user-defined profiles in phonemes.yaml appear automatically.
+    private func discoverVoices() -> [(name: String, isProfile: Bool)] {
+        var result: [(String, Bool)] = []
+
+        // DSP presets (compiled-in)
+        let numPresets = tgsb_get_num_voices()
+        for i in 0..<numPresets {
+            if let p = tgsb_get_voice_name(Int32(i)) {
+                result.append((String(cString: p).capitalized, false))
+            }
+        }
+
+        // YAML voice profiles (from phonemes.yaml)
+        if let eng = engine,
+           let namesPtr = tgsb_get_voice_profile_names(eng) {
+            let names = String(cString: namesPtr)
+            free(namesPtr)
+            for name in names.split(separator: "\n") where !name.isEmpty {
+                let n = String(name)
+                // Skip if already in presets (shouldn't happen, but defensive)
+                if !result.contains(where: { $0.0.lowercased() == n.lowercased() }) {
+                    result.append((n, true))
+                }
+            }
+        }
+
+        return result
+    }
+
     public override var speechVoices: [AVSpeechSynthesisProviderVoice] {
         get {
-            let voiceNames = ["Adam", "Benjamin", "Caleb", "David", "Robert"]
+            let voiceDefs = discoverVoices()
             var voices: [AVSpeechSynthesisProviderVoice] = []
 
-            for name in voiceNames {
+            for vd in voiceDefs {
                 for lang in Self.languageMap {
                     let voice = AVSpeechSynthesisProviderVoice(
-                        name: "\(name) (\(lang.bcp47))",
-                        identifier: "com.tgspeechbox.\(name.lowercased()).\(lang.bcp47.lowercased())",
+                        name: "\(vd.0) (\(lang.bcp47))",
+                        identifier: "com.tgspeechbox.\(vd.0.lowercased()).\(lang.bcp47.lowercased())",
                         primaryLanguages: [lang.bcp47],
                         supportedLanguages: [lang.bcp47]
                     )
+                    // Infer gender from profile (could add metadata later)
                     voice.gender = .male
                     voices.append(voice)
                 }
@@ -198,21 +233,14 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
         let voiceName = parts.count >= 3 ? String(parts[2]) : "adam"
         let bcp47 = parts.count >= 4 ? String(parts[3]) : "en-us"
 
-        // Re-read engine settings when version changes or voice changes
+        // Force cross-process sync so AU extension sees host app's latest writes.
+        // Without this, VoiceOver restart can leave the extension with stale/empty
+        // UserDefaults, causing all settings to revert to factory defaults.
+        UserDefaults(suiteName: "group.com.tgspeechbox.app")?.synchronize()
+
         let curVersion = UserDefaults(suiteName: "group.com.tgspeechbox.app")?
             .integer(forKey: "adv_settingsVersion") ?? 0
         let voiceChanged = voiceName != cachedVoice
-        if curVersion != cachedSettingsVersion || voiceChanged {
-            if let e = engine {
-                let newRate = Self.loadDspRate()
-                if newRate != dspRate {
-                    tgsb_set_sample_rate(e, Int32(newRate))
-                    dspRate = newRate
-                }
-                applyEngineSettings(e, voice: voiceName)
-            }
-            cachedSettingsVersion = curVersion
-        }
 
         guard let eng = engine else {
             // No engine — still need to signal render block to complete
@@ -241,16 +269,50 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
             vol *= Float32(savedVol)
         }
 
-        // Only call bridge setters when voice/language actually changed
+        // Set voice and language identity FIRST — tgsb_set_voice resets
+        // voicing tone and tgsb_set_language reloads the pack (resetting
+        // pitch mode). Engine settings must be applied AFTER these.
         if voiceName != cachedVoice {
-            tgsb_set_voice(eng, voiceName)
+            // Check if this voice name is a YAML profile by querying
+            // available profile names from the engine.
+            var isProfile = false
+            if let namesPtr = tgsb_get_voice_profile_names(eng) {
+                let names = String(cString: namesPtr)
+                free(namesPtr)
+                let profileNames = names.split(separator: "\n").map {
+                    String($0).lowercased()
+                }
+                isProfile = profileNames.contains(voiceName.lowercased())
+            }
+
+            if isProfile {
+                tgsb_set_voice(eng, "adam")
+                tgsb_set_voice_profile(eng, voiceName.capitalized(with: nil))
+            } else {
+                tgsb_set_voice(eng, voiceName)
+            }
             cachedVoice = voiceName
         }
-        if espeakLang != cachedEspeakLang || tgsbLang != cachedTgsbLang {
+        let languageChanged = espeakLang != cachedEspeakLang || tgsbLang != cachedTgsbLang
+        if languageChanged {
             tgsb_set_language(eng, espeakLang, tgsbLang)
             cachedEspeakLang = espeakLang
             cachedTgsbLang = tgsbLang
         }
+
+        // Re-apply engine settings after voice/language identity is set.
+        // Language change reloads the pack which resets pitch mode, so
+        // settings must also be re-applied after a language change.
+        if curVersion != cachedSettingsVersion || voiceChanged || languageChanged {
+            let newRate = Self.loadDspRate()
+            if newRate != dspRate {
+                tgsb_set_sample_rate(eng, Int32(newRate))
+                dspRate = newRate
+            }
+            applyEngineSettings(eng, voice: voiceName)
+            cachedSettingsVersion = curVersion
+        }
+        applyStoredOverrides(tgsbLang)
 
         tgsb_queue_text(eng, plainText, speed, pitch)
 
@@ -376,6 +438,7 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
         let pitchSyncF1    = load("pitchSyncF1", 50)
         let pitchSyncB1    = load("pitchSyncB1", 50)
         let voiceTremor    = load("voiceTremor", 0)
+        let headSizeSlider = load("headSize", voice == "david" ? 100 : 50)
 
         let tilt     = (voiceTilt - 50.0) * (24.0 / 50.0)
         let noiseMod = noiseGlottalMod / 100.0
@@ -386,12 +449,16 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
             : 2.0 + ((speedQuotient - 50.0) / 50.0) * 2.0
         let aspTilt  = (aspirationTilt - 50.0) * 0.24
         let bw       = cascadeBwScale <= 50.0
-            ? 2.0 - (cascadeBwScale / 50.0) * 1.1
-            : 0.9 - ((cascadeBwScale - 50.0) / 50.0) * 0.6
+            ? 2.0 - (cascadeBwScale / 50.0) * 1.0
+            : 1.0 - ((cascadeBwScale - 50.0) / 50.0) * 0.7
         let tremor   = (voiceTremor / 100.0) * 0.4
+        let hs       = headSizeSlider <= 50.0
+            ? 1.25 - (headSizeSlider / 50.0) * 0.25
+            : 1.0 - ((headSizeSlider - 50.0) / 50.0) * 0.15
 
         tgsb_set_voicing_tone(eng, tilt, noiseMod, psF1, psB1,
-                              sq, aspTilt, bw, tremor)
+                              sq, aspTilt, bw, tremor,
+                              1.0, hs, 1.0)
 
         // FrameEx: convert 0–100 sliders to engine parameters
         let creak    = load("creakiness", 0) / 100.0
@@ -418,6 +485,20 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
         let pauseMode = d?.object(forKey: "adv_pauseMode") != nil
             ? d!.integer(forKey: "adv_pauseMode") : 1  // default: short
         tgsb_set_pause_mode(eng, Int32(pauseMode))
+    }
+
+    // MARK: - Pack setting overrides from AppGroup
+
+    private func applyStoredOverrides(_ tgsbLang: String) {
+        guard let eng = engine else { return }
+        let d = UserDefaults(suiteName: "group.com.tgspeechbox.app")
+        guard let json = d?.string(forKey: "pack_overrides_\(tgsbLang)"),
+              let data = json.data(using: .utf8),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: String],
+              !obj.isEmpty
+        else { return }
+        let yaml = obj.map { "\($0.key): \($0.value)" }.joined(separator: "\n")
+        _ = tgsb_apply_setting_overrides(eng, yaml)
     }
 
     // MARK: - Resampling

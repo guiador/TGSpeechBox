@@ -59,6 +59,7 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
     val aspirationTilt = MutableStateFlow(loadSlider("aspirationTilt", 50f))
     val cascadeBwScale = MutableStateFlow(loadSlider("cascadeBwScale", 50f))
     val voiceTremor = MutableStateFlow(loadSlider("voiceTremor", 0f))
+    val headSize = MutableStateFlow(loadSlider("headSize", if (currentVoiceId == "david") 100f else 50f))
 
     // ── Pitch settings ──────────────────────────────────────────────
 
@@ -127,6 +128,7 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
 
             val ld = languages[selectedLanguageIndex.value].langDef
             engine.setLanguage(ld.espeakLang, ld.tgsbLang)
+            applyStoredOverrides(ld.tgsbLang)
             engine.setVoice(voices[selectedVoiceIndex.value].id)
             applyVoicingTone()
             applyFrameExDefaults()
@@ -160,6 +162,7 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
 
         val ld = languages[selectedLanguageIndex.value].langDef
         engine.setLanguage(ld.espeakLang, ld.tgsbLang)
+        applyStoredOverrides(ld.tgsbLang)
         engine.setVoice(voices[selectedVoiceIndex.value].id)
         applyVoicingTone()
         applyFrameExDefaults()
@@ -181,6 +184,7 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
         selectedLanguageIndex.value = index
         val ld = languages[index].langDef
         engine.setLanguage(ld.espeakLang, ld.tgsbLang)
+        applyStoredOverrides(ld.tgsbLang)
         Log.i(TAG, "Language selected: ${ld.espeakLang}")
     }
 
@@ -193,6 +197,13 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
         applyVoicingTone()
         applyFrameExDefaults()
         applyPitchSettings()
+    }
+
+    /** Switch which voice's settings are shown in Engine Settings,
+     *  WITHOUT changing TalkBack's active voice or saving the preset. */
+    fun onEditingVoiceSelected(index: Int) {
+        selectedVoiceIndex.value = index
+        loadSettingsForVoice()
     }
 
     /**
@@ -210,6 +221,7 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
         aspirationTilt.value     = loadSlider("aspirationTilt", 50f)
         cascadeBwScale.value     = loadSlider("cascadeBwScale", 50f)
         voiceTremor.value        = loadSlider("voiceTremor", 0f)
+        headSize.value           = loadSlider("headSize", if (currentVoiceId == "david") 100f else 50f)
 
         // FrameEx sliders
         creakiness.value         = loadSlider("creakiness", 0f)
@@ -234,6 +246,7 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
     fun onAspirationTiltChanged(v: Float)  { aspirationTilt.value = v;  saveSlider("aspirationTilt", v);  applyVoicingTone() }
     fun onCascadeBwScaleChanged(v: Float)  { cascadeBwScale.value = v;  saveSlider("cascadeBwScale", v);  applyVoicingTone() }
     fun onVoiceTremorChanged(v: Float)     { voiceTremor.value = v;     saveSlider("voiceTremor", v);     applyVoicingTone() }
+    fun onHeadSizeChanged(v: Float)       { headSize.value = v;       saveSlider("headSize", v);       applyVoicingTone() }
 
     fun onCreakinessChanged(v: Float)      { creakiness.value = v;      saveSlider("creakiness", v);      applyFrameExDefaults() }
     fun onBreathinessChanged(v: Float)     { breathiness.value = v;     saveSlider("breathiness", v);     applyFrameExDefaults() }
@@ -275,6 +288,7 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
                 ed.putFloat("${PREF_PREFIX}pitchSyncF1.$v", 50f)
                 ed.putFloat("${PREF_PREFIX}pitchSyncB1.$v", 50f)
                 ed.putFloat("${PREF_PREFIX}voiceTremor.$v", 0f)
+                ed.putFloat("${PREF_PREFIX}headSize.$v", 50f)
                 ed.putFloat("${PREF_PREFIX}creakiness.$v", 0f)
                 ed.putFloat("${PREF_PREFIX}breathiness.$v", 0f)
                 ed.putFloat("${PREF_PREFIX}jitter.$v", 0f)
@@ -300,6 +314,7 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
             onPitchSyncF1Changed(50f)
             onPitchSyncB1Changed(50f)
             onVoiceTremorChanged(0f)
+            onHeadSizeChanged(50f)
 
             // Per-voice: FrameEx sliders
             onCreakinessChanged(0f)
@@ -347,16 +362,22 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
 
         val bwSlider = cascadeBwScale.value
         val bw = if (bwSlider <= 50f)
-            2.0 - (bwSlider / 50.0) * 1.1                         // 2.0..0.9
+            2.0 - (bwSlider / 50.0) * 1.0                         // 2.0..1.0
         else
-            0.9 - ((bwSlider - 50.0) / 50.0) * 0.6                // 0.9..0.3
+            1.0 - ((bwSlider - 50.0) / 50.0) * 0.7                // 1.0..0.3
 
         val tremor = (voiceTremor.value / 100f) * 0.4f             // 0..0.4
+
+        val hsSlider = headSize.value.toDouble()
+        val hs = if (hsSlider <= 50.0)
+            1.25 - (hsSlider / 50.0) * 0.25                        // 1.25..1.0
+        else
+            1.0 - ((hsSlider - 50.0) / 50.0) * 0.15                // 1.0..0.85
 
         engine.setVoicingTone(
             tilt.toDouble(), noiseMod.toDouble(),
             psF1.toDouble(), psB1.toDouble(),
-            sq, aspTilt.toDouble(), bw, tremor.toDouble()
+            sq, aspTilt.toDouble(), bw, tremor.toDouble(), hs
         )
     }
 
@@ -517,5 +538,161 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
                 .putStringSet(TgsbTtsService.PREF_SUPPORTED_LANGUAGES, keys)
                 .apply()
         }
+    }
+
+    // ── Pack settings editor ─────────────────────────────────────────
+
+    enum class SettingType { Bool, Number, Text }
+
+    data class PackSetting(
+        val key: String,
+        val displayName: String,
+        val value: String,
+        val isOverridden: Boolean,
+        val type: SettingType
+    )
+
+    val editorLanguages = MutableStateFlow<List<String>>(emptyList())
+    val editorSettings = MutableStateFlow<List<PackSetting>>(emptyList())
+    private var editorLangTag: String = ""
+
+    fun loadEditorLanguages() {
+        editorLanguages.value = engine.getAvailableLanguages()
+    }
+
+    fun loadEditorSettings(langTag: String) {
+        editorLangTag = langTag
+        // Temporarily set language to read its settings, then restore.
+        val curLang = languages.getOrNull(selectedLanguageIndex.value)
+        engine.setLanguage(langTag, langTag)
+
+        val raw = engine.getPackSettings() ?: ""
+        val overrides = loadOverrides(langTag)
+
+        // Re-apply overrides so the engine reflects them.
+        if (overrides.isNotEmpty()) {
+            val yaml = overrides.entries.joinToString("\n") { "${it.key}: ${it.value}" }
+            engine.applySettingOverrides(yaml)
+        }
+
+        // Settings managed by Engine Settings sliders — hide from editor.
+        val hiddenKeys = setOf("legacyPitchMode", "legacyPitchInflectionScale")
+
+        val settings = mutableListOf<PackSetting>()
+        for (line in raw.lines()) {
+            if (line.isBlank()) continue
+            val tab = line.indexOf('\t')
+            if (tab < 0) continue
+            val key = line.substring(0, tab)
+            if (key in hiddenKeys) continue
+            val baseValue = line.substring(tab + 1)
+            val effectiveValue = overrides[key] ?: baseValue
+            val type = detectType(effectiveValue)
+            settings.add(PackSetting(
+                key = key,
+                displayName = camelToDisplay(key),
+                value = effectiveValue,
+                isOverridden = overrides.containsKey(key),
+                type = type
+            ))
+        }
+        editorSettings.value = settings
+
+        // Restore the original language.
+        if (curLang != null) {
+            engine.setLanguage(curLang.langDef.espeakLang, curLang.langDef.tgsbLang)
+            applyStoredOverrides(curLang.langDef.tgsbLang)
+        }
+    }
+
+    fun setEditorOverride(langTag: String, key: String, value: String) {
+        // If the new value matches the pack base, remove the override instead.
+        val baseValues = getBaseValues(langTag)
+        val overrides = loadOverrides(langTag).toMutableMap()
+        if (baseValues[key] == value) {
+            overrides.remove(key)
+        } else {
+            overrides[key] = value
+        }
+        saveOverrides(langTag, overrides)
+        reloadCurrentLanguage()
+        loadEditorSettings(langTag)
+    }
+
+    /** Read base pack values (no overrides) for comparison. */
+    private fun getBaseValues(langTag: String): Map<String, String> {
+        engine.setLanguage(langTag, langTag)
+        val raw = engine.getPackSettings() ?: return emptyMap()
+        val map = mutableMapOf<String, String>()
+        for (line in raw.lines()) {
+            val tab = line.indexOf('\t')
+            if (tab < 0) continue
+            map[line.substring(0, tab)] = line.substring(tab + 1)
+        }
+        return map
+    }
+
+    fun removeEditorOverride(langTag: String, key: String) {
+        val overrides = loadOverrides(langTag).toMutableMap()
+        overrides.remove(key)
+        saveOverrides(langTag, overrides)
+        reloadCurrentLanguage()
+        loadEditorSettings(langTag)
+    }
+
+    fun resetAllEditorOverrides(langTag: String) {
+        prefs.edit().remove("pack_overrides_$langTag").apply()
+        reloadCurrentLanguage()
+        loadEditorSettings(langTag)
+    }
+
+    /** Reload the current language from disk so removed overrides take effect. */
+    private fun reloadCurrentLanguage() {
+        val curLang = languages.getOrNull(selectedLanguageIndex.value) ?: return
+        engine.setLanguage(curLang.langDef.espeakLang, curLang.langDef.tgsbLang)
+        applyStoredOverrides(curLang.langDef.tgsbLang)
+    }
+
+    /** Apply stored overrides after setLanguage (call from speak path too). */
+    fun applyStoredOverrides(tgsbLang: String) {
+        val overrides = loadOverrides(tgsbLang)
+        if (overrides.isEmpty()) return
+        val yaml = overrides.entries.joinToString("\n") { "${it.key}: ${it.value}" }
+        engine.applySettingOverrides(yaml)
+    }
+
+    private fun loadOverrides(langTag: String): Map<String, String> {
+        val json = prefs.getString("pack_overrides_$langTag", null) ?: return emptyMap()
+        return try {
+            val obj = org.json.JSONObject(json)
+            obj.keys().asSequence().associateWith { obj.getString(it) }
+        } catch (e: Exception) { emptyMap() }
+    }
+
+    private fun saveOverrides(langTag: String, overrides: Map<String, String>) {
+        if (overrides.isEmpty()) {
+            prefs.edit().remove("pack_overrides_$langTag").apply()
+            return
+        }
+        val obj = org.json.JSONObject()
+        for ((k, v) in overrides) obj.put(k, v)
+        prefs.edit().putString("pack_overrides_$langTag", obj.toString()).apply()
+    }
+
+    private fun detectType(value: String): SettingType = when {
+        value == "true" || value == "false" -> SettingType.Bool
+        value.toDoubleOrNull() != null -> SettingType.Number
+        else -> SettingType.Text
+    }
+
+    private fun camelToDisplay(key: String): String {
+        // "boundarySmoothing.enabled" → "Boundary Smoothing: Enabled"
+        // "yearSplittingEnabled" → "Year Splitting Enabled"
+        return key.replace(".", ": ").fold(StringBuilder()) { sb, c ->
+            if (c.isUpperCase() && sb.isNotEmpty() && sb.last().isLowerCase()) {
+                sb.append(' ')
+            }
+            sb.append(c)
+        }.toString().replaceFirstChar { it.uppercase() }
     }
 }
