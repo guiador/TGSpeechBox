@@ -630,20 +630,54 @@ public:
                     startFadeRemaining--;
                 }
 
-                // Platform output gain: applied before limiter so that
-                // clipping behavior is identical across NVDA/Android/iOS.
+                // Platform output gain: applied before the limiter so the
+                // limiter can protect against clipping at all gain levels.
                 bright *= outputGain;
 
-                // Peak limiter: prevent amplitude spikes from triggering OS
-                // volume ducking.  Fast attack grabs transients, slow release
-                // recovers smoothly so normal speech is unaffected.
+                // Soft-knee peak limiter: prevents amplitude spikes from
+                // clipping while avoiding the audible pumping artifacts of a
+                // hard-knee design.  A knee region (kneeWidth dB) straddles
+                // the threshold — below the knee, no compression; above the
+                // knee, full ∞:1 limiting; inside the knee, compression
+                // ratio ramps smoothly from 1:1 to ∞:1.
+                //
+                // Threshold scales with outputGain so normal speech passes
+                // through cleanly at any platform gain level (issue #50).
                 {
+                    constexpr double kClipLevel = 32767.0 / 6000.0;  // ~5.46
+                    double effThreshold = (limiterThreshold * outputGain < kClipLevel)
+                                        ? limiterThreshold * outputGain
+                                        : kClipLevel;
                     double absBright = fabs(bright);
-                    if (absBright > limiterThreshold) {
-                        double targetGain = limiterThreshold / absBright;
+
+                    // Knee width in linear amplitude (±kneeHalf around threshold).
+                    // 1.0 is roughly 6 dB — wide enough to be transparent on
+                    // voiced vowels, narrow enough to still catch sharp bursts.
+                    constexpr double kneeHalf = 1.0;
+                    double kneeLo = effThreshold - kneeHalf;
+                    double kneeHi = effThreshold + kneeHalf;
+
+                    double targetGain;
+                    if (absBright <= kneeLo || absBright < 1e-12) {
+                        // Below knee: no compression
+                        targetGain = 1.0;
+                    } else if (absBright >= kneeHi) {
+                        // Above knee: full limiting (hold at threshold)
+                        targetGain = effThreshold / absBright;
+                    } else {
+                        // Inside knee: quadratic blend from 1:1 to ∞:1.
+                        // t goes 0→1 across the knee region.
+                        double t = (absBright - kneeLo) / (kneeHi - kneeLo);
+                        // Interpolate between no-reduction (1.0) and
+                        // full-limiting gain (effThreshold / absBright).
+                        double fullGain = effThreshold / absBright;
+                        targetGain = 1.0 + t * t * (fullGain - 1.0);
+                    }
+
+                    if (targetGain < limiterGain) {
                         limiterGain += limiterAttackAlpha * (targetGain - limiterGain);
                     } else {
-                        limiterGain += limiterReleaseAlpha * (1.0 - limiterGain);
+                        limiterGain += limiterReleaseAlpha * (targetGain - limiterGain);
                     }
                     bright *= limiterGain;
                 }

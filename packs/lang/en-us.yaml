@@ -133,7 +133,6 @@ settings:
   microprosodyIntrinsicF0LowDropHz: 2.0
 
   # Pre-voiceless shortening: "bat" vowel shorter than "bad" vowel.
-  # MacinTalk: 55% before voiceless stops, 80% before fricatives.
   # Klatt (1976): vowels 60-70% as long before voiceless vs voiced.
   # 0.80 is a moderate compromise (was 0.92, barely perceptible).
   microprosodyPreVoicelessShortenEnabled: true
@@ -163,7 +162,6 @@ settings:
     wordFinalReduction: 0.05
 
     # Duration: prominent syllables hold steady, unstressed ones can shrink.
-    # MacinTalk: word-medial unstressed at 55%, others at 70%.
     # 0.85 is conservative but gives more rhythmic contrast than 0.92.
     durationProminentFloorMs: 55
     durationPrimaryFloorMs: 95
@@ -251,6 +249,7 @@ settings:
     onsetSettleMs: 12
   lengthContrast:
     enabled: false
+  allophoneRulesEnabled: true
   allophoneRules:
     enabled: true
     rules:
@@ -480,10 +479,36 @@ settings:
         position: word-final
         action: scale
         fieldScales:
-          fricationAmplitude: 0.55
-          pa4: 0.65
+          fricationAmplitude: 0.80
+          pa4: 0.80
+          pa5: 0.70
+          pa6: 0.55
+
+    # ── Post-nasal /d/ burst softening ──────────────────────────────
+    # /nd/ clusters ("calendar", "understand") sound affricated on small
+    # speakers because nasal release adds frication energy that combines
+    # with the stop burst.  Roll off upper burst components so /d/ stays
+    # clean without touching /d/ in other positions ("afraid", "day").
+      - name: post_nasal_d_soften
+        phonemes: ["d"]
+        afterFlags: [nasal]
+        action: scale
+        fieldScales:
           pa5: 0.50
-          pa6: 0.40
+          pa6: 0.35
+          fricationAmplitude: 0.70
+
+    # ── Pre-rhotic THOUGHT vowel closing ──────────────────────────────
+    # American FORCE vowel (forty, four, more) is more closed "oh" than
+    # THOUGHT (dog, all, dialog).  Both map to ᴐ after en-us rules.
+    # Close the vowel before /ɹ/ to get the FORCE quality right.
+      - name: thought_pre_rhotic_close
+        phonemes: ["ᴐ", "ᴐː"]
+        beforePhonemes: ["ɹ"]
+        action: set
+        fieldValues:
+          cf1: 500
+          cf2: 920
 
       # ── Diphthong offglide sharpening ──────────────────────────────
       # When /ɪ/ is the second element of a tied diphthong (FACE /eɪ/,
@@ -691,7 +716,7 @@ settings:
       nasalMs: 18           # place perception (/ɲ/ vs /n/ vs /ŋ/)
       liquidMs: 15           # /ɹ/ and /l/ need F3 transition time
       affricateMs: 12        # shorter than fricative, longer than stop
-      semivowelMs: 10        # glide needs some trajectory to register
+      semivowelMs: 30        # glide IS the trajectory — needs full sweep
       tapMs: 4               # quick by nature, don't over-protect
       trillMs: 12            # needs at least one modulation cycle
       voicedConsonantMs: 10  # catch-all for voiced C's not matched above

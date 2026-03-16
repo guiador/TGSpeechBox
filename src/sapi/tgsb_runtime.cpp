@@ -398,6 +398,15 @@ HRESULT runtime::ensure_initialized()
     if (speech_player_ && frontend_ && espeak_initialized_)
         return S_OK;
 
+    // 0. Read sample rate from settings (before creating speechPlayer).
+    {
+        const auto& s = get_settings_cached(base_dir_);
+        if (s.sample_rate == 11025 || s.sample_rate == 16000 ||
+            s.sample_rate == 22050 || s.sample_rate == 44100) {
+            sample_rate_ = s.sample_rate;
+        }
+    }
+
     // 1. Init speechPlayer (direct call).
     if (!speech_player_) {
         speech_player_ = speechPlayer_initialize(sample_rate_);
@@ -462,6 +471,9 @@ HRESULT runtime::set_language(const std::wstring& lang_tag)
 
     std::wstring espeak_tag = tag;
     if (_wcsicmp(espeak_tag.c_str(), L"default") == 0) {
+        espeak_tag = L"en-us";
+    }
+    if (_wcsicmp(espeak_tag.c_str(), L"en-ca") == 0) {
         espeak_tag = L"en-us";
     }
     const std::string espeak_tag_utf8 = utils::wstring_to_string(espeak_tag);
@@ -612,32 +624,111 @@ void runtime::apply_voicing_tone_if_available()
     has_voicing_tone_ = false;
     memset(&cached_voicing_tone_, 0, sizeof(cached_voicing_tone_));
 
+    if (!speech_player_) return;
+
+    speechPlayer_voicingTone_t dsp_tone = speechPlayer_getDefaultVoicingTone();
+
+    // Get base tone from voice profile (if any).
     if (frontend_) {
         nvspFrontend_VoicingTone tone{};
         const int has_tone = nvspFrontend_getVoicingTone(frontend_, &tone);
         if (has_tone) {
             cached_voicing_tone_ = tone;
             has_voicing_tone_ = true;
-            if (speech_player_) {
-                // Bridge: nvspFrontend_VoicingTone (14 doubles) → speechPlayer_voicingTone_t (header + 14 doubles).
-                speechPlayer_voicingTone_t dsp_tone = speechPlayer_getDefaultVoicingTone();
-                dsp_tone.voicingPeakPos          = tone.voicingPeakPos;
-                dsp_tone.voicedPreEmphA           = tone.voicedPreEmphA;
-                dsp_tone.voicedPreEmphMix         = tone.voicedPreEmphMix;
-                dsp_tone.highShelfGainDb          = tone.highShelfGainDb;
-                dsp_tone.highShelfFcHz            = tone.highShelfFcHz;
-                dsp_tone.highShelfQ               = tone.highShelfQ;
-                dsp_tone.voicedTiltDbPerOct       = tone.voicedTiltDbPerOct;
-                dsp_tone.noiseGlottalModDepth     = tone.noiseGlottalModDepth;
-                dsp_tone.pitchSyncF1DeltaHz       = tone.pitchSyncF1DeltaHz;
-                dsp_tone.pitchSyncB1DeltaHz       = tone.pitchSyncB1DeltaHz;
-                dsp_tone.speedQuotient            = tone.speedQuotient;
-                dsp_tone.aspirationTiltDbPerOct   = tone.aspirationTiltDbPerOct;
-                dsp_tone.cascadeBwScale           = tone.cascadeBwScale;
-                dsp_tone.tremorDepth              = tone.tremorDepth;
-                speechPlayer_setVoicingTone(speech_player_, &dsp_tone);
-            }
+            dsp_tone.voicingPeakPos          = tone.voicingPeakPos;
+            dsp_tone.voicedPreEmphA           = tone.voicedPreEmphA;
+            dsp_tone.voicedPreEmphMix         = tone.voicedPreEmphMix;
+            dsp_tone.highShelfGainDb          = tone.highShelfGainDb;
+            dsp_tone.highShelfFcHz            = tone.highShelfFcHz;
+            dsp_tone.highShelfQ               = tone.highShelfQ;
+            dsp_tone.voicedTiltDbPerOct       = tone.voicedTiltDbPerOct;
+            dsp_tone.noiseGlottalModDepth     = tone.noiseGlottalModDepth;
+            dsp_tone.pitchSyncF1DeltaHz       = tone.pitchSyncF1DeltaHz;
+            dsp_tone.pitchSyncB1DeltaHz       = tone.pitchSyncB1DeltaHz;
+            dsp_tone.speedQuotient            = tone.speedQuotient;
+            dsp_tone.aspirationTiltDbPerOct   = tone.aspirationTiltDbPerOct;
+            dsp_tone.cascadeBwScale           = tone.cascadeBwScale;
+            dsp_tone.tremorDepth              = tone.tremorDepth;
         }
+    }
+
+    // Apply slider offsets from settings (same math as NVDA voicing_tone.py).
+    const auto& s = get_settings_cached(base_dir_);
+    auto clamp = [](double v, double lo, double hi) { return v < lo ? lo : (v > hi ? hi : v); };
+
+    if (s.voiceTilt >= 0) {
+        double offset = (s.voiceTilt - 50.0) * (24.0 / 50.0);
+        dsp_tone.voicedTiltDbPerOct = clamp(dsp_tone.voicedTiltDbPerOct + offset, -24.0, 24.0);
+    }
+    if (s.noiseGlottalMod >= 0) {
+        dsp_tone.noiseGlottalModDepth = s.noiseGlottalMod / 100.0;
+    }
+    if (s.pitchSyncF1 >= 0) {
+        dsp_tone.pitchSyncF1DeltaHz = (s.pitchSyncF1 - 50.0) * 1.2;
+    }
+    if (s.pitchSyncB1 >= 0) {
+        dsp_tone.pitchSyncB1DeltaHz = (s.pitchSyncB1 - 50.0) * 1.0;
+    }
+    if (s.speedQuotient >= 0) {
+        double sq = static_cast<double>(s.speedQuotient);
+        if (sq <= 50.0)
+            dsp_tone.speedQuotient = 0.5 + (sq / 50.0) * 1.5;
+        else
+            dsp_tone.speedQuotient = 2.0 + ((sq - 50.0) / 50.0) * 2.0;
+    }
+    if (s.aspirationTilt >= 0) {
+        dsp_tone.aspirationTiltDbPerOct = (s.aspirationTilt - 50.0) * 0.24;
+    }
+    if (s.cascadeBwScale >= 0) {
+        double bw = static_cast<double>(s.cascadeBwScale);
+        if (bw <= 50.0)
+            dsp_tone.cascadeBwScale = 2.0 - (bw / 50.0) * 1.0;
+        else
+            dsp_tone.cascadeBwScale = 1.0 - ((bw - 50.0) / 50.0) * 0.7;
+        dsp_tone.cascadeBwScale = clamp(dsp_tone.cascadeBwScale, 0.3, 2.0);
+    }
+    if (s.voiceTremor >= 0) {
+        dsp_tone.tremorDepth = clamp((s.voiceTremor / 100.0) * 0.4, 0.0, 0.5);
+    }
+    if (s.headSize >= 0) {
+        double hs = static_cast<double>(s.headSize);
+        if (hs <= 50.0)
+            dsp_tone.f4FreqScale = 1.25 - (hs / 50.0) * 0.25;
+        else
+            dsp_tone.f4FreqScale = 1.0 - ((hs - 50.0) / 50.0) * 0.15;
+        dsp_tone.f4FreqScale = clamp(dsp_tone.f4FreqScale, 0.7, 1.5);
+    }
+
+    speechPlayer_setVoicingTone(speech_player_, &dsp_tone);
+
+    // Apply pitch mode override from settings.
+    if (frontend_ && !s.pitchMode.empty()) {
+        std::string yaml = "legacyPitchMode: " + utils::wstring_to_string(s.pitchMode) + "\n";
+        if (s.pitchInflectionScale >= 0) {
+            double scale = s.pitchInflectionScale / 100.0 * 2.0; // 0-100 → 0.0-2.0
+            char buf[64];
+            std::snprintf(buf, sizeof(buf), "legacyPitchInflectionScale: %.4f\n", scale);
+            yaml += buf;
+        }
+        nvspFrontend_applySettingOverrides(frontend_, yaml.c_str());
+    } else if (frontend_ && s.pitchInflectionScale >= 0) {
+        double scale = s.pitchInflectionScale / 100.0 * 2.0;
+        char buf[64];
+        std::snprintf(buf, sizeof(buf), "legacyPitchInflectionScale: %.4f\n", scale);
+        nvspFrontend_applySettingOverrides(frontend_, buf);
+    }
+
+    // Apply FrameEx defaults from settings.
+    if (frontend_) {
+        double creakiness  = (s.frameExCreakiness >= 0)  ? s.frameExCreakiness / 100.0  : 0.0;
+        double breathiness = (s.frameExBreathiness >= 0) ? s.frameExBreathiness / 100.0 : 0.0;
+        double jitter      = (s.frameExJitter >= 0)      ? s.frameExJitter / 100.0      : 0.0;
+        double shimmer     = (s.frameExShimmer >= 0)     ? s.frameExShimmer / 100.0     : 0.0;
+        double sharpness   = 1.0;
+        if (s.frameExSharpness >= 0) {
+            sharpness = std::pow(2.0, (s.frameExSharpness - 50.0) / 25.0);
+        }
+        nvspFrontend_setFrameExDefaults(frontend_, creakiness, breathiness, jitter, shimmer, sharpness);
     }
 }
 
@@ -698,6 +789,10 @@ HRESULT runtime::queue_text(const std::wstring& text, const speak_params& params
 
     HRESULT hr = ensure_initialized();
     if (FAILED(hr)) return hr;
+
+    // Re-apply voicing tone + FrameEx from settings on every utterance.
+    // get_settings_cached() inside checks mtime — cheap when file unchanged.
+    apply_voicing_tone_if_available();
 
     // Determine if this is a built-in preset or a voice profile.
     const std::wstring profilePrefix = L"profile:";

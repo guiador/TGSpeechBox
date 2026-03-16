@@ -11,11 +11,15 @@
 package com.tgspeechbox.tts
 
 import android.app.Application
+import android.content.Context
+import android.content.Intent
 import android.content.SharedPreferences
+import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import java.io.File
 import java.util.Locale
 import kotlin.math.roundToInt
 
@@ -129,6 +133,7 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
             val ld = languages[selectedLanguageIndex.value].langDef
             engine.setLanguage(ld.espeakLang, ld.tgsbLang)
             applyStoredOverrides(ld.tgsbLang)
+            reapplyDictOverrides(ld.tgsbLang)
             engine.setVoice(voices[selectedVoiceIndex.value].id)
             applyVoicingTone()
             applyFrameExDefaults()
@@ -163,6 +168,7 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
         val ld = languages[selectedLanguageIndex.value].langDef
         engine.setLanguage(ld.espeakLang, ld.tgsbLang)
         applyStoredOverrides(ld.tgsbLang)
+        reapplyDictOverrides(ld.tgsbLang)
         engine.setVoice(voices[selectedVoiceIndex.value].id)
         applyVoicingTone()
         applyFrameExDefaults()
@@ -185,6 +191,7 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
         val ld = languages[index].langDef
         engine.setLanguage(ld.espeakLang, ld.tgsbLang)
         applyStoredOverrides(ld.tgsbLang)
+        reapplyDictOverrides(ld.tgsbLang)
         Log.i(TAG, "Language selected: ${ld.espeakLang}")
     }
 
@@ -549,7 +556,8 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
         val displayName: String,
         val value: String,
         val isOverridden: Boolean,
-        val type: SettingType
+        val type: SettingType,
+        val options: List<String>? = null  // dropdown options for enum-like strings
     )
 
     val editorLanguages = MutableStateFlow<List<String>>(emptyList())
@@ -562,46 +570,48 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
 
     fun loadEditorSettings(langTag: String) {
         editorLangTag = langTag
-        // Temporarily set language to read its settings, then restore.
-        val curLang = languages.getOrNull(selectedLanguageIndex.value)
-        engine.setLanguage(langTag, langTag)
 
-        val raw = engine.getPackSettings() ?: ""
+        // Query settings directly by langTag — no temp language switch needed.
+        val jsonStr = engine.queryData(TgsbSpeakEngine.DATA_SETTINGS, langTag) ?: return
         val overrides = loadOverrides(langTag)
-
-        // Re-apply overrides so the engine reflects them.
-        if (overrides.isNotEmpty()) {
-            val yaml = overrides.entries.joinToString("\n") { "${it.key}: ${it.value}" }
-            engine.applySettingOverrides(yaml)
-        }
 
         // Settings managed by Engine Settings sliders — hide from editor.
         val hiddenKeys = setOf("legacyPitchMode", "legacyPitchInflectionScale")
 
         val settings = mutableListOf<PackSetting>()
-        for (line in raw.lines()) {
-            if (line.isBlank()) continue
-            val tab = line.indexOf('\t')
-            if (tab < 0) continue
-            val key = line.substring(0, tab)
+        val arr = org.json.JSONArray(jsonStr)
+        for (i in 0 until arr.length()) {
+            val obj = arr.getJSONObject(i)
+            val key = obj.getString("key")
             if (key in hiddenKeys) continue
-            val baseValue = line.substring(tab + 1)
+            val baseValue = obj.get("value").toString()
             val effectiveValue = overrides[key] ?: baseValue
-            val type = detectType(effectiveValue)
+            val jsonType = obj.getString("type")
+            val type = when (jsonType) {
+                "bool" -> SettingType.Bool
+                "float" -> SettingType.Number
+                else -> SettingType.Text
+            }
+            val options = if (obj.has("options")) {
+                val optArr = obj.getJSONArray("options")
+                (0 until optArr.length()).map { optArr.getString(it) }
+            } else null
             settings.add(PackSetting(
                 key = key,
                 displayName = camelToDisplay(key),
                 value = effectiveValue,
                 isOverridden = overrides.containsKey(key),
-                type = type
+                type = type,
+                options = options
             ))
         }
         editorSettings.value = settings
 
-        // Restore the original language.
-        if (curLang != null) {
-            engine.setLanguage(curLang.langDef.espeakLang, curLang.langDef.tgsbLang)
-            applyStoredOverrides(curLang.langDef.tgsbLang)
+        // Apply overrides to the active language if it matches.
+        if (overrides.isNotEmpty()) {
+            for ((k, v) in overrides) {
+                engine.setData(TgsbSpeakEngine.DATA_SETTINGS, langTag, k, v)
+            }
         }
     }
 
@@ -621,13 +631,12 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
 
     /** Read base pack values (no overrides) for comparison. */
     private fun getBaseValues(langTag: String): Map<String, String> {
-        engine.setLanguage(langTag, langTag)
-        val raw = engine.getPackSettings() ?: return emptyMap()
+        val jsonStr = engine.queryData(TgsbSpeakEngine.DATA_SETTINGS, langTag) ?: return emptyMap()
         val map = mutableMapOf<String, String>()
-        for (line in raw.lines()) {
-            val tab = line.indexOf('\t')
-            if (tab < 0) continue
-            map[line.substring(0, tab)] = line.substring(tab + 1)
+        val arr = org.json.JSONArray(jsonStr)
+        for (i in 0 until arr.length()) {
+            val obj = arr.getJSONObject(i)
+            map[obj.getString("key")] = obj.get("value").toString()
         }
         return map
     }
@@ -641,7 +650,11 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun resetAllEditorOverrides(langTag: String) {
-        prefs.edit().remove("pack_overrides_$langTag").apply()
+        val ver = prefs.getInt("pack_overrides_version", 0) + 1
+        prefs.edit()
+            .remove("pack_overrides_$langTag")
+            .putInt("pack_overrides_version", ver)
+            .apply()
         reloadCurrentLanguage()
         loadEditorSettings(langTag)
     }
@@ -651,14 +664,16 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
         val curLang = languages.getOrNull(selectedLanguageIndex.value) ?: return
         engine.setLanguage(curLang.langDef.espeakLang, curLang.langDef.tgsbLang)
         applyStoredOverrides(curLang.langDef.tgsbLang)
+        reapplyDictOverrides(curLang.langDef.tgsbLang)
     }
 
-    /** Apply stored overrides after setLanguage (call from speak path too). */
+    /** Apply stored overrides after setLanguage via per-key setData. */
     fun applyStoredOverrides(tgsbLang: String) {
         val overrides = loadOverrides(tgsbLang)
         if (overrides.isEmpty()) return
-        val yaml = overrides.entries.joinToString("\n") { "${it.key}: ${it.value}" }
-        engine.applySettingOverrides(yaml)
+        for ((k, v) in overrides) {
+            engine.setData(TgsbSpeakEngine.DATA_SETTINGS, tgsbLang, k, v)
+        }
     }
 
     private fun loadOverrides(langTag: String): Map<String, String> {
@@ -670,13 +685,18 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun saveOverrides(langTag: String, overrides: Map<String, String>) {
+        val e = prefs.edit()
         if (overrides.isEmpty()) {
-            prefs.edit().remove("pack_overrides_$langTag").apply()
-            return
+            e.remove("pack_overrides_$langTag")
+        } else {
+            val obj = org.json.JSONObject()
+            for ((k, v) in overrides) obj.put(k, v)
+            e.putString("pack_overrides_$langTag", obj.toString())
         }
-        val obj = org.json.JSONObject()
-        for ((k, v) in overrides) obj.put(k, v)
-        prefs.edit().putString("pack_overrides_$langTag", obj.toString()).apply()
+        // Bump version so the TTS Service knows to reload the pack.
+        val ver = prefs.getInt("pack_overrides_version", 0) + 1
+        e.putInt("pack_overrides_version", ver)
+        e.apply()
     }
 
     private fun detectType(value: String): SettingType = when {
@@ -694,5 +714,724 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
             }
             sb.append(c)
         }.toString().replaceFirstChar { it.uppercase() }
+    }
+
+    // ── Dictionary editor ─────────────────────────────────────────────
+
+    data class DictType(
+        val type: String,    // "compound", "pronounce", "stress"
+        val count: Int
+    )
+
+    data class DictEntry(
+        val fromText: String,
+        val toText: String,
+        val fromIpa: String = "",
+        val toIpa: String = "",
+        val category: String = "",
+        val source: String = "main",  // "main" or "user"
+        val masked: Boolean = false
+    )
+
+    val dictTypes = MutableStateFlow<List<DictType>>(emptyList())
+    val dictionaryEntries = MutableStateFlow<List<DictEntry>>(emptyList())
+    val dictionaryTotalCount = MutableStateFlow(0)
+    val dictionaryCategories = MutableStateFlow<List<String>>(emptyList())
+    private var dictLangTag: String = ""
+    private var dictSubType: String = ""
+
+    /** Returns the current engine language tag (e.g. "en-us"). */
+    fun currentEngineLangTag(): String {
+        val idx = selectedLanguageIndex.value.coerceIn(0, languages.size - 1)
+        return languages[idx].langDef.tgsbLang
+    }
+
+    fun loadDictTypes(langTag: String = "") {
+        val tag = if (langTag.isNotEmpty()) "types:$langTag" else "types"
+        val jsonStr = engine.queryData(TgsbSpeakEngine.DATA_DICTIONARY, tag, 0, 0) ?: run {
+            dictTypes.value = emptyList()
+            return
+        }
+        try {
+            val arr = org.json.JSONArray(jsonStr)
+            val types = mutableListOf<DictType>()
+            for (i in 0 until arr.length()) {
+                val obj = arr.getJSONObject(i)
+                types.add(DictType(
+                    type = obj.optString("type", ""),
+                    count = obj.optInt("count", 0)
+                ))
+            }
+            dictTypes.value = types
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to parse dict types: ${e.message}")
+            dictTypes.value = emptyList()
+        }
+    }
+
+    /**
+     * Build the prefixed langTag for the data query API.
+     * "pronounce" type uses bare langTag, others use "type:langTag".
+     */
+    private fun prefixedLangTag(subType: String, langTag: String): String {
+        return if (subType.isEmpty() || subType == "pronounce") langTag
+        else "$subType:$langTag"
+    }
+
+    fun loadDictionary(langTag: String, subType: String = "", offset: Int = 0, limit: Int = 100, append: Boolean = false, search: String = "") {
+        // Cross-language browsing: the C++ backend loads dict files from disk
+        // for non-current languages via getDictRefs(), no setLanguage needed.
+        dictLangTag = langTag
+        dictSubType = subType
+        val prefixed = prefixedLangTag(subType, langTag) +
+            if (search.isNotEmpty()) "?$search" else ""
+        dictionaryTotalCount.value = engine.getDataCount(TgsbSpeakEngine.DATA_DICTIONARY, prefixed)
+        val jsonStr = engine.queryData(TgsbSpeakEngine.DATA_DICTIONARY, prefixed, offset, limit) ?: run {
+            if (!append) dictionaryEntries.value = emptyList()
+            return
+        }
+        val arr = org.json.JSONArray(jsonStr)
+        val entries = mutableListOf<DictEntry>()
+        val cats = mutableSetOf<String>()
+        for (i in 0 until arr.length()) {
+            val obj = arr.getJSONObject(i)
+            val entry = DictEntry(
+                fromText = obj.optString("fromText", obj.optString("key", "")),
+                toText = obj.optString("toText", ""),
+                fromIpa = obj.optString("fromIpa", ""),
+                toIpa = obj.optString("toIpa", ""),
+                category = obj.optString("category", ""),
+                source = obj.optString("source", "main"),
+                masked = obj.optBoolean("masked", false)
+            )
+            entries.add(entry)
+            if (entry.category.isNotEmpty()) cats.add(entry.category)
+        }
+        if (append) {
+            dictionaryEntries.value = dictionaryEntries.value + entries
+        } else {
+            dictionaryEntries.value = entries
+        }
+        dictionaryCategories.value = cats.sorted()
+    }
+
+    fun addDictEntry(fromText: String, toText: String, category: String = "") {
+        if (fromText.isBlank() || toText.isBlank()) return
+        val prefixed = prefixedLangTag(dictSubType, dictLangTag)
+        val json = org.json.JSONObject().apply {
+            put("toText", toText)
+            if (category.isNotEmpty()) put("category", category)
+        }
+        engine.setData(TgsbSpeakEngine.DATA_DICTIONARY, prefixed, fromText, json.toString())
+        saveDictOverride(prefixed, fromText, json.toString())
+        loadDictionary(dictLangTag, dictSubType)
+    }
+
+    fun maskDictEntry(fromText: String, masked: Boolean) {
+        val prefixed = prefixedLangTag(dictSubType, dictLangTag)
+        val json = org.json.JSONObject().apply {
+            put("masked", masked)
+        }
+        engine.setData(TgsbSpeakEngine.DATA_DICTIONARY, prefixed, fromText, json.toString())
+        saveDictOverride(prefixed, fromText, json.toString())
+        loadDictionary(dictLangTag, dictSubType)
+    }
+
+    fun deleteDictEntry(fromText: String) {
+        val prefixed = prefixedLangTag(dictSubType, dictLangTag)
+        removeDictOverride(prefixed, fromText)
+        // Reload language to restore base dict entries from disk,
+        // then reapply remaining user overrides. This ensures that
+        // removing a modified base entry reverts to the original.
+        engine.setLanguage(dictLangTag, dictLangTag)
+        reapplyDictOverrides(dictLangTag)
+        loadDictionary(dictLangTag, dictSubType)
+    }
+
+    private fun loadDictOverrides(langTag: String): Map<String, String> {
+        val json = prefs.getString("dict_overrides_$langTag", null) ?: return emptyMap()
+        return try {
+            val obj = org.json.JSONObject(json)
+            obj.keys().asSequence().associateWith { obj.getString(it) }
+        } catch (e: Exception) { emptyMap() }
+    }
+
+    private fun saveDictOverride(langTag: String, key: String, value: String) {
+        val overrides = loadDictOverrides(langTag).toMutableMap()
+        overrides[key] = value
+        val obj = org.json.JSONObject()
+        for ((k, v) in overrides) obj.put(k, v)
+        val ver = prefs.getInt("pack_overrides_version", 0) + 1
+        prefs.edit()
+            .putString("dict_overrides_$langTag", obj.toString())
+            .putInt("pack_overrides_version", ver)
+            .apply()
+    }
+
+    private fun removeDictOverride(langTag: String, key: String) {
+        val overrides = loadDictOverrides(langTag).toMutableMap()
+        overrides.remove(key)
+        val ver = prefs.getInt("pack_overrides_version", 0) + 1
+        val e = prefs.edit()
+        if (overrides.isEmpty()) {
+            e.remove("dict_overrides_$langTag")
+        } else {
+            val obj = org.json.JSONObject()
+            for ((k, v) in overrides) obj.put(k, v)
+            e.putString("dict_overrides_$langTag", obj.toString())
+        }
+        e.putInt("pack_overrides_version", ver).apply()
+    }
+
+    fun reapplyDictOverrides(langTag: String) {
+        val overrides = loadDictOverrides(langTag)
+        for ((k, v) in overrides) {
+            engine.setData(TgsbSpeakEngine.DATA_DICTIONARY, langTag, k, v)
+        }
+        // Re-apply dict type disabled state
+        val disabled = loadDictDisabled(langTag)
+        for (type in disabled) {
+            engine.setData(TgsbSpeakEngine.DATA_DICTIONARY, "config:$langTag", type, "false")
+        }
+    }
+
+    // ── Dict type exclusion ───────────────────────────────────────────
+
+    fun loadDictConfig(langTag: String): Map<String, Boolean> {
+        val jsonStr = engine.queryData(TgsbSpeakEngine.DATA_DICTIONARY, "config:$langTag") ?: return emptyMap()
+        return try {
+            val arr = org.json.JSONArray(jsonStr)
+            val result = mutableMapOf<String, Boolean>()
+            for (i in 0 until arr.length()) {
+                val obj = arr.getJSONObject(i)
+                result[obj.getString("type")] = obj.getBoolean("enabled")
+            }
+            result
+        } catch (e: Exception) { emptyMap() }
+    }
+
+    fun setDictTypeEnabled(langTag: String, type: String, enabled: Boolean) {
+        engine.setData(TgsbSpeakEngine.DATA_DICTIONARY, "config:$langTag", type, if (enabled) "true" else "false")
+        saveDictDisabled(langTag, type, !enabled)
+    }
+
+    private fun loadDictDisabled(langTag: String): Set<String> {
+        val json = prefs.getString("dict_disabled_$langTag", null) ?: return emptySet()
+        return try {
+            val arr = org.json.JSONArray(json)
+            (0 until arr.length()).map { arr.getString(it) }.toSet()
+        } catch (e: Exception) { emptySet() }
+    }
+
+    private fun saveDictDisabled(langTag: String, type: String, disabled: Boolean) {
+        val current = loadDictDisabled(langTag).toMutableSet()
+        if (disabled) current.add(type) else current.remove(type)
+        if (current.isEmpty()) {
+            prefs.edit().remove("dict_disabled_$langTag").apply()
+        } else {
+            prefs.edit().putString("dict_disabled_$langTag", org.json.JSONArray(current.toList()).toString()).apply()
+        }
+    }
+
+    // ── Phoneme editor ────────────────────────────────────────────────
+
+    data class PhonemeEntry(
+        val key: String,         // IPA key e.g. "ɪ"
+        val phonemeClass: String, // "vowel", "stop", etc.
+        val mappingFrom: String   // non-empty in lang-filtered view
+    )
+
+    data class PhonemeField(
+        val key: String,          // full dot key e.g. "ɪ.cf2"
+        val fieldName: String,    // just the field part e.g. "cf2"
+        val displayName: String,  // human-readable e.g. "F2 Frequency"
+        val value: String,
+        val isOverridden: Boolean,
+        val isUserAdded: Boolean, // true if field only exists in user overrides, not in base phoneme
+        val type: SettingType
+    )
+
+    /** Human-readable names and sort order for phoneme fields. */
+    private val phonemeFieldInfo = linkedMapOf(
+        // ── Voicing ──
+        "voicePitch" to "Voice Pitch (Hz)",
+        "endVoicePitch" to "End Voice Pitch (Hz)",
+        "voiceAmplitude" to "Voice Amplitude",
+        "aspirationAmplitude" to "Aspiration Amplitude",
+        "glottalOpenQuotient" to "Glottal Open Quotient",
+        "voiceTurbulenceAmplitude" to "Voice Turbulence",
+        "vibratoPitchOffset" to "Vibrato Pitch Offset",
+        "vibratoSpeed" to "Vibrato Speed (Hz)",
+        // ── Cascade formants ──
+        "cf1" to "F1 Frequency (Hz)",
+        "cf2" to "F2 Frequency (Hz)",
+        "cf3" to "F3 Frequency (Hz)",
+        "cf4" to "F4 Frequency (Hz)",
+        "cf5" to "F5 Frequency (Hz)",
+        "cf6" to "F6 Frequency (Hz)",
+        "cb1" to "F1 Bandwidth (Hz)",
+        "cb2" to "F2 Bandwidth (Hz)",
+        "cb3" to "F3 Bandwidth (Hz)",
+        "cb4" to "F4 Bandwidth (Hz)",
+        "cb5" to "F5 Bandwidth (Hz)",
+        "cb6" to "F6 Bandwidth (Hz)",
+        // ── Nasal formants ──
+        "cfN0" to "Nasal Zero Frequency",
+        "cfNP" to "Nasal Pole Frequency",
+        "cbN0" to "Nasal Zero Bandwidth",
+        "cbNP" to "Nasal Pole Bandwidth",
+        "caNP" to "Nasal Pole Amplitude",
+        // ── Frication ──
+        "fricationAmplitude" to "Frication Amplitude",
+        "preFormantGain" to "Pre-Formant Gain",
+        // ── Parallel formants ──
+        "pf1" to "Parallel F1 Frequency",
+        "pf2" to "Parallel F2 Frequency",
+        "pf3" to "Parallel F3 Frequency",
+        "pf4" to "Parallel F4 Frequency",
+        "pf5" to "Parallel F5 Frequency",
+        "pf6" to "Parallel F6 Frequency",
+        "pb1" to "Parallel F1 Bandwidth",
+        "pb2" to "Parallel F2 Bandwidth",
+        "pb3" to "Parallel F3 Bandwidth",
+        "pb4" to "Parallel F4 Bandwidth",
+        "pb5" to "Parallel F5 Bandwidth",
+        "pb6" to "Parallel F6 Bandwidth",
+        "pa1" to "Parallel F1 Amplitude",
+        "pa2" to "Parallel F2 Amplitude",
+        "pa3" to "Parallel F3 Amplitude",
+        "pa4" to "Parallel F4 Amplitude",
+        "pa5" to "Parallel F5 Amplitude",
+        "pa6" to "Parallel F6 Amplitude",
+        "parallelBypass" to "Parallel Bypass",
+        "outputGain" to "Output Gain",
+        // ── Flags ──
+        "_isVowel" to "Is Vowel",
+        "_isVoiced" to "Is Voiced",
+        "_isStop" to "Is Stop",
+        "_isNasal" to "Is Nasal",
+        "_isLiquid" to "Is Liquid",
+        "_isSemivowel" to "Is Semivowel",
+        "_isAffricate" to "Is Affricate",
+        "_isTap" to "Is Tap",
+        "_isTrill" to "Is Trill",
+        "_copyAdjacent" to "Copy Adjacent",
+        // ── FrameEx ──
+        "frameEx.creakiness" to "Creakiness",
+        "frameEx.breathiness" to "Breathiness",
+        "frameEx.jitter" to "Jitter",
+        "frameEx.shimmer" to "Shimmer",
+        "frameEx.sharpness" to "Glottal Sharpness",
+        "frameEx.endCf1" to "Diphthong End F1",
+        "frameEx.endCf2" to "Diphthong End F2",
+        "frameEx.endCf3" to "Diphthong End F3",
+        "frameEx.endPf1" to "Diphthong End Parallel F1",
+        "frameEx.endPf2" to "Diphthong End Parallel F2",
+        "frameEx.endPf3" to "Diphthong End Parallel F3",
+        // ── Micro-events ──
+        "burstDurationMs" to "Burst Duration (ms)",
+        "burstDecayRate" to "Burst Decay Rate",
+        "burstSpectralTilt" to "Burst Spectral Tilt",
+        "voiceBarAmplitude" to "Voice Bar Amplitude",
+        "voiceBarF1" to "Voice Bar F1 (Hz)",
+        "releaseSpreadMs" to "Release Spread (ms)",
+        "fricAttackMs" to "Frication Attack (ms)",
+        "fricDecayMs" to "Frication Decay (ms)",
+        "durationScale" to "Duration Scale",
+    )
+
+    /** Sort order: fields in phonemeFieldInfo map order, unknowns at end. */
+    private val phonemeFieldOrder: Map<String, Int> by lazy {
+        phonemeFieldInfo.keys.withIndex().associate { (i, k) -> k to i }
+    }
+
+    private fun phonemeDisplayName(fieldName: String): String =
+        phonemeFieldInfo[fieldName] ?: camelToDisplay(fieldName)
+
+    val phonemeList = MutableStateFlow<List<PhonemeEntry>>(emptyList())
+    val phonemeFields = MutableStateFlow<List<PhonemeField>>(emptyList())
+    private var phonemeLangFilter: String = ""
+
+    fun loadPhonemeList(langTag: String = "") {
+        phonemeLangFilter = langTag
+        val jsonStr = engine.queryData(TgsbSpeakEngine.DATA_PHONEMES, langTag)
+            ?: return
+        val arr = org.json.JSONArray(jsonStr)
+        val seen = mutableMapOf<String, PhonemeEntry>()
+        for (i in 0 until arr.length()) {
+            val obj = arr.getJSONObject(i)
+            val group = obj.getString("group")
+            if (group !in seen) {
+                seen[group] = PhonemeEntry(
+                    key = group,
+                    phonemeClass = obj.optString("class", "other"),
+                    mappingFrom = obj.optString("mappingFrom", "")
+                )
+            }
+        }
+        phonemeList.value = seen.values.toList()
+    }
+
+    fun loadPhonemeFields(phonemeKey: String) {
+        // Query all phonemes (always from base) and filter to this phoneme.
+        val jsonStr = engine.queryData(TgsbSpeakEngine.DATA_PHONEMES, "")
+            ?: return
+        val overrides = loadPhonemeOverrides()
+        val arr = org.json.JSONArray(jsonStr)
+        val fields = mutableListOf<PhonemeField>()
+        val baseKeys = mutableSetOf<String>()
+        for (i in 0 until arr.length()) {
+            val obj = arr.getJSONObject(i)
+            if (obj.getString("group") != phonemeKey) continue
+            val fullKey = obj.getString("key")
+            baseKeys.add(fullKey)
+            val fieldName = fullKey.removePrefix("$phonemeKey.")
+            val baseValue = obj.get("value").toString()
+            val effectiveValue = overrides[fullKey] ?: baseValue
+            val jsonType = obj.getString("type")
+            val type = when (jsonType) {
+                "bool" -> SettingType.Bool
+                "float" -> SettingType.Number
+                else -> SettingType.Text
+            }
+            fields.add(PhonemeField(
+                key = fullKey,
+                fieldName = fieldName,
+                displayName = phonemeDisplayName(fieldName),
+                value = effectiveValue,
+                isOverridden = overrides.containsKey(fullKey),
+                isUserAdded = false,
+                type = type
+            ))
+        }
+        // Append user-added fields (overrides that don't exist in the base phoneme).
+        val prefix = "$phonemeKey."
+        for ((fullKey, value) in overrides) {
+            if (!fullKey.startsWith(prefix)) continue
+            if (fullKey in baseKeys) continue
+            val fieldName = fullKey.removePrefix(prefix)
+            // Determine type from field name, not stored value.
+            val isBool = fieldName.startsWith("_is") || fieldName.startsWith("_copy")
+            fields.add(PhonemeField(
+                key = fullKey,
+                fieldName = fieldName,
+                displayName = phonemeDisplayName(fieldName),
+                value = value,
+                isOverridden = true,
+                isUserAdded = true,
+                type = if (isBool) SettingType.Bool else SettingType.Number
+            ))
+        }
+        val maxOrder = phonemeFieldOrder.size
+        phonemeFields.value = fields.sortedBy { phonemeFieldOrder[it.fieldName] ?: maxOrder }
+    }
+
+    /** Returns fields from phonemeFieldInfo that are not currently in the phoneme's field list. */
+    fun getAvailableFieldsToAdd(phonemeKey: String): List<Pair<String, String>> {
+        val existingFields = phonemeFields.value.map { it.fieldName }.toSet()
+        return phonemeFieldInfo.entries
+            .filter { it.key !in existingFields }
+            .map { it.key to it.value }
+    }
+
+    fun setPhonemeOverride(fullKey: String, value: String) {
+        // Apply in-memory immediately for live preview.
+        engine.setData(TgsbSpeakEngine.DATA_PHONEMES, "", fullKey, value)
+
+        // Persist to SharedPreferences.
+        val overrides = loadPhonemeOverrides().toMutableMap()
+        overrides[fullKey] = value
+        savePhonemeOverrides(overrides)
+    }
+
+    fun removePhonemeOverride(fullKey: String) {
+        val overrides = loadPhonemeOverrides().toMutableMap()
+        overrides.remove(fullKey)
+        savePhonemeOverrides(overrides)
+        // Reload language to get base value back.
+        reloadCurrentLanguage()
+        reapplyAllPhonemeOverrides()
+    }
+
+    /** Remove all overrides for a single phoneme (keys starting with "phonemeKey."). */
+    fun resetPhonemeOverrides(phonemeKey: String) {
+        val prefix = "$phonemeKey."
+        val overrides = loadPhonemeOverrides().toMutableMap()
+        overrides.keys.removeAll { it.startsWith(prefix) }
+        savePhonemeOverrides(overrides)
+        reloadCurrentLanguage()
+        reapplyAllPhonemeOverrides()
+    }
+
+    /** Remove all phoneme overrides, optionally filtered to a specific language's phoneme list. */
+    fun resetAllPhonemeOverrides(langFilter: String = "") {
+        if (langFilter.isEmpty()) {
+            savePhonemeOverrides(emptyMap())
+        } else {
+            val phonemeKeys = phonemeList.value.map { it.key }.toSet()
+            val overrides = loadPhonemeOverrides().toMutableMap()
+            overrides.keys.removeAll { key ->
+                phonemeKeys.any { key.startsWith("$it.") }
+            }
+            savePhonemeOverrides(overrides)
+        }
+        reloadCurrentLanguage()
+        reapplyAllPhonemeOverrides()
+    }
+
+    fun previewPhoneme(ipa: String) {
+        engine.previewPhoneme(ipa)
+    }
+
+    private fun loadPhonemeOverrides(): Map<String, String> {
+        val json = prefs.getString("phoneme_overrides", null) ?: return emptyMap()
+        return try {
+            val obj = org.json.JSONObject(json)
+            obj.keys().asSequence().associateWith { obj.getString(it) }
+        } catch (e: Exception) { emptyMap() }
+    }
+
+    private fun savePhonemeOverrides(overrides: Map<String, String>) {
+        val e = prefs.edit()
+        if (overrides.isEmpty()) {
+            e.remove("phoneme_overrides")
+        } else {
+            val obj = org.json.JSONObject()
+            for ((k, v) in overrides) obj.put(k, v)
+            e.putString("phoneme_overrides", obj.toString())
+        }
+        e.apply()
+    }
+
+    /** Re-apply all phoneme overrides after a language reload. */
+    fun reapplyAllPhonemeOverrides() {
+        val overrides = loadPhonemeOverrides()
+        for ((k, v) in overrides) {
+            engine.setData(TgsbSpeakEngine.DATA_PHONEMES, "", k, v)
+        }
+    }
+
+    // ── Pack import / export ───────────────────────────────────────────
+
+    private val _importExportStatus = MutableStateFlow<String?>(null)
+    val importExportStatus: StateFlow<String?> = _importExportStatus
+
+    fun clearImportExportStatus() { _importExportStatus.value = null }
+
+    private fun packFileForLang(context: Context, langTag: String): File =
+        File(context.filesDir, "tgsb/packs/lang/$langTag.yaml")
+
+    private fun packOverridesJson(langTag: String): String {
+        val overrides = loadOverrides(langTag)
+        if (overrides.isEmpty()) return "{}"
+        val obj = org.json.JSONObject()
+        for ((k, v) in overrides) obj.put(k, v)
+        return obj.toString()
+    }
+
+    fun exportPackYaml(context: Context, langTag: String, destUri: Uri) {
+        val yaml = engine.exportData(
+            TgsbSpeakEngine.DATA_SETTINGS, langTag, packOverridesJson(langTag)
+        )
+        if (yaml == null) {
+            _importExportStatus.value = "Export failed — no pack data found"
+            return
+        }
+        try {
+            context.contentResolver.openOutputStream(destUri)?.use { out ->
+                out.write(yaml.toByteArray(Charsets.UTF_8))
+            }
+            _importExportStatus.value = "Exported $langTag.yaml"
+        } catch (e: Exception) {
+            _importExportStatus.value = "Export failed: ${e.message}"
+        }
+    }
+
+    fun sharePackYaml(context: Context, langTag: String) {
+        val yaml = engine.exportData(
+            TgsbSpeakEngine.DATA_SETTINGS, langTag, packOverridesJson(langTag)
+        )
+        if (yaml == null) {
+            _importExportStatus.value = "No pack data to share"
+            return
+        }
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_SUBJECT, "$langTag.yaml")
+            putExtra(Intent.EXTRA_TEXT, yaml)
+        }
+        context.startActivity(Intent.createChooser(intent, "Share $langTag pack"))
+    }
+
+    fun importPackYaml(context: Context, langTag: String, sourceUri: Uri): Boolean {
+        val content = try {
+            context.contentResolver.openInputStream(sourceUri)?.use {
+                it.bufferedReader().readText()
+            }
+        } catch (e: Exception) {
+            _importExportStatus.value = "Could not read file: ${e.message}"
+            return false
+        }
+        if (content.isNullOrBlank()) {
+            _importExportStatus.value = "File is empty"
+            return false
+        }
+
+        // Reject phonemes files — they have phoneme-specific keys.
+        if (content.contains("_isVowel:") && content.contains("_isNasal:")) {
+            _importExportStatus.value = context.getString(R.string.editor_import_not_lang_pack)
+            return false
+        }
+
+        // Extract settings from the YAML and apply as per-key overrides.
+        // Only the settings: block is imported — normalization rules,
+        // allophone rules, etc. are skipped (they reference phonemes
+        // that may not exist in the user's phoneme table).
+        val settings = extractSettingsFromYaml(content)
+        if (settings.isEmpty()) {
+            _importExportStatus.value = "No settings found in file"
+            return false
+        }
+
+        // Clear existing overrides and apply imported settings.
+        prefs.edit().remove("pack_overrides_$langTag").apply()
+        for ((key, value) in settings) {
+            engine.setData(TgsbSpeakEngine.DATA_SETTINGS, langTag, key, value)
+        }
+        saveOverrides(langTag, settings)
+        reloadCurrentLanguage()
+        loadEditorSettings(langTag)
+        _importExportStatus.value = "Imported ${settings.size} settings into $langTag"
+        return true
+    }
+
+    /**
+     * Parse a YAML file and extract the settings: block as flat dot-notation
+     * key-value pairs. Handles up to 3 levels of nesting.
+     * Ignores normalization, transforms, allophone rules, etc.
+     */
+    private fun extractSettingsFromYaml(yaml: String): Map<String, String> {
+        val result = mutableMapOf<String, String>()
+        val lines = yaml.lines()
+        var inSettings = false
+        val keyStack = mutableListOf<Pair<Int, String>>()  // (indent, key)
+
+        for (line in lines) {
+            val trimmed = line.trimEnd()
+            if (trimmed.isEmpty() || trimmed.trimStart().startsWith("#")) continue
+
+            val indent = trimmed.length - trimmed.trimStart().length
+
+            // Detect top-level blocks.
+            if (indent == 0 && trimmed.contains(":")) {
+                val topKey = trimmed.substringBefore(":").trim()
+                inSettings = (topKey == "settings")
+                keyStack.clear()
+                continue
+            }
+
+            if (!inSettings) continue
+
+            // Settings line: parse key: value at this indent level.
+            val colonPos = trimmed.indexOf(":")
+            if (colonPos < 0) continue
+
+            val key = trimmed.substring(indent, colonPos).trim()
+                .removeSurrounding("\"")
+            val afterColon = trimmed.substring(colonPos + 1).trim()
+                .let { v -> // strip inline comments
+                    val hashPos = v.indexOf(" #")
+                    if (hashPos >= 0) v.substring(0, hashPos).trim() else v
+                }
+
+            // Pop keyStack to current indent level.
+            while (keyStack.isNotEmpty() && keyStack.last().first >= indent) {
+                keyStack.removeAt(keyStack.size - 1)
+            }
+
+            if (afterColon.isEmpty()) {
+                // This is a parent key (e.g. "boundarySmoothing:") — push to stack.
+                keyStack.add(indent to key)
+            } else {
+                // This is a leaf value — build the dot-notation key.
+                val prefix = keyStack.joinToString(".") { it.second }
+                val fullKey = if (prefix.isEmpty()) key else "$prefix.$key"
+                val value = afterColon.removeSurrounding("\"")
+                result[fullKey] = value
+            }
+        }
+        return result
+    }
+
+    // ── Phoneme overrides import / export ────────────────────────────
+
+    private fun phonemeOverridesJson(): String {
+        val overrides = loadPhonemeOverrides()
+        if (overrides.isEmpty()) return "{}"
+        val obj = org.json.JSONObject()
+        for ((k, v) in overrides) obj.put(k, v)
+        return obj.toString()
+    }
+
+    fun exportPhonemeYaml(context: Context, destUri: Uri) {
+        val yaml = engine.exportData(
+            TgsbSpeakEngine.DATA_PHONEMES, "", phonemeOverridesJson()
+        )
+        if (yaml == null) {
+            _importExportStatus.value = "Export failed — no phoneme data found"
+            return
+        }
+        try {
+            context.contentResolver.openOutputStream(destUri)?.use { out ->
+                out.write(yaml.toByteArray(Charsets.UTF_8))
+            }
+            _importExportStatus.value = "Exported phonemes.yaml"
+        } catch (e: Exception) {
+            _importExportStatus.value = "Export failed: ${e.message}"
+        }
+    }
+
+    fun importPhonemeOverrides(context: Context, sourceUri: Uri) {
+        val content = try {
+            context.contentResolver.openInputStream(sourceUri)?.use {
+                it.bufferedReader().readText()
+            }
+        } catch (e: Exception) {
+            _importExportStatus.value = "Could not read file: ${e.message}"
+            return
+        }
+        if (content.isNullOrBlank()) {
+            _importExportStatus.value = "File is empty"
+            return
+        }
+        try {
+            val obj = org.json.JSONObject(content)
+            val overrides = mutableMapOf<String, String>()
+            for (key in obj.keys()) {
+                overrides[key] = obj.getString(key)
+            }
+            savePhonemeOverrides(overrides)
+            reloadCurrentLanguage()
+            reapplyAllPhonemeOverrides()
+            _importExportStatus.value = "Imported ${overrides.size} phoneme overrides"
+        } catch (e: Exception) {
+            _importExportStatus.value = "Invalid phoneme overrides file: ${e.message}"
+        }
+    }
+
+    fun sharePhonemeYaml(context: Context) {
+        val yaml = engine.exportData(
+            TgsbSpeakEngine.DATA_PHONEMES, "", phonemeOverridesJson()
+        )
+        if (yaml == null) {
+            _importExportStatus.value = "No phoneme data to share"
+            return
+        }
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_SUBJECT, "phonemes.yaml")
+            putExtra(Intent.EXTRA_TEXT, yaml)
+        }
+        context.startActivity(Intent.createChooser(intent, "Share phonemes"))
     }
 }

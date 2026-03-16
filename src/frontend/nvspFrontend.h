@@ -23,7 +23,7 @@ extern "C" {
   #define NVSP_FRONTEND_API
 #endif
 
-#define NVSP_FRONTEND_ABI_VERSION 4
+#define NVSP_FRONTEND_ABI_VERSION 5
 
 typedef void* nvspFrontend_handle_t;
 
@@ -220,6 +220,15 @@ typedef void (*nvspFrontend_FrameExCallback)(
 */
 NVSP_FRONTEND_API nvspFrontend_handle_t nvspFrontend_create(const char* packDirUtf8);
 NVSP_FRONTEND_API void nvspFrontend_destroy(nvspFrontend_handle_t handle);
+
+/*
+  Set an optional override directory.  When set, loadPackSet checks
+  <overrideDir>/packs/lang/<file>.yaml before the bundle packDir.
+  This lets the iOS app group container hold user-imported packs that
+  shadow the built-in ones.  Pass NULL or "" to clear.
+*/
+NVSP_FRONTEND_API void nvspFrontend_setOverrideDirectory(nvspFrontend_handle_t handle,
+                                                          const char* overrideDirUtf8);
 
 /*
   Set the language (BCP-47-ish: en, en-us, hu, pl, bg, ...).
@@ -513,12 +522,22 @@ NVSP_FRONTEND_API char* nvspFrontend_prepareText(
 NVSP_FRONTEND_API void nvspFrontend_freeString(char* str);
 
 /*
-  Get effective scalar settings for the current language as "key\tvalue\n" lines.
-  Reads the YAML file chain and flattens nested keys with dot notation.
-  Returns NULL if no language is loaded.
-  Caller must free with nvspFrontend_freeString().
+  Export merged YAML for a domain (base file + user overrides).
+  Comments are preserved for unchanged sections via surgical comparison.
+
+  domain: NVSP_DATA_SETTINGS or NVSP_DATA_PHONEMES.
+  langTagUtf8: language tag (e.g. "en-us") for settings; ignored for phonemes.
+  overridesJsonUtf8: JSON object string {"key": "value", ...} of user overrides.
+
+  Returns a malloc'd UTF-8 YAML string. Caller frees with nvspFrontend_freeString().
+  Returns NULL if no base file found or on error.
 */
-NVSP_FRONTEND_API char* nvspFrontend_getPackSettings(nvspFrontend_handle_t handle);
+NVSP_FRONTEND_API char* nvspFrontend_exportData(
+    nvspFrontend_handle_t handle,
+    int domain,
+    const char* langTagUtf8,
+    const char* overridesJsonUtf8
+);
 
 /*
   Apply setting overrides on top of the currently loaded language pack.
@@ -536,6 +555,122 @@ NVSP_FRONTEND_API int nvspFrontend_applySettingOverrides(
   Returns a malloc'd "langTag\n" string. Caller must free with nvspFrontend_freeString().
 */
 NVSP_FRONTEND_API char* nvspFrontend_getAvailableLanguages(nvspFrontend_handle_t handle);
+
+/*
+  Preview a single phoneme by key, bypassing the full pipeline.
+
+  Looks up the PhonemeDef for phonemeKeyUtf8 in the loaded pack and
+  directly emits one steady-state frame to the callback.  No eSpeak,
+  no allophone rules, no pitch contour — just the raw acoustic frame
+  from the phoneme definition, exactly as modified by setData().
+
+  pitchHz controls the fundamental frequency.
+  durationMs controls how long the phoneme is held (default ~300ms).
+  Returns 1 on success (phoneme found), 0 on failure.
+*/
+NVSP_FRONTEND_API int nvspFrontend_previewPhoneme(
+  nvspFrontend_handle_t handle,
+  const char* phonemeKeyUtf8,
+  double pitchHz,
+  double durationMs,
+  nvspFrontend_FrameExCallback cb,
+  void* userData
+);
+
+/* ============================================================================
+ * Generic Data Query API (ABI v5+)
+ * ============================================================================
+ *
+ * Paginated, typed access to pack settings (and future phoneme / dictionary
+ * data) without re-reading YAML from disk on every call.
+ *
+ * Key improvement over getPackSettings: accepts a langTag parameter so
+ * callers can query any language without a disruptive setLanguage() switch.
+ */
+
+/* Data domains. New values can be added without ABI break. */
+#define NVSP_DATA_SETTINGS   0
+#define NVSP_DATA_PHONEMES   1
+#define NVSP_DATA_DICTIONARY 2   /* reserved for future */
+
+/*
+  Count records in a data domain for a language, without loading them.
+  Useful for scroll sizing or showing "Settings (291)" or "Phonemes (195)"
+  in tab headers.
+
+  Parameters:
+  - domain: NVSP_DATA_SETTINGS, NVSP_DATA_PHONEMES, or NVSP_DATA_DICTIONARY
+  - langTagUtf8: For SETTINGS: language to query (required, non-empty).
+                 For PHONEMES: "" = all base phonemes, "en-gb" = only phonemes
+                 referenced as replacement targets in that language.
+
+  Returns the number of records, or -1 on error.
+*/
+NVSP_FRONTEND_API int nvspFrontend_getDataCount(
+  nvspFrontend_handle_t handle,
+  int domain,
+  const char* langTagUtf8
+);
+
+/*
+  Query a page of typed records from a data domain.
+
+  Returns a malloc'd UTF-8 JSON array string. Each element is an object with
+  at least "key", "type", and "value" fields. Caller must free with
+  nvspFrontend_freeString(). Returns NULL on error.
+
+  For NVSP_DATA_SETTINGS, each object has:
+    { "key": "boundarySmoothing.enabled", "type": "bool",
+      "value": true, "group": "boundarySmoothing" }
+  Types: "float" (numeric value), "bool" (true/false), "string" (quoted).
+
+  For NVSP_DATA_PHONEMES, each object has:
+    { "key": "ɪ.cf2", "type": "float", "value": 1750,
+      "group": "ɪ", "class": "vowel" }
+  In the lang-filtered view, objects also include:
+    "mappingFrom": "ɜː"   (the IPA that maps to this phoneme)
+
+  Parameters:
+  - domain: NVSP_DATA_SETTINGS, NVSP_DATA_PHONEMES, etc.
+  - langTagUtf8: For SETTINGS: language (required).
+                 For PHONEMES: "" = all, "en-gb" = lang-filtered.
+  - offset: 0-based record index to start from
+  - limit: max records to return (0 = all remaining from offset)
+
+  First call builds a cache; subsequent calls slice it (no disk I/O).
+  Cache is invalidated by setLanguage() or setData() for the same langTag.
+*/
+NVSP_FRONTEND_API char* nvspFrontend_queryData(
+  nvspFrontend_handle_t handle,
+  int domain,
+  const char* langTagUtf8,
+  int offset,
+  int limit
+);
+
+/*
+  Set a single value in a data domain.
+
+  If langTagUtf8 matches the currently active language, the change is applied
+  to the in-memory pack immediately (live preview). Otherwise the call
+  succeeds but the override is not applied — the caller should persist it
+  and re-apply after the next setLanguage().
+
+  Parameters:
+  - domain: NVSP_DATA_SETTINGS, etc.
+  - langTagUtf8: target language
+  - keyUtf8: record key (dot-notation setting name, phoneme IPA, etc.)
+  - valueUtf8: new value as string ("1.4", "true", "foo")
+
+  Returns 1 on success, 0 on failure (call nvspFrontend_getLastError).
+*/
+NVSP_FRONTEND_API int nvspFrontend_setData(
+  nvspFrontend_handle_t handle,
+  int domain,
+  const char* langTagUtf8,
+  const char* keyUtf8,
+  const char* valueUtf8
+);
 
 #ifdef __cplusplus
 }

@@ -695,6 +695,55 @@ phonemes:
     pf5: 3750
     pf6: 4900
     voiceAmplitude: 0.68
+  a_gb:
+    # RP PRICE diphthong onset — retracted from GenAm but clearly present.
+    # F1=590 (slightly less open), F2=1320 (retracted from 1430).
+    # Combined with ɪ_gb offglide (vowel, not semivowel j) for authentic
+    # RP "ah-i-ve" quality where onset establishes then glides naturally.
+    _isLiquid: false
+    _isNasal: false
+    _isStop: false
+    _isVoiced: true
+    _isVowel: true
+    aspirationAmplitude: 0
+    caNP: 0
+    cb1: 116.6
+    cb2: 76.5
+    cb3: 178
+    cb4: 250
+    cb5: 200
+    cb6: 1000
+    cbN0: 100
+    cbNP: 100
+    cf1: 590
+    cf2: 1320
+    cf3: 2500
+    cf4: 3300
+    cf5: 3750
+    cf6: 4900
+    cfN0: 250
+    cfNP: 200
+    fricationAmplitude: 0
+    pa1: 0
+    pa2: 0
+    pa3: 0
+    pa4: 0
+    pa5: 0
+    pa6: 0
+    parallelBypass: 0
+    pb1: 130
+    pb2: 70
+    pb3: 160
+    pb4: 250
+    pb5: 200
+    pb6: 1000
+    pf1: 650
+    pf2: 1220
+    pf3: 2600
+    pf4: 3300
+    pf5: 3750
+    pf6: 4900
+    voiceAmplitude: 0.88
   a_es:
     # This is a plain /a/ vowel, tuned on purpose for Spanish.
     _isLiquid: false
@@ -846,6 +895,7 @@ phonemes:
     # Burst: diffuse-rising spectrum (Blumstein & Stevens 1979).
     # Front-cavity resonance ~4000 Hz → pa4/pa5 dominant.
     # F2 locus ~1700 Hz (Delattre et al. 1955, Sussman et al. 1993).
+    # pa5/pa6 rolled off to reduce affricate quality on small speakers.
     _isLiquid: false
     _isNasal: false
     _isStop: true
@@ -1149,7 +1199,7 @@ phonemes:
     cbN0: 100
     cbNP: 100
     cf1: 430
-    cf2: 1900
+    cf2: 2000
     cf3: 2700
     cf4: 3300
     cf5: 3750
@@ -1861,8 +1911,8 @@ phonemes:
     cb6: 1000
     cbN0: 100
     cbNP: 100
-    cf1: 540
-    cf2: 1000
+    cf1: 440
+    cf2: 860
     cf3: 2300
     cf4: 3300
     cf5: 3750
@@ -1906,8 +1956,8 @@ phonemes:
     cb6: 1000
     cbN0: 100
     cbNP: 100
-    cf1: 540
-    cf2: 1000
+    cf1: 440
+    cf2: 860
     cf3: 2300
     cf4: 3300
     cf5: 3750
@@ -3791,13 +3841,15 @@ phonemes:
   "ɐ_au":
     # Australian STRUT — much more open than base ɐ (cf1=740 vs 530).
     # 2016 hand-tuned reference: cf1=770, cf2=1280. Approaching [a] territory.
+    # Bandwidths widened (cb2 45→100) to fix spikey loudness in
+    # "hundred", "running" — cb2=45 was razor-sharp.
     _isVowel: true
     _isVoiced: true
     aspirationAmplitude: 0
     caNP: 0
-    cb1: 100
-    cb2: 45
-    cb3: 105
+    cb1: 140
+    cb2: 100
+    cb3: 140
     cb4: 250
     cb5: 200
     cb6: 1000
@@ -3819,9 +3871,9 @@ phonemes:
     pa5: 0
     pa6: 0
     parallelBypass: 0
-    pb1: 90
-    pb2: 60
-    pb3: 140
+    pb1: 130
+    pb2: 95
+    pb3: 160
     pb4: 250
     pb5: 200
     pb6: 1000
@@ -3831,7 +3883,7 @@ phonemes:
     pf4: 3300
     pf5: 3750
     pf6: 4900
-    voiceAmplitude: 0.9
+    voiceAmplitude: 0.82
   "ɪ_au":
     # Australian KIT — fronted (cf2=2050 vs base 1800), NOT centralized.
     # 2016 hand-tuned reference: cf2=2070. Fronting toward [i] territory.
@@ -3879,12 +3931,14 @@ phonemes:
   "ɒ_au":
     # Australian LOT — slightly backer (cf2=1000 vs base 1100).
     # 2016 hand-tuned reference: cf2=990. Better STRUT/LOT separation.
+    # Bandwidths widened (cb1 116→145, cb2 90→120) to tame loudness —
+    # narrow peaks made LOT too prominent in "australia", "lot".
     _isVowel: true
     _isVoiced: true
     aspirationAmplitude: 0
     caNP: 0
-    cb1: 116
-    cb2: 90
+    cb1: 145
+    cb2: 120
     cb3: 200
     cb4: 250
     cb5: 200
@@ -3907,8 +3961,8 @@ phonemes:
     pa5: 0
     pa6: 0
     parallelBypass: 0
-    pb1: 130
-    pb2: 110
+    pb1: 155
+    pb2: 130
     pb3: 250
     pb4: 250
     pb5: 200
@@ -3919,7 +3973,7 @@ phonemes:
     pf4: 3300
     pf5: 3750
     pf6: 4900
-    voiceAmplitude: 0.7
+    voiceAmplitude: 0.68
   "ɑ":
     _isLiquid: false
     _isNasal: false
@@ -4065,6 +4119,60 @@ phonemes:
       endPf1: 400
       endPf2: 1880
       endPf3: 2500
+  "əw_gb":
+    _isLiquid: false
+    _isNasal: false
+    _isStop: false
+    _isVoiced: true
+    _isVowel: true
+    aspirationAmplitude: 0
+    caNP: 0
+    cb1: 130
+    cb2: 100
+    cb3: 160
+    cb4: 250
+    cb5: 200
+    cb6: 1000
+    cbN0: 100
+    cbNP: 100
+    cf1: 500
+    cf2: 1400
+    cf3: 2300
+    cf4: 3300
+    cf5: 3750
+    cf6: 4900
+    cfN0: 250
+    cfNP: 200
+    fricationAmplitude: 0
+    pa1: 0
+    pa2: 0
+    pa3: 0
+    pa4: 0
+    pa5: 0
+    pa6: 0
+    parallelBypass: 0
+    pb1: 130
+    pb2: 100
+    pb3: 160
+    pb4: 250
+    pb5: 200
+    pb6: 1000
+    pf1: 500
+    pf2: 1400
+    pf3: 2300
+    pf4: 3300
+    pf5: 3750
+    pf6: 4900
+    voiceAmplitude: 0.9
+    # RP GOAT diphthong: [ə] onset -> [ʊ] offset (F2=1000, not [w] F2=610)
+    # Lindsey 2019: RP GOAT is near-monophthong with minimal lip rounding gesture
+    frameEx:
+      endCf1: 420
+      endCf2: 1000
+      endCf3: 2400
+      endPf1: 420
+      endPf2: 1000
+      endPf3: 2400
   "ɑw":
     _isLiquid: false
     _isNasal: false
@@ -4225,8 +4333,8 @@ phonemes:
     cb6: 1000
     cbN0: 100
     cbNP: 100
-    cf1: 450
-    cf2: 870
+    cf1: 420
+    cf2: 840
     cf3: 2400
     cf4: 3300
     cf5: 3750
@@ -4966,6 +5074,8 @@ phonemes:
     # Spanish velar approximant [ɣ̞]. Voiced continuant, not a full fricative.
     # Raised voicing to 0.80, cf3 raised to 2500 (was 1500 — unnaturally low).
     # Light frication for velar coloring.
+    # cf2 raised 1200→1350: old value was too back, creating /u/-like percept
+    # before front vowels (issue #53: "siguiente" heard as "sigüiente").
     _isAfricate: false
     _isLiquid: false
     _isNasal: false
@@ -4983,7 +5093,7 @@ phonemes:
     cbN0: 100
     cbNP: 100
     cf1: 450
-    cf2: 1200
+    cf2: 1350
     cf3: 2500
     cf4: 3300
     cf5: 3750
@@ -5396,6 +5506,54 @@ phonemes:
     pf1: 400
     pf2: 1900
     pf3: 2570
+    pf4: 3300
+    pf5: 3750
+    pf6: 4900
+    voiceAmplitude: 0.9
+  "ɪ_gb":
+    # RP PRICE offglide — stays as vowel (not converted to semivowel j).
+    # Slightly centralized (F2=1850 vs base ɪ 1900).  Key: NOT named "ɪ"
+    # so autoDiphthongOffglideToSemivowel skips it → natural vowel glide.
+    _isLiquid: false
+    _isNasal: false
+    _isStop: false
+    _isVoiced: true
+    _isVowel: true
+    aspirationAmplitude: 0
+    caNP: 0
+    cb1: 55
+    cb2: 75
+    cb3: 105
+    cb4: 250
+    cb5: 200
+    cb6: 1000
+    cbN0: 100
+    cbNP: 100
+    cf1: 370
+    cf2: 1850
+    cf3: 2550
+    cf4: 3300
+    cf5: 3750
+    cf6: 4900
+    cfN0: 250
+    cfNP: 200
+    fricationAmplitude: 0
+    pa1: 0
+    pa2: 0
+    pa3: 0
+    pa4: 0
+    pa5: 0
+    pa6: 0
+    parallelBypass: 0
+    pb1: 50
+    pb2: 100
+    pb3: 140
+    pb4: 250
+    pb5: 200
+    pb6: 1000
+    pf1: 410
+    pf2: 1850
+    pf3: 2550
     pf4: 3300
     pf5: 3750
     pf6: 4900
@@ -6881,8 +7039,9 @@ phonemes:
     pf6: 4900
     voiceAmplitude: 0.9
   "ɻ":
-    # US retroflex R - tuned for clearer R vs W distinction
-    # Tweak: bring F2 forward and keep a low-ish F3 for a clearer American /r/
+    # US retroflex R — open-jaw American quality, not dark/Scottish.
+    # F1 raised for more open mouth, F3 brightened slightly.
+    # Low F3 (~1550) = American R identity; too low = Scottish/dark.
     _isLiquid: true
     _isNasal: false
     _isStop: false
@@ -6898,9 +7057,9 @@ phonemes:
     cb6: 1300
     cbN0: 100
     cbNP: 100
-    cf1: 310
-    cf2: 1250
-    cf3: 1550
+    cf1: 370
+    cf2: 1280
+    cf3: 1600
     cf4: 3300
     cf5: 3750
     cf6: 4900
@@ -6975,6 +7134,12 @@ phonemes:
     pf6: 4900
     voiceAmplitude: 0.9
   "ɾ":
+    # Voiced alveolar tap.  Brief tongue-tip flick at alveolar ridge.
+    # Primary cue: abrupt F3 dip (~2200 Hz, down from vowel ~2500) plus
+    # brief amplitude reduction.  Research: F3 2000-2500 Hz for alveolar
+    # place, F4 can shift ~1000 Hz during flap (Cambridge IPA Journal).
+    # Static formants barely matter — the TAP IS THE TRANSITION.
+    # Amplitude dip + fast symmetric formant sweeps = tap identity.
     _isLiquid: false
     _isNasal: false
     _isSemivowel: false
@@ -6984,33 +7149,34 @@ phonemes:
     _isVowel: false
     aspirationAmplitude: 0
     caNP: 0
-    cb1: 60
-    cb2: 80
-    cb3: 130
+    cb1: 80
+    cb2: 100
+    cb3: 150
     cb4: 320
     cb5: 400
     cb6: 1400
     cbN0: 100
     cbNP: 100
-    cf1: 220
+    cf1: 300
     cf2: 1650
-    cf3: 2600
-    cf4: 3300
+    cf3: 2200
+    cf4: 3800
     cf5: 3750
     cf6: 4900
     cfN0: 250
     cfNP: 200
-    fricationAmplitude: 0.40
-    pa1: 0.10
-    pa2: 0.22
-    pa3: 0.32
-    pa4: 0.20
-    pa5: 0.12
-    pa6: 0.10
+    voiceAmplitude: 0.90
+    fricationAmplitude: 0.25
+    pa1: 0.20
+    pa2: 0.40
+    pa3: 0.45
+    pa4: 0.50
+    pa5: 0.28
+    pa6: 0.14
     parallelBypass: 0
-    pb1: 55
-    pb2: 100
-    pb3: 160
+    pb1: 70
+    pb2: 110
+    pb3: 170
     pb4: 320
     pb5: 400
     pb6: 1400
@@ -7026,6 +7192,8 @@ phonemes:
     # by singleWordFinalHold and sounds nasal (voiced alveolar closure
     # with no release ≈ /n/). This allophone adds fricationAmplitude
     # for a tongue-flick release and raises cf2 to push away from /n/.
+    # cf1 raised 220→340: 220 was in nasal F1 territory (issue #53).
+    # fricationAmplitude 0.03→0.05: slightly more audible tongue-flick.
     _isLiquid: false
     _isNasal: false
     _isSemivowel: false
@@ -7043,7 +7211,7 @@ phonemes:
     cb6: 1400
     cbN0: 100
     cbNP: 100
-    cf1: 220
+    cf1: 340
     cf2: 1720
     cf3: 2600
     cf4: 3300
@@ -7051,7 +7219,7 @@ phonemes:
     cf6: 4900
     cfN0: 250
     cfNP: 200
-    fricationAmplitude: 0.03
+    fricationAmplitude: 0.05
     pa1: 0
     pa2: 0.22
     pa3: 0.22
@@ -8119,8 +8287,8 @@ phonemes:
     cb6: 1000
     cbN0: 100
     cbNP: 100
-    cf1: 625
-    cf2: 1060
+    cf1: 590
+    cf2: 1020
     cf3: 2380
     cf4: 3300
     cf5: 3750

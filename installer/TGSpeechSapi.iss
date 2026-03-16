@@ -9,7 +9,7 @@
 
 [Setup]
 AppName=TGSpeechBox SAPI Voice
-AppVersion=3.0-beta4
+AppVersion=3.0-beta6
 AppPublisher=Tamas Geczy
 AppPublisherURL=https://github.com/tgeczy/TGSpeechBox
 DefaultDirName={autopf}\TGSpeechSapi
@@ -53,6 +53,9 @@ Filename: "{syswow64}\regsvr32.exe"; Parameters: "/s ""{app}\x86\TGSpeechSapi.dl
 
 ; On 32-bit Windows, {sys}\regsvr32.exe is the 32-bit one
 Filename: "{sys}\regsvr32.exe"; Parameters: "/s ""{app}\x86\TGSpeechSapi.dll"""; Flags: runhidden; Check: not IsWin64
+
+; Launch settings app after install (user choice)
+Filename: "{app}\TGSpeechSapiSettings.exe"; Description: "Open TGSpeechBox SAPI Settings"; Flags: postinstall nowait skipifsilent
 
 [UninstallRun]
 Filename: "{sys}\regsvr32.exe"; Parameters: "/u /s ""{app}\x64\TGSpeechSapi.dll"""; Flags: runhidden; Check: IsWin64

@@ -4,74 +4,21 @@ Copyright 2025-2026 Tamas Geczy.
 Licensed under the MIT License. See LICENSE for details.
 */
 
-#include "nvspFrontend.h"
+#include "frontend_handle.h"
 
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
-#include <mutex>
 #include <new>
 #include <set>
 #include <string>
 #include <vector>
 
-#include "ipa_engine.h"
-#include "pack.h"
+#include "utf8.h"
+#include "yaml_export.h"
 #include "text_parser.h"
-
-namespace nvsp_frontend {
-
-struct Handle {
-  std::string packDir;
-  PackSet pack;
-  bool packLoaded = false;
-  // True once we have emitted at least one chunk of speech on this handle.
-  // Used to optionally insert a tiny silence between consecutive queueIPA calls.
-  bool streamHasSpeech = false;
-  // True if the last emitted *real phoneme* in the previous chunk was vowel-like
-  // (vowel or semivowel). Used to avoid inserting boundary pauses inside
-  // vowel-to-vowel transitions (e.g. diphthongs split across chunks).
-  bool lastEndsVowelLike = false;
-  std::string langTag;
-  std::string lastError;
-  std::mutex mu;
-  
-  // Per-handle trajectory limiting state for formant smoothing.
-  // This is NOT static - each handle has its own state to avoid data races
-  // when multiple engine instances speak concurrently.
-  TrajectoryState trajectoryState;
-  
-  // User-level FrameEx defaults (ABI v2+).
-  // These are mixed with per-phoneme values when emitting frames.
-  double frameExCreakiness = 0.0;
-  double frameExBreathiness = 0.0;
-  double frameExJitter = 0.0;
-  double frameExShimmer = 0.0;
-  double frameExSharpness = 1.0;  // multiplier, 1.0 = neutral
-  
-  // Buffer for getVoiceProfileNames return value
-  std::string profileNamesBuffer;
-
-  // Deferred settings: if setPitchMode / setInflectionScale are called
-  // before setLanguage, we stash the values here and apply them once
-  // the pack is loaded.  Prevents crashes from writing to uninitialized
-  // h->pack memory (Android crash when Speak tab selects klatt_style
-  // before language init).
-  std::string pendingPitchMode;
-  double pendingInflectionScale = 0.0;
-  bool hasPendingInflectionScale = false;
-};
-
-static Handle* asHandle(nvspFrontend_handle_t h) {
-  return reinterpret_cast<Handle*>(h);
-}
-
-static void setError(Handle* h, const std::string& msg) {
-  if (!h) return;
-  h->lastError = msg;
-}
 
 // Helper to format a double with minimal precision (avoid "2.000000")
 // Defined here (outside extern "C") to avoid C4190 warning about std::string.
@@ -91,8 +38,6 @@ static std::string formatDouble(double val, int precision = 2) {
   }
   return s;
 }
-
-} // namespace nvsp_frontend
 
 extern "C" {
 
@@ -114,6 +59,16 @@ NVSP_FRONTEND_API void nvspFrontend_destroy(nvspFrontend_handle_t handle) {
   delete h;
 }
 
+NVSP_FRONTEND_API void nvspFrontend_setOverrideDirectory(
+    nvspFrontend_handle_t handle, const char* overrideDirUtf8) {
+  using namespace nvsp_frontend;
+  Handle* h = asHandle(handle);
+  if (!h) return;
+  std::lock_guard<std::mutex> lock(h->mu);
+  h->overrideDir = (overrideDirUtf8 && overrideDirUtf8[0])
+      ? std::string(overrideDirUtf8) : std::string();
+}
+
 NVSP_FRONTEND_API int nvspFrontend_setLanguage(nvspFrontend_handle_t handle, const char* langTagUtf8) {
   using namespace nvsp_frontend;
   Handle* h = asHandle(handle);
@@ -126,7 +81,7 @@ NVSP_FRONTEND_API int nvspFrontend_setLanguage(nvspFrontend_handle_t handle, con
 
   PackSet pack;
   std::string err;
-  if (!loadPackSet(h->packDir, lang, pack, err)) {
+  if (!loadPackSet(h->packDir, lang, pack, err, h->overrideDir)) {
     setError(h, err.empty() ? "Failed to load pack set" : err);
     return 0;
   }
@@ -159,6 +114,10 @@ NVSP_FRONTEND_API int nvspFrontend_setLanguage(nvspFrontend_handle_t handle, con
   h->streamHasSpeech = false;
   h->lastEndsVowelLike = false;
   h->langTag = normalizeLangTag(lang);
+
+  // Invalidate the data query cache — new language means new settings.
+  h->dataCache.invalidate();
+
   return 1;
 }
 
@@ -184,7 +143,7 @@ NVSP_FRONTEND_API int nvspFrontend_queueIPA(
     // Default to "default" language if the caller didn't call setLanguage.
     PackSet pack;
     std::string err;
-    if (!loadPackSet(h->packDir, "default", pack, err)) {
+    if (!loadPackSet(h->packDir, "default", pack, err, h->overrideDir)) {
       setError(h, err.empty() ? "No language loaded and default load failed" : err);
       return 0;
     }
@@ -379,7 +338,7 @@ static int queueIPA_ExImpl(
   if (!h->packLoaded) {
     PackSet pack;
     std::string err;
-    if (!loadPackSet(h->packDir, "default", pack, err)) {
+    if (!loadPackSet(h->packDir, "default", pack, err, h->overrideDir)) {
       setError(h, err.empty() ? "No language loaded and default load failed" : err);
       return 0;
     }
@@ -390,17 +349,35 @@ static int queueIPA_ExImpl(
 
   if (!ipaUtf8) ipaUtf8 = "";
 
+  // Unicode normalization: NFKC + strip invisible characters.
+  // Prevents dictionary mismatches from NFD text (iOS/macOS copy-paste)
+  // and invisible formatting chars from messaging apps (Telegram, WhatsApp).
+  std::string normalizedText;
+  if (textUtf8 && textUtf8[0]) {
+    normalizedText = normalizeText(textUtf8);
+    textUtf8 = normalizedText.c_str();
+  }
+
   // Run text parser if text is available and there's work to do
   // (stress dict for stress correction, OR compound map for IPA merge).
+  // Respect per-language dict type disabling.
   std::string parsedIpa;
   const char* finalIpa = ipaUtf8;
-  if (textUtf8 && textUtf8[0] &&
-      (!h->pack.stressDict.empty() || !h->pack.compoundMap.empty())) {
-    parsedIpa = runTextParser(textUtf8, ipaUtf8, h->pack.stressDict,
-                               h->pack.compoundMap,
-                               h->pack.lang.legalOnsets,
-                               h->pack.lang.numberExpansion);
-    finalIpa = parsedIpa.c_str();
+  {
+    const auto& dis = h->disabledDictTypes.count(h->langTag)
+        ? h->disabledDictTypes.at(h->langTag) : std::unordered_set<std::string>{};
+    const bool stressOk = !h->pack.stressDict.empty() && dis.count("stress") == 0;
+    const bool compoundOk = !h->pack.compoundMap.empty() && dis.count("compound") == 0;
+    static const std::unordered_map<std::string, std::vector<int>> emptyStress;
+    static const std::unordered_map<std::string, std::vector<std::string>> emptyCompound;
+    if (textUtf8 && textUtf8[0] && (stressOk || compoundOk)) {
+      parsedIpa = runTextParser(textUtf8, ipaUtf8,
+                                 stressOk ? h->pack.stressDict : emptyStress,
+                                 compoundOk ? h->pack.compoundMap : emptyCompound,
+                                 h->pack.lang.legalOnsets,
+                                 h->pack.lang.numberExpansion);
+      finalIpa = parsedIpa.c_str();
+    }
   }
 
   char clauseType = '.';
@@ -970,12 +947,18 @@ NVSP_FRONTEND_API char* nvspFrontend_prepareText(
   std::lock_guard<std::mutex> lock(h->mu);
   if (!h->packLoaded) return nullptr;
 
-  std::string input(textUtf8);
-  std::string result = prepareTextForEspeak(input, h->pack.compoundMap, h->langTag,
+  const std::string original(textUtf8);
+  std::string input = normalizeText(original);
+  // Get disabled dict types for current language (empty set if none disabled).
+  const auto& disabled = h->disabledDictTypes.count(h->langTag)
+      ? h->disabledDictTypes.at(h->langTag) : std::unordered_set<std::string>{};
+  std::string result = prepareTextForEspeak(input, h->pack.compoundMap,
+                                             h->pack.pronDict, disabled,
+                                             h->langTag,
                                              h->pack.lang.yearSplittingEnabled,
                                              h->pack.lang.numberExpansion.ohDigit);
 
-  if (result == input) return nullptr;  // no changes
+  if (result == original) return nullptr;  // no changes
 
   char* out = static_cast<char*>(std::malloc(result.size() + 1));
   if (!out) return nullptr;
@@ -987,20 +970,135 @@ NVSP_FRONTEND_API void nvspFrontend_freeString(char* str) {
   std::free(str);
 }
 
-NVSP_FRONTEND_API char* nvspFrontend_getPackSettings(nvspFrontend_handle_t handle) {
+NVSP_FRONTEND_API char* nvspFrontend_exportData(
+    nvspFrontend_handle_t handle,
+    int domain,
+    const char* langTagUtf8,
+    const char* overridesJsonUtf8
+) {
   using namespace nvsp_frontend;
   Handle* h = asHandle(handle);
   if (!h) return nullptr;
 
   std::lock_guard<std::mutex> lock(h->mu);
-  if (!h->packLoaded) return nullptr;
 
-  std::string result = getEffectiveSettings(h->packDir, h->langTag);
+  // Parse overrides JSON into vector of (key, value) pairs.
+  std::vector<std::pair<std::string, std::string>> overrides;
+  if (overridesJsonUtf8 && overridesJsonUtf8[0]) {
+    // Simple JSON object parser: {"key": "value", ...}
+    std::string json(overridesJsonUtf8);
+    // Find opening brace.
+    auto brace = json.find('{');
+    if (brace == std::string::npos) return nullptr;
+    size_t pos = brace + 1;
+    while (pos < json.size()) {
+      // Skip whitespace.
+      while (pos < json.size() && (json[pos] == ' ' || json[pos] == '\n' ||
+             json[pos] == '\r' || json[pos] == '\t' || json[pos] == ',')) pos++;
+      if (pos >= json.size() || json[pos] == '}') break;
+      // Parse key (quoted string).
+      if (json[pos] != '"') break;
+      pos++;
+      std::string key;
+      while (pos < json.size() && json[pos] != '"') {
+        if (json[pos] == '\\' && pos + 1 < json.size()) {
+          pos++;
+          switch (json[pos]) {
+            case 'n': key += '\n'; break;
+            case 't': key += '\t'; break;
+            default: key += json[pos]; break;
+          }
+        } else {
+          key += json[pos];
+        }
+        pos++;
+      }
+      if (pos < json.size()) pos++; // skip closing quote
+      // Skip colon.
+      while (pos < json.size() && (json[pos] == ' ' || json[pos] == ':')) pos++;
+      // Parse value (quoted string).
+      if (pos >= json.size() || json[pos] != '"') break;
+      pos++;
+      std::string val;
+      while (pos < json.size() && json[pos] != '"') {
+        if (json[pos] == '\\' && pos + 1 < json.size()) {
+          pos++;
+          switch (json[pos]) {
+            case 'n': val += '\n'; break;
+            case 't': val += '\t'; break;
+            default: val += json[pos]; break;
+          }
+        } else {
+          val += json[pos];
+        }
+        pos++;
+      }
+      if (pos < json.size()) pos++; // skip closing quote
+      overrides.emplace_back(std::move(key), std::move(val));
+    }
+  }
+
+  // Determine base file path.
+  std::string basePath;
+  bool isPhonemes = false;
+
+  // Resolve packsRoot the same way pack.cpp does (check both direct and nested).
+  auto findRoot = [](const std::string& dir) -> std::string {
+    if (dir.empty()) return {};
+    std::string direct = dir + "/phonemes.yaml";
+    { std::ifstream t(direct); if (t.good()) return dir; }
+    std::string nested = dir + "/packs/phonemes.yaml";
+    { std::ifstream t(nested); if (t.good()) return dir + "/packs"; }
+    return {};
+  };
+
+  if (domain == NVSP_DATA_PHONEMES) {
+    isPhonemes = true;
+    // Check override dir first, then pack dir.
+    if (!h->overrideDir.empty()) {
+      std::string ovRoot = findRoot(h->overrideDir);
+      if (!ovRoot.empty()) basePath = ovRoot + "/phonemes.yaml";
+    }
+    if (basePath.empty()) {
+      std::string root = findRoot(h->packDir);
+      if (!root.empty()) basePath = root + "/phonemes.yaml";
+    }
+  } else if (domain == NVSP_DATA_SETTINGS) {
+    std::string lang = langTagUtf8 ? std::string(langTagUtf8) : std::string();
+    if (lang.empty()) return nullptr;
+
+    // Check override dir first, then pack dir.
+    if (!h->overrideDir.empty()) {
+      std::string ovRoot = findRoot(h->overrideDir);
+      if (!ovRoot.empty()) {
+        std::string ovPath = ovRoot + "/lang/" + lang + ".yaml";
+        std::ifstream test(ovPath);
+        if (test.good()) basePath = ovPath;
+      }
+    }
+    if (basePath.empty()) {
+      std::string root = findRoot(h->packDir);
+      if (!root.empty()) basePath = root + "/lang/" + lang + ".yaml";
+    }
+  } else {
+    return nullptr;
+  }
+
+  // Verify file exists.
+  {
+    std::ifstream test(basePath);
+    if (!test.good()) return nullptr;
+  }
+
+  // Call the surgical merge.
+  std::string result = yaml_export::exportMergedYaml(basePath, overrides, isPhonemes);
   if (result.empty()) return nullptr;
 
+  // Return malloc'd copy.
   char* out = static_cast<char*>(std::malloc(result.size() + 1));
   if (!out) return nullptr;
-  std::memcpy(out, result.c_str(), result.size() + 1);
+  std::memcpy(out, result.data(), result.size());
+  out[result.size()] = '\0';
   return out;
 }
 
@@ -1015,7 +1113,9 @@ NVSP_FRONTEND_API int nvspFrontend_applySettingOverrides(
   std::lock_guard<std::mutex> lock(h->mu);
   if (!h->packLoaded) return 0;
 
-  return applySettingOverrides(h->pack.lang, std::string(yamlSnippetUtf8)) ? 1 : 0;
+  bool ok = applySettingOverrides(h->pack.lang, std::string(yamlSnippetUtf8));
+  if (ok) h->dataCache.invalidate();  // Old API changed settings — stale cache.
+  return ok ? 1 : 0;
 }
 
 NVSP_FRONTEND_API char* nvspFrontend_getAvailableLanguages(nvspFrontend_handle_t handle) {
@@ -1039,5 +1139,8 @@ NVSP_FRONTEND_API char* nvspFrontend_getAvailableLanguages(nvspFrontend_handle_t
   std::memcpy(out, result.c_str(), result.size() + 1);
   return out;
 }
+
+// Data query API (getDataCount, queryData, setData, previewPhoneme) moved to
+// frontend_data_api.cpp to reduce this file's size.
 
 } // extern "C"

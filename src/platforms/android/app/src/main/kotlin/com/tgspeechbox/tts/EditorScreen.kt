@@ -1,7 +1,7 @@
 /*
- * EditorScreen — Pack settings editor tab.
+ * EditorScreen — Pack settings editor (language packs).
  *
- * Lets users view and override language pack settings.
+ * Tabbed interface: Packs tab lives here, Phonemes tab in PhonemeEditorScreen.kt.
  * Changes are stored in SharedPreferences and re-applied after setLanguage.
  *
  * License: GPL-3.0
@@ -9,41 +9,74 @@
 
 package com.tgspeechbox.tts
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.toggleable
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import android.net.Uri
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.navigation.NavController
 
 @Composable
-fun EditorScreen(viewModel: TgsbViewModel) {
-    var selectedLang by remember { mutableStateOf<String?>(null) }
+fun EditorScreen(viewModel: TgsbViewModel, navController: NavController) {
+    var selectedTab by rememberSaveable { mutableIntStateOf(0) }
+    val tabTitles = listOf("Packs", "Phonemes", "Pronounce")
 
-    if (selectedLang != null) {
-        PackSettingsScreen(
-            viewModel = viewModel,
-            langTag = selectedLang!!,
-            onBack = { selectedLang = null }
-        )
-    } else {
-        LanguageListScreen(
-            viewModel = viewModel,
-            onLanguageSelected = { selectedLang = it }
-        )
+    Column(modifier = Modifier.fillMaxSize()) {
+        TabRow(selectedTabIndex = selectedTab) {
+            tabTitles.forEachIndexed { index, title ->
+                Tab(
+                    selected = selectedTab == index,
+                    onClick = { selectedTab = index },
+                    text = { Text(title) }
+                )
+            }
+        }
+
+        when (selectedTab) {
+            0 -> PacksTab(viewModel, navController)
+            1 -> PhonemesTab(viewModel, navController)
+            2 -> PronounceTab(viewModel)
+        }
     }
 }
+
+@Composable
+private fun PronounceTab(viewModel: TgsbViewModel) {
+    DictionaryListScreen(viewModel = viewModel)
+}
+
+@Composable
+private fun PacksTab(viewModel: TgsbViewModel, navController: NavController) {
+    LanguageListScreen(
+        viewModel = viewModel,
+        onLanguageSelected = {
+            navController.navigate("editor/pack/${Uri.encode(it)}")
+        }
+    )
+}
+
 
 @Composable
 private fun LanguageListScreen(
@@ -59,6 +92,7 @@ private fun LanguageListScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .verticalScroll(rememberScrollState())
             .padding(16.dp)
     ) {
         Text(
@@ -76,39 +110,56 @@ private fun LanguageListScreen(
             modifier = Modifier.padding(bottom = 16.dp)
         )
 
-        Column(
-            modifier = Modifier.verticalScroll(rememberScrollState())
-        ) {
-            for (lang in langs) {
-                Surface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onLanguageSelected(lang) },
-                    tonalElevation = 1.dp,
-                    shape = MaterialTheme.shapes.small
-                ) {
-                    Text(
-                        text = lang,
-                        style = MaterialTheme.typography.bodyLarge,
-                        modifier = Modifier.padding(16.dp)
-                    )
-                }
-                Spacer(modifier = Modifier.height(4.dp))
+        for (lang in langs) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onLanguageSelected(lang) },
+                tonalElevation = 1.dp,
+                shape = MaterialTheme.shapes.small
+            ) {
+                Text(
+                    text = lang,
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.padding(16.dp)
+                )
             }
+            Spacer(modifier = Modifier.height(4.dp))
         }
     }
 }
 
 @Composable
-private fun PackSettingsScreen(
+fun PackSettingsScreen(
     viewModel: TgsbViewModel,
     langTag: String,
     onBack: () -> Unit
 ) {
+    val context = LocalContext.current
     val settings by viewModel.editorSettings.collectAsState()
     var editingKey by remember { mutableStateOf<String?>(null) }
     var editingValue by remember { mutableStateOf("") }
+    var selectingKey by remember { mutableStateOf<String?>(null) }
+    var selectingOptions by remember { mutableStateOf<List<String>>(emptyList()) }
     var showResetAll by remember { mutableStateOf(false) }
+    var showImportConfirm by remember { mutableStateOf(false) }
+    var pendingImportUri by remember { mutableStateOf<android.net.Uri?>(null) }
+    val importExportStatus by viewModel.importExportStatus.collectAsState()
+
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            pendingImportUri = uri
+            showImportConfirm = true
+        }
+    }
+
+    val exportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/octet-stream")
+    ) { uri ->
+        uri?.let { viewModel.exportPackYaml(context, langTag, it) }
+    }
 
     LaunchedEffect(langTag) {
         viewModel.loadEditorSettings(langTag)
@@ -138,6 +189,24 @@ private fun PackSettingsScreen(
             }
         }
 
+        // Import / Export actions
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            OutlinedButton(onClick = { importLauncher.launch(arrayOf("*/*")) }) {
+                Text(stringResource(R.string.editor_import_pack))
+            }
+            OutlinedButton(onClick = { exportLauncher.launch("$langTag.yaml") }) {
+                Text(stringResource(R.string.editor_export_pack))
+            }
+            OutlinedButton(onClick = { viewModel.sharePackYaml(context, langTag) }) {
+                Text(stringResource(R.string.editor_share_pack))
+            }
+        }
+
         if (settings.isEmpty()) {
             Text(
                 text = stringResource(R.string.editor_no_settings),
@@ -156,8 +225,13 @@ private fun PackSettingsScreen(
                             viewModel.setEditorOverride(langTag, setting.key, newVal)
                         },
                         onEdit = {
-                            editingKey = setting.key
-                            editingValue = setting.value
+                            if (setting.options != null) {
+                                selectingKey = setting.key
+                                selectingOptions = setting.options
+                            } else {
+                                editingKey = setting.key
+                                editingValue = setting.value
+                            }
                         },
                         onReset = {
                             viewModel.removeEditorOverride(langTag, setting.key)
@@ -172,6 +246,8 @@ private fun PackSettingsScreen(
 
     // Edit value dialog
     if (editingKey != null) {
+        val editingSetting = settings.find { it.key == editingKey }
+        val isNumeric = editingSetting?.type == TgsbViewModel.SettingType.Number
         AlertDialog(
             onDismissRequest = { editingKey = null },
             title = { Text(editingKey!!) },
@@ -180,6 +256,9 @@ private fun PackSettingsScreen(
                     value = editingValue,
                     onValueChange = { editingValue = it },
                     singleLine = true,
+                    keyboardOptions = if (isNumeric)
+                        KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                    else KeyboardOptions.Default,
                     modifier = Modifier.fillMaxWidth()
                 )
             },
@@ -191,6 +270,49 @@ private fun PackSettingsScreen(
             },
             dismissButton = {
                 TextButton(onClick = { editingKey = null }) {
+                    Text(stringResource(R.string.cancel_button))
+                }
+            }
+        )
+    }
+
+    // Option selection dialog (for enum-like string settings)
+    if (selectingKey != null) {
+        AlertDialog(
+            onDismissRequest = { selectingKey = null },
+            title = { Text(selectingKey!!) },
+            text = {
+                Column {
+                    val current = settings.find { it.key == selectingKey }?.value
+                    for (option in selectingOptions) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .selectable(
+                                    selected = option == current,
+                                    onClick = {
+                                        viewModel.setEditorOverride(langTag, selectingKey!!, option)
+                                        selectingKey = null
+                                    },
+                                    role = androidx.compose.ui.semantics.Role.RadioButton
+                                )
+                                .padding(vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = option == current,
+                                onClick = null,
+                                modifier = Modifier.clearAndSetSemantics {}
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(option, style = MaterialTheme.typography.bodyLarge)
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { selectingKey = null }) {
                     Text(stringResource(R.string.cancel_button))
                 }
             }
@@ -212,6 +334,40 @@ private fun PackSettingsScreen(
             dismissButton = {
                 TextButton(onClick = { showResetAll = false }) {
                     Text(stringResource(R.string.cancel_button))
+                }
+            }
+        )
+    }
+
+    // Import confirmation
+    if (showImportConfirm) {
+        AlertDialog(
+            onDismissRequest = { showImportConfirm = false; pendingImportUri = null },
+            title = { Text(stringResource(R.string.editor_import_pack)) },
+            text = { Text(stringResource(R.string.editor_import_confirm, langTag)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    pendingImportUri?.let { viewModel.importPackYaml(context, langTag, it) }
+                    showImportConfirm = false
+                    pendingImportUri = null
+                }) { Text(stringResource(R.string.editor_import_pack)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showImportConfirm = false; pendingImportUri = null }) {
+                    Text(stringResource(R.string.cancel_button))
+                }
+            }
+        )
+    }
+
+    // Import/export status
+    if (importExportStatus != null) {
+        AlertDialog(
+            onDismissRequest = { viewModel.clearImportExportStatus() },
+            text = { Text(importExportStatus!!) },
+            confirmButton = {
+                TextButton(onClick = { viewModel.clearImportExportStatus() }) {
+                    Text("OK")
                 }
             }
         )

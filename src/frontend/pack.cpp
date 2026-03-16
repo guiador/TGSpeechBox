@@ -13,6 +13,7 @@ Licensed under the MIT License. See LICENSE for details.
 #include <filesystem>
 #include <fstream>
 #include <sstream>
+#include <unordered_set>
 
 namespace fs = std::filesystem;
 
@@ -390,7 +391,7 @@ static void mergeSettings(LanguagePack& lp, const yaml_min::Node& settings) {
 auto getNumFrom = [&](const yaml_min::Node& map, const char* k, double& out) {
   const yaml_min::Node* n = map.get(k);
   if (n && n->isScalar()) {
-    out = std::atof(n->scalar.c_str());
+    n->asNumber(out);
   }
 };
 
@@ -883,6 +884,7 @@ getNum("liquidDynamicsLabialGlideTransitionPct", lp.liquidDynamicsLabialGlideTra
     getBoolFrom(*rc, "enabled", lp.rateCompEnabled);
     if (const yaml_min::Node* md = rc->get("minimumDurations"); md && md->isMap()) {
       getNumFrom(*md, "vowelMs", lp.rateCompVowelFloorMs);
+      getNumFrom(*md, "diphthongMs", lp.rateCompDiphthongFloorMs);
       getNumFrom(*md, "fricativeMs", lp.rateCompFricativeFloorMs);
       getNumFrom(*md, "stopMs", lp.rateCompStopFloorMs);
       getNumFrom(*md, "nasalMs", lp.rateCompNasalFloorMs);
@@ -898,6 +900,7 @@ getNum("liquidDynamicsLabialGlideTransitionPct", lp.liquidDynamicsLabialGlideTra
     getBoolFrom(*rc, "clusterProportionGuard", lp.rateCompClusterProportionGuard);
     getNumFrom(*rc, "clusterMaxRatioShift", lp.rateCompClusterMaxRatioShift);
     getNumFrom(*rc, "sonorantContextBonusMs", lp.rateCompSonorantContextBonusMs);
+    getNumFrom(*rc, "preRhoticClusterBonusMs", lp.rateCompPreRhoticClusterBonusMs);
     if (const yaml_min::Node* sr = rc->get("schwaReduction"); sr && sr->isMap()) {
       getBoolFrom(*sr, "enabled", lp.rateCompSchwaReductionEnabled);
       getNumFrom(*sr, "threshold", lp.rateCompSchwaThreshold);
@@ -908,6 +911,7 @@ getNum("liquidDynamicsLabialGlideTransitionPct", lp.liquidDynamicsLabialGlideTra
   // ── Rate compensation (flat-key fallbacks) ──
   getBool("rateCompEnabled", lp.rateCompEnabled);
   getNum("rateCompVowelFloorMs", lp.rateCompVowelFloorMs);
+  getNum("rateCompDiphthongFloorMs", lp.rateCompDiphthongFloorMs);
   getNum("rateCompFricativeFloorMs", lp.rateCompFricativeFloorMs);
   getNum("rateCompStopFloorMs", lp.rateCompStopFloorMs);
   getNum("rateCompNasalFloorMs", lp.rateCompNasalFloorMs);
@@ -922,6 +926,7 @@ getNum("liquidDynamicsLabialGlideTransitionPct", lp.liquidDynamicsLabialGlideTra
   getBool("rateCompClusterProportionGuard", lp.rateCompClusterProportionGuard);
   getNum("rateCompClusterMaxRatioShift", lp.rateCompClusterMaxRatioShift);
   getNum("rateCompSonorantContextBonusMs", lp.rateCompSonorantContextBonusMs);
+  getNum("rateCompPreRhoticClusterBonusMs", lp.rateCompPreRhoticClusterBonusMs);
   getNum("sonorantContextAmplitudeScale", lp.sonorantContextAmplitudeScale);
   getBool("rateCompSchwaReductionEnabled", lp.rateCompSchwaReductionEnabled);
   getNum("rateCompSchwaThreshold", lp.rateCompSchwaThreshold);
@@ -1214,6 +1219,8 @@ if (const yaml_min::Node* ar = settings.get("allophoneRules"); ar && ar->isMap()
           if (el.isScalar()) rule.before.push_back(utf8ToU32(el.scalar));
         }
       }
+      getBoolFrom(item, "beforeSamePhoneme", rule.beforeSamePhoneme);
+      getBoolFrom(item, "afterSamePhoneme",  rule.afterSamePhoneme);
       // Parse neighbor flag filters
       if (const yaml_min::Node* af2 = item.get("afterFlags"); af2 && af2->isSeq()) {
         for (const auto& el : af2->seq) {
@@ -1255,7 +1262,7 @@ if (const yaml_min::Node* ar = settings.get("allophoneRules"); ar && ar->isMap()
         for (const auto& kv : fs->map) {
           double val = 1.0;
           if (kv.second.isScalar()) {
-            try { val = std::stod(kv.second.scalar); } catch (...) {}
+            kv.second.asNumber(val);
           }
           rule.fieldScales.emplace_back(kv.first, val);
         }
@@ -1940,11 +1947,86 @@ static void loadCompoundMap(
   }
 }
 
+static void loadLetterDict(
+    const std::string& path,
+    std::unordered_map<std::string, std::string>& dict)
+{
+  std::ifstream f(path);
+  if (!f.is_open()) return;
+
+  std::string line;
+  while (std::getline(f, line)) {
+    if (line.empty() || line[0] == '#') continue;
+    if (line.back() == '\r') line.pop_back();
+
+    const auto tab = line.find('\t');
+    if (tab == std::string::npos) continue;
+
+    std::string key = line.substr(0, tab);
+    std::string desc = line.substr(tab + 1);
+    if (key.empty()) continue;
+
+    dict.emplace(std::move(key), std::move(desc));
+  }
+}
+
+static void loadPronDict(
+    const std::string& path,
+    PronDict& dict,
+    const std::string& source)
+{
+  std::ifstream f(path);
+  if (!f.is_open()) return;
+
+  std::string line;
+  while (std::getline(f, line)) {
+    if (line.empty() || line[0] == '#') continue;
+    if (!line.empty() && line.back() == '\r') line.pop_back();
+
+    // Parse up to 5 tab-separated columns.
+    std::vector<std::string> cols;
+    size_t pos = 0;
+    for (int i = 0; i < 5; ++i) {
+      size_t tab = line.find('\t', pos);
+      if (tab == std::string::npos) {
+        cols.push_back(line.substr(pos));
+        break;
+      }
+      cols.push_back(line.substr(pos, tab - pos));
+      pos = tab + 1;
+    }
+    if (cols.empty() || cols[0].empty()) continue;
+    if (cols.size() < 2 || cols[1].empty()) continue;
+
+    DictEntry e;
+    e.fromText = cols[0];
+    e.toText   = cols[1];
+    e.fromIpa  = cols.size() > 2 ? cols[2] : "";
+    e.toIpa    = cols.size() > 3 ? cols[3] : "";
+    e.category = cols.size() > 4 ? cols[4] : "";
+    e.source   = source;
+
+    // Store with original case. dictReplaceInText tries exact case first,
+    // then lowercase fallback — so "Parton" (capitalized) and "parton"
+    // (lowercase) can coexist as separate entries.
+    dict.entries[e.fromText] = std::move(e);
+  }
+
+  // Rebuild dynamic category list.
+  std::unordered_set<std::string> catSet;
+  for (const auto& kv : dict.entries) {
+    if (!kv.second.category.empty())
+      catSet.insert(kv.second.category);
+  }
+  dict.categories.assign(catSet.begin(), catSet.end());
+}
+
 bool loadPackSet(
   const std::string& packDir,
   const std::string& langTag,
   PackSet& out,
-  std::string& outError
+  std::string& outError,
+  const std::string& overrideDir
 ) {
   std::string err;
   fs::path packsRoot = findPacksRoot(packDir, err);
@@ -1963,11 +2045,31 @@ bool loadPackSet(
 
   const fs::path langDir = packsRoot / "lang";
   const auto chain = buildLangFileChain(out.lang.langTag);
+
+  // Optional override directory: check <overrideDir>/packs/lang/ first.
+  fs::path overrideLangDir;
+  if (!overrideDir.empty()) {
+    overrideLangDir = fs::path(overrideDir) / "packs" / "lang";
+  }
+
   for (const auto& name : chain) {
-    fs::path file = langDir / (name + ".yaml");
-    if (fs::exists(file)) {
-      if (!mergeLanguageFile(file, out, outError)) {
-        return false;
+    // Try override dir first, then fall back to bundle.
+    bool loaded = false;
+    if (!overrideLangDir.empty()) {
+      fs::path ovFile = overrideLangDir / (name + ".yaml");
+      if (fs::exists(ovFile)) {
+        if (!mergeLanguageFile(ovFile, out, outError)) {
+          return false;
+        }
+        loaded = true;
+      }
+    }
+    if (!loaded) {
+      fs::path file = langDir / (name + ".yaml");
+      if (fs::exists(file)) {
+        if (!mergeLanguageFile(file, out, outError)) {
+          return false;
+        }
       }
     }
   }
@@ -2005,22 +2107,95 @@ bool loadPackSet(
   }
 
   // Load stress dictionary (if one exists for this language).
+  // Check override dir first, then fall back to bundle.
   {
-    const fs::path dictPath = packsRoot / "dict" / (out.lang.langTag + "-stress.tsv");
-    loadStressDict(dictPath.string(), out.stressDict);
+    bool loaded = false;
+    if (!overrideDir.empty()) {
+      const fs::path ovDict = fs::path(overrideDir) / "packs" / "dict" / (out.lang.langTag + "-stress.tsv");
+      if (fs::exists(ovDict)) {
+        loadStressDict(ovDict.string(), out.stressDict);
+        loaded = true;
+      }
+    }
+    if (!loaded) {
+      const fs::path dictPath = packsRoot / "dict" / (out.lang.langTag + "-stress.tsv");
+      loadStressDict(dictPath.string(), out.stressDict);
+    }
   }
 
   // Load compound word map (if one exists for this language).
+  // Check override dir first, then fall back to bundle.
   {
-    const auto& tag = out.lang.langTag;  // use normalized tag (matches stress dict)
-    const fs::path compoundPath = packsRoot / "dict" / (tag + "-compounds.tsv");
-    loadCompoundMap(compoundPath.string(), out.compoundMap);
-    // Fallback to base language (e.g., "en" for "en-us").
-    if (out.compoundMap.empty()) {
-      const auto dash = tag.find('-');
-      if (dash != std::string::npos) {
-        const fs::path basePath = packsRoot / "dict" / (tag.substr(0, dash) + "-compounds.tsv");
-        loadCompoundMap(basePath.string(), out.compoundMap);
+    const auto& tag = out.lang.langTag;
+    bool loaded = false;
+    if (!overrideDir.empty()) {
+      const fs::path ovComp = fs::path(overrideDir) / "packs" / "dict" / (tag + "-compounds.tsv");
+      if (fs::exists(ovComp)) {
+        loadCompoundMap(ovComp.string(), out.compoundMap);
+        loaded = true;
+      }
+    }
+    if (!loaded) {
+      const fs::path compoundPath = packsRoot / "dict" / (tag + "-compounds.tsv");
+      loadCompoundMap(compoundPath.string(), out.compoundMap);
+      // Fallback to base language (e.g., "en" for "en-us").
+      if (out.compoundMap.empty()) {
+        const auto dash = tag.find('-');
+        if (dash != std::string::npos) {
+          const fs::path basePath = packsRoot / "dict" / (tag.substr(0, dash) + "-compounds.tsv");
+          loadCompoundMap(basePath.string(), out.compoundMap);
+        }
+      }
+    }
+  }
+
+  // Load pronunciation dictionary (if one exists for this language).
+  // Check override dir first, then fall back to bundle.
+  {
+    const auto& tag = out.lang.langTag;
+    bool loaded = false;
+    if (!overrideDir.empty()) {
+      const fs::path ovDict = fs::path(overrideDir) / "packs" / "dict" / (tag + "-dict.tsv");
+      if (fs::exists(ovDict)) {
+        loadPronDict(ovDict.string(), out.pronDict, "main");
+        loaded = true;
+      }
+    }
+    if (!loaded) {
+      const fs::path dictPath = packsRoot / "dict" / (tag + "-dict.tsv");
+      loadPronDict(dictPath.string(), out.pronDict, "main");
+      // Fallback to base language (e.g., "en" for "en-us").
+      if (out.pronDict.entries.empty()) {
+        const auto dash = tag.find('-');
+        if (dash != std::string::npos) {
+          const fs::path basePath = packsRoot / "dict" / (tag.substr(0, dash) + "-dict.tsv");
+          loadPronDict(basePath.string(), out.pronDict, "main");
+        }
+      }
+    }
+  }
+
+  // Load character/letter dictionary (if one exists for this language).
+  // Check override dir first, then fall back to bundle.
+  {
+    const auto& tag = out.lang.langTag;
+    bool loaded = false;
+    if (!overrideDir.empty()) {
+      const fs::path ovLetters = fs::path(overrideDir) / "packs" / "dict" / (tag + "-letters.tsv");
+      if (fs::exists(ovLetters)) {
+        loadLetterDict(ovLetters.string(), out.letterDict);
+        loaded = true;
+      }
+    }
+    if (!loaded) {
+      const fs::path lettersPath = packsRoot / "dict" / (tag + "-letters.tsv");
+      loadLetterDict(lettersPath.string(), out.letterDict);
+      if (out.letterDict.empty()) {
+        const auto dash = tag.find('-');
+        if (dash != std::string::npos) {
+          const fs::path basePath = packsRoot / "dict" / (tag.substr(0, dash) + "-letters.tsv");
+          loadLetterDict(basePath.string(), out.letterDict);
+        }
       }
     }
   }
@@ -2045,6 +2220,77 @@ bool loadPackSet(
     });
 
   return true;
+}
+
+void loadDictFiles(
+  const std::string& packDir,
+  const std::string& langTag,
+  std::unordered_map<std::string, std::vector<int>>& stressDict,
+  std::unordered_map<std::string, std::vector<std::string>>& compoundMap,
+  PronDict& pronDict,
+  std::unordered_map<std::string, std::string>& letterDict,
+  const std::string& overrideDir)
+{
+  namespace fs = std::filesystem;
+  // packDir may be either the parent containing "packs/" or the packs dir itself.
+  const fs::path candidate = fs::path(packDir) / "packs";
+  const fs::path packsRoot = fs::exists(candidate) ? candidate : fs::path(packDir);
+  const std::string tag = normalizeLangTag(langTag);
+  const auto dash = tag.find('-');
+  const std::string baseTag = (dash != std::string::npos) ? tag.substr(0, dash) : "";
+
+  // Stress dict.
+  {
+    bool loaded = false;
+    if (!overrideDir.empty()) {
+      const fs::path p = fs::path(overrideDir) / "packs" / "dict" / (tag + "-stress.tsv");
+      if (fs::exists(p)) { loadStressDict(p.string(), stressDict); loaded = true; }
+    }
+    if (!loaded) {
+      loadStressDict((packsRoot / "dict" / (tag + "-stress.tsv")).string(), stressDict);
+      if (stressDict.empty() && !baseTag.empty())
+        loadStressDict((packsRoot / "dict" / (baseTag + "-stress.tsv")).string(), stressDict);
+    }
+  }
+  // Compound map.
+  {
+    bool loaded = false;
+    if (!overrideDir.empty()) {
+      const fs::path p = fs::path(overrideDir) / "packs" / "dict" / (tag + "-compounds.tsv");
+      if (fs::exists(p)) { loadCompoundMap(p.string(), compoundMap); loaded = true; }
+    }
+    if (!loaded) {
+      loadCompoundMap((packsRoot / "dict" / (tag + "-compounds.tsv")).string(), compoundMap);
+      if (compoundMap.empty() && !baseTag.empty())
+        loadCompoundMap((packsRoot / "dict" / (baseTag + "-compounds.tsv")).string(), compoundMap);
+    }
+  }
+  // Pronunciation dict.
+  {
+    bool loaded = false;
+    if (!overrideDir.empty()) {
+      const fs::path p = fs::path(overrideDir) / "packs" / "dict" / (tag + "-dict.tsv");
+      if (fs::exists(p)) { loadPronDict(p.string(), pronDict, "main"); loaded = true; }
+    }
+    if (!loaded) {
+      loadPronDict((packsRoot / "dict" / (tag + "-dict.tsv")).string(), pronDict, "main");
+      if (pronDict.entries.empty() && !baseTag.empty())
+        loadPronDict((packsRoot / "dict" / (baseTag + "-dict.tsv")).string(), pronDict, "main");
+    }
+  }
+  // Letter/character dict.
+  {
+    bool loaded = false;
+    if (!overrideDir.empty()) {
+      const fs::path p = fs::path(overrideDir) / "packs" / "dict" / (tag + "-letters.tsv");
+      if (fs::exists(p)) { loadLetterDict(p.string(), letterDict); loaded = true; }
+    }
+    if (!loaded) {
+      loadLetterDict((packsRoot / "dict" / (tag + "-letters.tsv")).string(), letterDict);
+      if (letterDict.empty() && !baseTag.empty())
+        loadLetterDict((packsRoot / "dict" / (baseTag + "-letters.tsv")).string(), letterDict);
+    }
+  }
 }
 
 bool hasPhoneme(const PackSet& pack, const std::u32string& key) {

@@ -192,6 +192,7 @@ settings:
     enabled: false
 
   # ── Allophone rules ────────────────────────────────────────────
+  allophoneRulesEnabled: true
   allophoneRules:
     enabled: true
     rules:
@@ -332,6 +333,19 @@ settings:
           pa2: 1.35
           pa3: 1.30
 
+    # ── Post-nasal /d/ burst softening ──────────────────────────────
+    # /nd/ clusters ("calendar", "understand") sound affricated on small
+    # speakers because nasal release adds frication energy.  Roll off
+    # upper burst components so /d/ stays clean.
+      - name: post_nasal_d_soften
+        phonemes: ["d"]
+        afterFlags: [nasal]
+        action: scale
+        fieldScales:
+          pa5: 0.50
+          pa6: 0.35
+          fricationAmplitude: 0.70
+
   # ── Boundary smoothing ─────────────────────────────────────────
   # Australian sits between RP crispness and GenAm flow.
   boundarySmoothing:
@@ -463,7 +477,7 @@ settings:
       nasalMs: 18
       liquidMs: 15
       affricateMs: 12
-      semivowelMs: 10
+      semivowelMs: 30
       tapMs: 4
       trillMs: 12
       voicedConsonantMs: 10

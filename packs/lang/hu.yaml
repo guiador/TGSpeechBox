@@ -147,7 +147,7 @@ settings:
       nasalMs: 18
       liquidMs: 15
       affricateMs: 14
-      semivowelMs: 10
+      semivowelMs: 30
       tapMs: 4
       trillMs: 16
       voicedConsonantMs: 10
@@ -258,6 +258,7 @@ settings:
   # transition pops on words like "tehát", "ahogy", "ehez".
   # The [ɦ] phoneme has _copyAdjacent: true, so it inherits surrounding
   # vowel formant colors — just like /h/ does, but with voicing maintained.
+  allophoneRulesEnabled: true
   allophoneRules:
     enabled: true
     rules:
@@ -278,6 +279,16 @@ settings:
           fricationAmplitude: 0.55
           pa5: 0.50
           pa6: 0.40
+
+      # === GEMINATE STOP CLOSURE ===
+      # When a stop is immediately followed by the same stop (from Cː→CC
+      # normalization), suppress the first stop's burst so the pair sounds
+      # like a single extended closure rather than two separate stop events.
+      - name: geminate_stop_burst_suppress
+        flags: [isStop]
+        beforeSamePhoneme: true
+        action: scale
+        fieldScales: {fricationAmplitude: 0.0, pa1: 0.0, pa2: 0.0, pa3: 0.0, pa4: 0.0, pa5: 0.0, pa6: 0.0}
   # === NASALIZATION ===
   # Hungarian doesn't have phonemic nasalization.
   nasalizationAnticipatoryEnabled: false
@@ -334,6 +345,49 @@ normalization:
     # Strip stray palatalization markers that eSpeak may leave behind
     - from: "ʲ"
       to: ""
+
+    # === GEMINATE CONSONANTS ===
+    # eSpeak Hungarian uses Cː (length mark) for geminate stops and some
+    # fricatives. Our phoneme table has no Cː entries — map to doubled
+    # consonants so the tokenizer produces two tokens (longer closure).
+    - from: "tː"
+      to: "tt"
+    - from: "dː"
+      to: "dd"
+    - from: "pː"
+      to: "pp"
+    - from: "bː"
+      to: "bb"
+    - from: "kː"
+      to: "kk"
+    - from: "ɡː"
+      to: "ɡɡ"
+    - from: "cː"
+      to: "cc"
+    - from: "ɟː"
+      to: "ɟɟ"
+    - from: "fː"
+      to: "ff"
+    - from: "vː"
+      to: "vv"
+    - from: "sː"
+      to: "ss"
+    - from: "ʃː"
+      to: "ʃʃ"
+    - from: "zː"
+      to: "zz"
+    - from: "ʒː"
+      to: "ʒʒ"
+    - from: "nː"
+      to: "nn"
+    - from: "mː"
+      to: "mm"
+    - from: "lː"
+      to: "ll"
+    - from: "rː"
+      to: "rr"
+    - from: "ɲː"
+      to: "ɲɲ"
 
     # === GY (ɟ) STRESS HANDLING ===
     # Move stress marker after word-initial gy/dzs so the stop closure

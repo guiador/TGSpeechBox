@@ -24,6 +24,7 @@ static inline bool tokIsSemivowel(const Token& t) {
   return t.def && ((t.def->flags & kIsSemivowel) != 0);
 }
 
+
 static inline bool tokIsVowelLike(const Token& t) {
   return tokIsVowel(t) || tokIsSemivowel(t);
 }
@@ -53,6 +54,11 @@ static inline bool tokIsNasal(const Token& t) {
 static inline bool tokIsLiquid(const Token& t) {
   if (!t.def || t.silence) return false;
   return (t.def->flags & kIsLiquid) != 0;
+}
+
+static inline bool tokIsTap(const Token& t) {
+  if (!t.def || t.silence) return false;
+  return (t.def->flags & kIsTap) != 0;
 }
 
 static inline bool tokIsFricative(const Token& t) {
@@ -172,6 +178,8 @@ bool runBoundarySmoothing(PassContext& ctx, std::vector<Token>& tokens, std::str
     const bool curNasal = tokIsNasal(cur);
     const bool prevLiquid = tokIsLiquid(prev);
     const bool curLiquid = tokIsLiquid(cur);
+    const bool curTap = tokIsTap(cur);
+    const bool prevTap = tokIsTap(prev);
 
     // Within-syllable detection: if both tokens have assigned syllable
     // indices and they match, this transition is WITHIN a syllable.
@@ -197,6 +205,10 @@ bool runBoundarySmoothing(PassContext& ctx, std::vector<Token>& tokens, std::str
       targetFade = v2l;  // Vowel -> Liquid
     } else if (prevLiquid && curVowelLike) {
       targetFade = l2v;  // Liquid -> Vowel
+    } else if (prevVowelLike && curTap) {
+      targetFade = v2l;  // Vowel -> Tap: quick transition like liquid, no gap
+    } else if (prevTap && curVowelLike) {
+      targetFade = l2v;  // Tap -> Vowel: quick recovery
     } else if (prevVowelLike && curVowelLike && !cur.tiedFrom) {
       targetFade = v2v;  // Vowel -> Vowel (hiatus, but not tied diphthongs)
     }
@@ -274,8 +286,10 @@ bool runBoundarySmoothing(PassContext& ctx, std::vector<Token>& tokens, std::str
       // Cap fade to fraction of duration to preserve steady-state.
       // Tied offglides (tiedFrom) are part of a diphthong — use the full
       // baseline ratio so the glide transition isn't starved at high speed.
+      // Semivowels (/j/, /w/): the formant glide IS the percept — squeezing
+      // it at high rates kills identity (e.g. /uː/→/juː/ "do you" loses /j/).
       if (cur.durationMs > 0.0) {
-        const double ratio = cur.tiedFrom ? 0.75 : maxFadeRatio;
+        const double ratio = (cur.tiedFrom || tokIsSemivowel(cur)) ? 0.75 : maxFadeRatio;
         const double maxFade = cur.durationMs * ratio;
         targetFade = std::min(targetFade, maxFade);
         if (targetFade < kMinFadeMs) {

@@ -265,6 +265,8 @@ struct AllophoneRule {
 
     std::vector<std::u32string> after;      // prev phoneme key filter
     std::vector<std::u32string> before;     // next phoneme key filter
+    bool beforeSamePhoneme = false;         // next phoneme must be same as current
+    bool afterSamePhoneme  = false;         // prev phoneme must be same as current
 
     // Neighbor flag filters (check flags on prev/next phoneme).
     // These complement the key-based after/before filters above.
@@ -1126,12 +1128,13 @@ double liquidDynamicsLabialGlideTransitionPct = 0.60;
   // Per-class minimum durations (ms). Absolute floors regardless of speed.
   // Set to 0.0 to disable floor for that class.
   double rateCompVowelFloorMs = 25.0;
+  double rateCompDiphthongFloorMs = 0.0;  // compound diphthongs (endCf); 0 = use vowelMs
   double rateCompFricativeFloorMs = 18.0;
   double rateCompStopFloorMs = 4.0;
   double rateCompNasalFloorMs = 18.0;
   double rateCompLiquidFloorMs = 15.0;
   double rateCompAffricateFloorMs = 12.0;
-  double rateCompSemivowelFloorMs = 10.0;
+  double rateCompSemivowelFloorMs = 30.0;
   double rateCompTapFloorMs = 10.0;
   double rateCompTrillFloorMs = 12.0;
   double rateCompVoicedConsonantFloorMs = 10.0;
@@ -1153,6 +1156,11 @@ double liquidDynamicsLabialGlideTransitionPct = 0.60;
   // transitions.  Extra duration floor and amplitude boost keep them audible.
   double rateCompSonorantContextBonusMs = 8.0;
   double sonorantContextAmplitudeScale = 1.15;  // 1.0 = no boost
+
+  // Pre-rhotic cluster protection: vowels before liquid + consonant
+  // ("stairs" /ɛɹz/, "pairs" /ɛɹz/) need extra time so the vowel
+  // quality establishes before the rhotic pulls formants down.
+  double rateCompPreRhoticClusterBonusMs = 10.0;
 
   // Absorbed from old reduction pass: rate-dependent schwa shortening.
   // At speeds above threshold, unstressed schwas shorten. Floor still
@@ -1226,6 +1234,23 @@ double liquidDynamicsLabialGlideTransitionPct = 0.60;
   bool toneContoursAbsolute = true;
 };
 
+// Pronunciation dictionary entry.
+struct DictEntry {
+  std::string fromText;   // original word (case-preserved for display)
+  std::string toText;     // replacement text (fed to eSpeak)
+  std::string fromIpa;    // expected IPA for fromText (validation/migration)
+  std::string toIpa;      // expected IPA for toText (validation/migration)
+  std::string category;   // user-defined tag, "" = uncategorized
+  std::string source;     // "main" or "user"
+  bool masked = false;    // if true, entry suppressed
+};
+
+// Pronunciation dictionary: text-to-text replacement, runs pre-eSpeak.
+struct PronDict {
+  std::unordered_map<std::string, DictEntry> entries;  // lowercase key → entry
+  std::vector<std::string> categories;                 // discovered dynamically
+};
+
 struct PackSet {
   std::unordered_map<std::u32string, PhonemeDef> phonemes;
   LanguagePack lang;
@@ -1254,16 +1279,41 @@ struct PackSet {
   // Phase 1: stress fallback when stressDict misses.
   // Phase 2: pre-eSpeak splitting for vowel quality.
   std::unordered_map<std::string, std::vector<std::string>> compoundMap;
+
+  // Pronunciation dictionary: text-to-text replacement, runs pre-eSpeak.
+  // Loaded from packs/dict/{langTag}-dict.tsv at pack load time.
+  // User entries added via nvspFrontend_setData(DICTIONARY, ...).
+  PronDict pronDict;
+
+  // Character/letter dictionary: character → spoken description.
+  // Loaded from packs/dict/{langTag}-letters.tsv at pack load time.
+  // Empty if no file exists for this language.
+  std::unordered_map<std::string, std::string> letterDict;
 };
 
 // Load phonemes.yaml + merged language packs.
 // packDir is the directory that contains "packs".
+// overrideDir (optional): checked first for lang YAML files.
 // Returns true on success.
 bool loadPackSet(
   const std::string& packDir,
   const std::string& langTag,
   PackSet& out,
-  std::string& outError
+  std::string& outError,
+  const std::string& overrideDir = ""
+);
+
+// Load only dictionary files for a language (stress, compound, pronDict, letterDict).
+// Much lighter than loadPackSet — skips YAML, phonemes, voice profiles.
+// Used for cross-language dictionary browsing without switching engine language.
+void loadDictFiles(
+  const std::string& packDir,
+  const std::string& langTag,
+  std::unordered_map<std::string, std::vector<int>>& stressDict,
+  std::unordered_map<std::string, std::vector<std::string>>& compoundMap,
+  PronDict& pronDict,
+  std::unordered_map<std::string, std::string>& letterDict,
+  const std::string& overrideDir = ""
 );
 
 // Utility: does this pack contain a phoneme key?

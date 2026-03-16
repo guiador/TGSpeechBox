@@ -19,7 +19,7 @@ let kLanguages: [TgsbLanguage] = [
     TgsbLanguage(id: "en-us", displayName: "English (US)",      espeakTag: "en-us", tgsbTag: "en-us"),
     TgsbLanguage(id: "en-gb", displayName: "English (GB)",      espeakTag: "en-gb", tgsbTag: "en-gb"),
     TgsbLanguage(id: "en-au", displayName: "English (AU)",      espeakTag: "en",    tgsbTag: "en-au"),
-    TgsbLanguage(id: "en-ca", displayName: "English (CA)",      espeakTag: "en-us", tgsbTag: "en-us"),
+    TgsbLanguage(id: "en-ca", displayName: "English (CA)",      espeakTag: "en-us", tgsbTag: "en-ca"),
     TgsbLanguage(id: "fr",    displayName: "French",            espeakTag: "fr",    tgsbTag: "fr"),
     TgsbLanguage(id: "es",    displayName: "Spanish",           espeakTag: "es",    tgsbTag: "es"),
     TgsbLanguage(id: "es-mx", displayName: "Spanish (Mexico)",  espeakTag: "es-419",tgsbTag: "es-mx"),
@@ -126,6 +126,15 @@ class TgsbEngine: ObservableObject {
         guard engine != nil else {
             print("[TgsbEngine] tgsb_create failed")
             return false
+        }
+
+        // Point override directory at app group container so user-imported
+        // language packs shadow the built-in ones.
+        if let containerURL = FileManager.default
+            .containerURL(forSecurityApplicationGroupIdentifier: kAppGroupId) {
+            let overrideDir = containerURL.path
+            tgsb_set_override_directory(engine, overrideDir)
+            print("[TgsbEngine] overrideDir: \(overrideDir)")
         }
 
         // Set initial language and voice
@@ -307,6 +316,7 @@ class TgsbEngine: ObservableObject {
         let value: String
         let isOverridden: Bool
         let type: SettingType
+        let options: [String]?  // dropdown options for enum-like strings
     }
 
     @Published var editorLanguages: [String] = []
@@ -325,44 +335,48 @@ class TgsbEngine: ObservableObject {
         guard let eng = engine else { return }
         editorLangTag = langTag
 
-        // Temporarily switch language to read its settings
-        let curLang = selectedLanguage
-        tgsb_set_language(eng, langTag, langTag)
-
-        guard let ptr = tgsb_get_pack_settings(eng) else {
-            tgsb_set_language(eng, curLang.espeakTag, curLang.tgsbTag)
-            applyStoredOverrides(curLang.tgsbTag)
-            return
-        }
-        let raw = String(cString: ptr)
+        // Query settings directly by langTag — no temp language switch needed.
+        guard let ptr = tgsb_query_data(eng, TGSB_DATA_SETTINGS, langTag, 0, 0) else { return }
+        let jsonStr = String(cString: ptr)
         tgsb_free_string(ptr)
 
         let overrides = loadOverrides(langTag)
-        if !overrides.isEmpty {
-            let yaml = overrides.map { "\($0.key): \($0.value)" }.joined(separator: "\n")
-            _ = tgsb_apply_setting_overrides(eng, yaml)
-        }
+
+        guard let data = jsonStr.data(using: .utf8),
+              let arr = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]]
+        else { return }
 
         var settings: [PackSetting] = []
-        for line in raw.split(separator: "\n") {
-            guard let tabIdx = line.firstIndex(of: "\t") else { continue }
-            let key = String(line[line.startIndex..<tabIdx])
+        for obj in arr {
+            guard let key = obj["key"] as? String else { continue }
             if Self.hiddenKeys.contains(key) { continue }
-            let baseValue = String(line[line.index(after: tabIdx)...])
+            let jsonType = obj["type"] as? String ?? "string"
+            let baseValue: String
+            if jsonType == "bool", let b = obj["value"] as? Bool {
+                baseValue = b ? "true" : "false"
+            } else {
+                baseValue = "\(obj["value"] ?? "")"
+            }
             let effectiveValue = overrides[key] ?? baseValue
-            let type = detectType(effectiveValue)
+            let type: SettingType = jsonType == "bool" ? .bool_ :
+                                    jsonType == "float" ? .number : .text
+            let options = (obj["options"] as? [String])
             settings.append(PackSetting(
                 id: key, key: key,
                 displayName: camelToDisplay(key),
                 value: effectiveValue,
                 isOverridden: overrides[key] != nil,
-                type: type))
+                type: type,
+                options: options))
         }
         editorSettings = settings
 
-        // Restore
-        tgsb_set_language(eng, curLang.espeakTag, curLang.tgsbTag)
-        applyStoredOverrides(curLang.tgsbTag)
+        // Apply overrides to the active language if it matches.
+        if !overrides.isEmpty {
+            for (k, v) in overrides {
+                tgsb_set_data(eng, TGSB_DATA_SETTINGS, langTag, k, v)
+            }
+        }
     }
 
     func setEditorOverride(langTag: String, key: String, value: String) {
@@ -389,35 +403,216 @@ class TgsbEngine: ObservableObject {
     func resetAllEditorOverrides(langTag: String) {
         let d = UserDefaults(suiteName: kAppGroupId)
         d?.removeObject(forKey: "pack_overrides_\(langTag)")
+        // Bump version so AU extension reloads pack.
+        let ver = (d?.integer(forKey: "adv_settingsVersion") ?? 0) + 1
+        d?.set(ver, forKey: "adv_settingsVersion")
         d?.synchronize()
         reloadCurrentLanguage()
         loadEditorSettings(langTag: langTag)
+    }
+
+    // MARK: - Pack Import / Export
+
+    /// Return merged YAML content for a language pack (base + overrides).
+    func packYamlContent(langTag: String) -> String? {
+        guard let eng = engine else { return nil }
+        let overrides = loadOverrides(langTag)
+        let json: String
+        if overrides.isEmpty {
+            json = "{}"
+        } else if let data = try? JSONSerialization.data(withJSONObject: overrides),
+                  let s = String(data: data, encoding: .utf8) {
+            json = s
+        } else {
+            json = "{}"
+        }
+        guard let ptr = tgsb_export_data(eng, TGSB_DATA_SETTINGS, langTag, json) else { return nil }
+        let result = String(cString: ptr)
+        free(ptr)
+        return result
+    }
+
+    /// Write pack YAML to a temp file for sharing via share sheet.
+    func exportPackToTempFile(langTag: String) -> URL? {
+        guard let content = packYamlContent(langTag: langTag) else { return nil }
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("\(langTag).yaml")
+        guard let _ = try? content.write(to: url, atomically: true, encoding: .utf8) else {
+            return nil
+        }
+        return url
+    }
+
+    /// Import a YAML file's settings into the language pack for `langTag`.
+    /// Only the settings: block is imported as per-key overrides —
+    /// normalization rules, allophone rules, etc. are skipped.
+    /// Returns a status message string.
+    func importPackYaml(langTag: String, from url: URL) -> String {
+        let accessing = url.startAccessingSecurityScopedResource()
+        defer { if accessing { url.stopAccessingSecurityScopedResource() } }
+
+        guard let content = try? String(contentsOf: url, encoding: .utf8) else {
+            return "Could not read file"
+        }
+        if content.isEmpty { return "File is empty" }
+
+        // Reject phonemes files.
+        if content.contains("_isVowel:") && content.contains("_isNasal:") {
+            return "This looks like a phonemes file, not a language pack."
+        }
+
+        let settings = extractSettingsFromYaml(content)
+        if settings.isEmpty {
+            return "No settings found in file"
+        }
+
+        // Clear existing overrides and apply imported settings.
+        guard let eng = engine else { return "Engine not started" }
+        let d = UserDefaults(suiteName: kAppGroupId)
+        d?.removeObject(forKey: "pack_overrides_\(langTag)")
+        d?.synchronize()
+
+        for (key, value) in settings {
+            tgsb_set_data(eng, TGSB_DATA_SETTINGS, langTag, key, value)
+        }
+        saveOverrides(langTag: langTag, overrides: settings)
+
+        reloadCurrentLanguage()
+        loadEditorSettings(langTag: langTag)
+        return "Imported \(settings.count) settings into \(langTag)"
+    }
+
+    /// Parse a YAML file and extract the settings: block as flat dot-notation
+    /// key-value pairs. Handles up to 3 levels of nesting.
+    private func extractSettingsFromYaml(_ yaml: String) -> [String: String] {
+        var result: [String: String] = [:]
+        let lines = yaml.components(separatedBy: .newlines)
+        var inSettings = false
+        var keyStack: [(Int, String)] = []  // (indent, key)
+
+        for line in lines {
+            let trimmed = line.replacingOccurrences(of: "\\s+$", with: "", options: .regularExpression)
+            if trimmed.isEmpty || trimmed.trimmingCharacters(in: .whitespaces).hasPrefix("#") { continue }
+
+            let stripped = trimmed.drop(while: { $0 == " " })
+            let indent = trimmed.count - stripped.count
+
+            // Detect top-level blocks.
+            if indent == 0 && trimmed.contains(":") {
+                let topKey = String(trimmed.prefix(while: { $0 != ":" })).trimmingCharacters(in: .whitespaces)
+                inSettings = (topKey == "settings")
+                keyStack.removeAll()
+                continue
+            }
+
+            if !inSettings { continue }
+
+            guard let colonRange = trimmed.range(of: ":") else { continue }
+            let colonPos = trimmed.distance(from: trimmed.startIndex, to: colonRange.lowerBound)
+
+            var key = String(trimmed[trimmed.index(trimmed.startIndex, offsetBy: indent)..<colonRange.lowerBound])
+                .trimmingCharacters(in: .whitespaces)
+            // Unquote.
+            if key.hasPrefix("\"") && key.hasSuffix("\"") && key.count >= 2 {
+                key = String(key.dropFirst().dropLast())
+            }
+
+            var afterColon = String(trimmed[trimmed.index(after: colonRange.lowerBound)...])
+                .trimmingCharacters(in: .whitespaces)
+            // Strip inline comments.
+            if let hashRange = afterColon.range(of: " #") {
+                afterColon = String(afterColon[..<hashRange.lowerBound])
+                    .trimmingCharacters(in: .whitespaces)
+            }
+
+            // Pop keyStack to current indent level.
+            while let last = keyStack.last, last.0 >= indent {
+                keyStack.removeLast()
+            }
+
+            if afterColon.isEmpty {
+                // Parent key — push to stack.
+                keyStack.append((indent, key))
+            } else {
+                // Leaf value — build dot-notation key.
+                let prefix = keyStack.map { $0.1 }.joined(separator: ".")
+                let fullKey = prefix.isEmpty ? key : "\(prefix).\(key)"
+                var value = afterColon
+                if value.hasPrefix("\"") && value.hasSuffix("\"") && value.count >= 2 {
+                    value = String(value.dropFirst().dropLast())
+                }
+                result[fullKey] = value
+            }
+        }
+        return result
+    }
+
+    /// Save pack overrides for a language tag.
+    private func saveOverrides(langTag: String, overrides: [String: String]) {
+        let d = UserDefaults(suiteName: kAppGroupId)
+        if overrides.isEmpty {
+            d?.removeObject(forKey: "pack_overrides_\(langTag)")
+        } else if let data = try? JSONSerialization.data(withJSONObject: overrides),
+                  let json = String(data: data, encoding: .utf8) {
+            d?.set(json, forKey: "pack_overrides_\(langTag)")
+        }
+        let ver = (d?.integer(forKey: "adv_settingsVersion") ?? 0) + 1
+        d?.set(ver, forKey: "adv_settingsVersion")
+        d?.synchronize()
+    }
+
+    /// Path to the pack YAML file — checks app group override first, falls back to bundle.
+    private func packFilePath(langTag: String) -> String? {
+        // Check writable app group location first (imported packs).
+        if let containerURL = FileManager.default
+            .containerURL(forSecurityApplicationGroupIdentifier: kAppGroupId) {
+            let overridePath = containerURL
+                .appendingPathComponent("packs/lang/\(langTag).yaml").path
+            if FileManager.default.fileExists(atPath: overridePath) {
+                return overridePath
+            }
+        }
+        // Fall back to bundle.
+        if let bundlePath = Bundle.main.path(forResource: "packs/lang/\(langTag)",
+                                              ofType: "yaml") {
+            return bundlePath
+        }
+        return nil
     }
 
     func applyStoredOverrides(_ tgsbLang: String) {
         guard let eng = engine else { return }
         let overrides = loadOverrides(tgsbLang)
         if overrides.isEmpty { return }
-        let yaml = overrides.map { "\($0.key): \($0.value)" }.joined(separator: "\n")
-        tgsb_apply_setting_overrides(eng, yaml)
+        for (k, v) in overrides {
+            tgsb_set_data(eng, TGSB_DATA_SETTINGS, tgsbLang, k, v)
+        }
     }
 
     private func reloadCurrentLanguage() {
         guard let eng = engine else { return }
         tgsb_set_language(eng, selectedLanguage.espeakTag, selectedLanguage.tgsbTag)
         applyStoredOverrides(selectedLanguage.tgsbTag)
+        reapplyDictOverrides(selectedLanguage.tgsbTag)
     }
 
     private func getBaseValues(_ langTag: String) -> [String: String] {
         guard let eng = engine else { return [:] }
-        tgsb_set_language(eng, langTag, langTag)
-        guard let ptr = tgsb_get_pack_settings(eng) else { return [:] }
-        let raw = String(cString: ptr)
+        guard let ptr = tgsb_query_data(eng, TGSB_DATA_SETTINGS, langTag, 0, 0) else { return [:] }
+        let jsonStr = String(cString: ptr)
         tgsb_free_string(ptr)
+        guard let data = jsonStr.data(using: .utf8),
+              let arr = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]]
+        else { return [:] }
         var map: [String: String] = [:]
-        for line in raw.split(separator: "\n") {
-            guard let tabIdx = line.firstIndex(of: "\t") else { continue }
-            map[String(line[line.startIndex..<tabIdx])] = String(line[line.index(after: tabIdx)...])
+        for obj in arr {
+            guard let key = obj["key"] as? String else { continue }
+            let jsonType = obj["type"] as? String ?? "string"
+            if jsonType == "bool", let b = obj["value"] as? Bool {
+                map[key] = b ? "true" : "false"
+            } else {
+                map[key] = "\(obj["value"] ?? "")"
+            }
         }
         return map
     }
@@ -439,6 +634,9 @@ class TgsbEngine: ObservableObject {
                   let json = String(data: data, encoding: .utf8) {
             d?.set(json, forKey: "pack_overrides_\(langTag)")
         }
+        // Bump version so AU extension reloads pack with new overrides.
+        let ver = (d?.integer(forKey: "adv_settingsVersion") ?? 0) + 1
+        d?.set(ver, forKey: "adv_settingsVersion")
         d?.synchronize()
     }
 
@@ -460,6 +658,610 @@ class TgsbEngine: ObservableObject {
         return result.prefix(1).uppercased() + result.dropFirst()
     }
 
+    // MARK: - Phoneme editor
+
+    struct PhonemeEntry: Identifiable {
+        let id: String  // IPA key
+        let key: String
+        let phonemeClass: String // "vowel", "stop", etc.
+        let mappingFrom: String  // non-empty in lang-filtered view
+    }
+
+    struct PhonemeField: Identifiable {
+        let id: String       // full dot key e.g. "ɪ.cf2"
+        let key: String
+        let fieldName: String    // just the field part e.g. "cf2"
+        let displayName: String
+        let value: String
+        let isOverridden: Bool
+        let isUserAdded: Bool    // true if field only exists in user overrides, not in base phoneme
+        let type: SettingType
+    }
+
+    /// Human-readable names and sort order for phoneme fields.
+    private static let phonemeFieldInfo: [(String, String)] = [
+        // Voicing
+        ("voicePitch", "Voice Pitch (Hz)"),
+        ("endVoicePitch", "End Voice Pitch (Hz)"),
+        ("voiceAmplitude", "Voice Amplitude"),
+        ("aspirationAmplitude", "Aspiration Amplitude"),
+        ("glottalOpenQuotient", "Glottal Open Quotient"),
+        ("voiceTurbulenceAmplitude", "Voice Turbulence"),
+        ("vibratoPitchOffset", "Vibrato Pitch Offset"),
+        ("vibratoSpeed", "Vibrato Speed (Hz)"),
+        // Cascade formants
+        ("cf1", "F1 Frequency (Hz)"), ("cf2", "F2 Frequency (Hz)"),
+        ("cf3", "F3 Frequency (Hz)"), ("cf4", "F4 Frequency (Hz)"),
+        ("cf5", "F5 Frequency (Hz)"), ("cf6", "F6 Frequency (Hz)"),
+        ("cb1", "F1 Bandwidth (Hz)"), ("cb2", "F2 Bandwidth (Hz)"),
+        ("cb3", "F3 Bandwidth (Hz)"), ("cb4", "F4 Bandwidth (Hz)"),
+        ("cb5", "F5 Bandwidth (Hz)"), ("cb6", "F6 Bandwidth (Hz)"),
+        // Nasal
+        ("cfN0", "Nasal Zero Frequency"), ("cfNP", "Nasal Pole Frequency"),
+        ("cbN0", "Nasal Zero Bandwidth"), ("cbNP", "Nasal Pole Bandwidth"),
+        ("caNP", "Nasal Pole Amplitude"),
+        // Frication
+        ("fricationAmplitude", "Frication Amplitude"),
+        ("preFormantGain", "Pre-Formant Gain"),
+        // Parallel formants
+        ("pf1", "Parallel F1 Frequency"), ("pf2", "Parallel F2 Frequency"),
+        ("pf3", "Parallel F3 Frequency"), ("pf4", "Parallel F4 Frequency"),
+        ("pf5", "Parallel F5 Frequency"), ("pf6", "Parallel F6 Frequency"),
+        ("pb1", "Parallel F1 Bandwidth"), ("pb2", "Parallel F2 Bandwidth"),
+        ("pb3", "Parallel F3 Bandwidth"), ("pb4", "Parallel F4 Bandwidth"),
+        ("pb5", "Parallel F5 Bandwidth"), ("pb6", "Parallel F6 Bandwidth"),
+        ("pa1", "Parallel F1 Amplitude"), ("pa2", "Parallel F2 Amplitude"),
+        ("pa3", "Parallel F3 Amplitude"), ("pa4", "Parallel F4 Amplitude"),
+        ("pa5", "Parallel F5 Amplitude"), ("pa6", "Parallel F6 Amplitude"),
+        ("parallelBypass", "Parallel Bypass"),
+        ("outputGain", "Output Gain"),
+        // Flags
+        ("_isVowel", "Is Vowel"), ("_isVoiced", "Is Voiced"),
+        ("_isStop", "Is Stop"), ("_isNasal", "Is Nasal"),
+        ("_isLiquid", "Is Liquid"), ("_isSemivowel", "Is Semivowel"),
+        ("_isAffricate", "Is Affricate"), ("_isTap", "Is Tap"),
+        ("_isTrill", "Is Trill"), ("_copyAdjacent", "Copy Adjacent"),
+        // FrameEx
+        ("frameEx.creakiness", "Creakiness"), ("frameEx.breathiness", "Breathiness"),
+        ("frameEx.jitter", "Jitter"), ("frameEx.shimmer", "Shimmer"),
+        ("frameEx.sharpness", "Glottal Sharpness"),
+        ("frameEx.endCf1", "Diphthong End F1"), ("frameEx.endCf2", "Diphthong End F2"),
+        ("frameEx.endCf3", "Diphthong End F3"),
+        ("frameEx.endPf1", "Diphthong End Parallel F1"),
+        ("frameEx.endPf2", "Diphthong End Parallel F2"),
+        ("frameEx.endPf3", "Diphthong End Parallel F3"),
+        // Micro-events
+        ("burstDurationMs", "Burst Duration (ms)"), ("burstDecayRate", "Burst Decay Rate"),
+        ("burstSpectralTilt", "Burst Spectral Tilt"),
+        ("voiceBarAmplitude", "Voice Bar Amplitude"), ("voiceBarF1", "Voice Bar F1 (Hz)"),
+        ("releaseSpreadMs", "Release Spread (ms)"),
+        ("fricAttackMs", "Frication Attack (ms)"), ("fricDecayMs", "Frication Decay (ms)"),
+        ("durationScale", "Duration Scale"),
+    ]
+
+    private static let phonemeFieldOrder: [String: Int] = {
+        var map: [String: Int] = [:]
+        for (i, pair) in phonemeFieldInfo.enumerated() {
+            map[pair.0] = i
+        }
+        return map
+    }()
+
+    private func phonemeDisplayName(_ fieldName: String) -> String {
+        for (k, v) in Self.phonemeFieldInfo {
+            if k == fieldName { return v }
+        }
+        return camelToDisplay(fieldName)
+    }
+
+    @Published var phonemeList: [PhonemeEntry] = []
+    @Published var phonemeFields: [PhonemeField] = []
+
+    func loadPhonemeList(langTag: String = "") {
+        guard let eng = engine else { return }
+        guard let ptr = tgsb_query_data(eng, TGSB_DATA_PHONEMES, langTag, 0, 0) else { return }
+        let jsonStr = String(cString: ptr)
+        tgsb_free_string(ptr)
+
+        guard let data = jsonStr.data(using: .utf8),
+              let arr = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]]
+        else { return }
+
+        var seen: [String: PhonemeEntry] = [:]
+        var order: [String] = []
+        for obj in arr {
+            guard let group = obj["group"] as? String else { continue }
+            if seen[group] == nil {
+                order.append(group)
+                seen[group] = PhonemeEntry(
+                    id: group, key: group,
+                    phonemeClass: obj["class"] as? String ?? "other",
+                    mappingFrom: obj["mappingFrom"] as? String ?? "")
+            }
+        }
+        phonemeList = order.compactMap { seen[$0] }
+    }
+
+    func loadPhonemeFields(phonemeKey: String) {
+        guard let eng = engine else { return }
+        // Always query all phonemes (base) then filter.
+        guard let ptr = tgsb_query_data(eng, TGSB_DATA_PHONEMES, "", 0, 0) else { return }
+        let jsonStr = String(cString: ptr)
+        tgsb_free_string(ptr)
+
+        let overrides = loadPhonemeOverrides()
+
+        guard let data = jsonStr.data(using: .utf8),
+              let arr = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]]
+        else { return }
+
+        var fields: [PhonemeField] = []
+        var baseKeys = Set<String>()
+        for obj in arr {
+            guard let group = obj["group"] as? String, group == phonemeKey,
+                  let fullKey = obj["key"] as? String else { continue }
+            baseKeys.insert(fullKey)
+            let fieldName = String(fullKey.dropFirst(phonemeKey.count + 1)) // remove "key."
+            let jsonType = obj["type"] as? String ?? "string"
+            let baseValue: String
+            if jsonType == "bool", let b = obj["value"] as? Bool {
+                baseValue = b ? "true" : "false"
+            } else {
+                baseValue = "\(obj["value"] ?? "")"
+            }
+            let effectiveValue = overrides[fullKey] ?? baseValue
+            let type: SettingType = jsonType == "bool" ? .bool_ :
+                                    jsonType == "float" ? .number : .text
+            fields.append(PhonemeField(
+                id: fullKey, key: fullKey,
+                fieldName: fieldName,
+                displayName: phonemeDisplayName(fieldName),
+                value: effectiveValue,
+                isOverridden: overrides[fullKey] != nil,
+                isUserAdded: false,
+                type: type))
+        }
+
+        // Append user-added fields (overrides that don't exist in the base phoneme).
+        let prefix = "\(phonemeKey)."
+        for (fullKey, value) in overrides {
+            guard fullKey.hasPrefix(prefix), !baseKeys.contains(fullKey) else { continue }
+            let fieldName = String(fullKey.dropFirst(prefix.count))
+            // Determine type from field name, not stored value.
+            let isBool = fieldName.hasPrefix("_is") || fieldName.hasPrefix("_copy")
+            fields.append(PhonemeField(
+                id: fullKey, key: fullKey,
+                fieldName: fieldName,
+                displayName: phonemeDisplayName(fieldName),
+                value: value,
+                isOverridden: true,
+                isUserAdded: true,
+                type: isBool ? .bool_ : .number))
+        }
+
+        let maxOrder = Self.phonemeFieldOrder.count
+        phonemeFields = fields.sorted { a, b in
+            let oa = Self.phonemeFieldOrder[a.fieldName] ?? maxOrder
+            let ob = Self.phonemeFieldOrder[b.fieldName] ?? maxOrder
+            return oa < ob
+        }
+    }
+
+    /// Returns fields from phonemeFieldInfo that are not currently in the phoneme's field list.
+    func getAvailableFieldsToAdd() -> [(String, String)] {
+        let existing = Set(phonemeFields.map { $0.fieldName })
+        return Self.phonemeFieldInfo.filter { !existing.contains($0.0) }
+    }
+
+    func setPhonemeOverride(fullKey: String, value: String) {
+        guard let eng = engine else { return }
+        // Apply in-memory immediately for live preview.
+        tgsb_set_data(eng, TGSB_DATA_PHONEMES, "", fullKey, value)
+        // Persist.
+        var overrides = loadPhonemeOverrides()
+        overrides[fullKey] = value
+        savePhonemeOverrides(overrides)
+    }
+
+    func removePhonemeOverride(fullKey: String) {
+        var overrides = loadPhonemeOverrides()
+        overrides.removeValue(forKey: fullKey)
+        savePhonemeOverrides(overrides)
+        reloadCurrentLanguage()
+        reapplyAllPhonemeOverrides()
+    }
+
+    // ── Phoneme overrides import / export ────────────────────────────
+
+    /// Returns the phoneme overrides as a pretty-printed JSON string, or nil if empty.
+    /// Return merged phonemes YAML content (base + overrides).
+    func phonemeYamlContent() -> String? {
+        guard let eng = engine else { return nil }
+        let overrides = loadPhonemeOverrides()
+        let json: String
+        if overrides.isEmpty {
+            json = "{}"
+        } else if let data = try? JSONSerialization.data(withJSONObject: overrides),
+                  let s = String(data: data, encoding: .utf8) {
+            json = s
+        } else {
+            json = "{}"
+        }
+        guard let ptr = tgsb_export_data(eng, TGSB_DATA_PHONEMES, "", json) else { return nil }
+        let result = String(cString: ptr)
+        free(ptr)
+        return result
+    }
+
+    /// Write merged phonemes YAML to a temp file for sharing.
+    func exportPhonemeYamlToTempFile() -> URL? {
+        guard let yaml = phonemeYamlContent() else { return nil }
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("phonemes.yaml")
+        guard let _ = try? yaml.write(to: url, atomically: true, encoding: .utf8) else {
+            return nil
+        }
+        return url
+    }
+
+    /// Import phoneme overrides from a JSON file. Returns a status message.
+    func importPhonemeOverrides(from url: URL) -> String {
+        let accessing = url.startAccessingSecurityScopedResource()
+        defer { if accessing { url.stopAccessingSecurityScopedResource() } }
+
+        guard let content = try? String(contentsOf: url, encoding: .utf8) else {
+            return "Could not read file"
+        }
+        if content.isEmpty { return "File is empty" }
+
+        guard let data = content.data(using: .utf8),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: String]
+        else {
+            return "Invalid phoneme overrides file"
+        }
+
+        savePhonemeOverrides(obj)
+        reloadCurrentLanguage()
+        reapplyAllPhonemeOverrides()
+        return "Imported \(obj.count) phoneme overrides"
+    }
+
+    func resetPhonemeOverrides(phonemeKey: String) {
+        let prefix = "\(phonemeKey)."
+        var overrides = loadPhonemeOverrides()
+        overrides = overrides.filter { !$0.key.hasPrefix(prefix) }
+        savePhonemeOverrides(overrides)
+        reloadCurrentLanguage()
+        reapplyAllPhonemeOverrides()
+    }
+
+    /// Remove all phoneme overrides, optionally filtered to a specific language's phoneme list.
+    func resetAllPhonemeOverrides(langFilter: String = "") {
+        if langFilter.isEmpty {
+            savePhonemeOverrides([:])
+        } else {
+            let phonemeKeys = Set(phonemeList.map { $0.key })
+            var overrides = loadPhonemeOverrides()
+            overrides = overrides.filter { entry in
+                !phonemeKeys.contains(where: { entry.key.hasPrefix("\($0).") })
+            }
+            savePhonemeOverrides(overrides)
+        }
+        reloadCurrentLanguage()
+        reapplyAllPhonemeOverrides()
+    }
+
+    func previewPhoneme(_ phonemeKey: String) {
+        guard let eng = engine else { return }
+        stopSpeaking()
+
+        isSpeaking = true
+        let sr = self.sampleRate
+
+        synthQueue.async { [weak self] in
+            tgsb_preview_phoneme(eng, phonemeKey, 120.0, 300.0)
+
+            let chunkSize = 4096
+            var chunk = [Int16](repeating: 0, count: chunkSize)
+            var allSamples = [Int16]()
+
+            while true {
+                let n = tgsb_pull_audio(eng, &chunk, Int32(chunkSize))
+                if n <= 0 { break }
+                allSamples.append(contentsOf: chunk.prefix(Int(n)))
+            }
+
+            guard !allSamples.isEmpty else {
+                DispatchQueue.main.async { self?.isSpeaking = false }
+                return
+            }
+
+            let wavData = Self.makeWAV(samples: allSamples, sampleRate: sr)
+            DispatchQueue.main.async {
+                self?.playWAV(wavData)
+            }
+        }
+    }
+
+    func reapplyAllPhonemeOverrides() {
+        guard let eng = engine else { return }
+        let overrides = loadPhonemeOverrides()
+        for (k, v) in overrides {
+            tgsb_set_data(eng, TGSB_DATA_PHONEMES, "", k, v)
+        }
+    }
+
+    private func loadPhonemeOverrides() -> [String: String] {
+        let d = UserDefaults(suiteName: kAppGroupId)
+        guard let json = d?.string(forKey: "phoneme_overrides"),
+              let data = json.data(using: .utf8),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: String]
+        else { return [:] }
+        return obj
+    }
+
+    private func savePhonemeOverrides(_ overrides: [String: String]) {
+        let d = UserDefaults(suiteName: kAppGroupId)
+        if overrides.isEmpty {
+            d?.removeObject(forKey: "phoneme_overrides")
+        } else if let data = try? JSONSerialization.data(withJSONObject: overrides),
+                  let json = String(data: data, encoding: .utf8) {
+            d?.set(json, forKey: "phoneme_overrides")
+        }
+        d?.synchronize()
+    }
+
+    // MARK: - Dictionary editor
+
+    struct DictEntry: Identifiable, Hashable {
+        let id: String  // fromText
+        let fromText: String
+        let toText: String
+        let fromIpa: String
+        let toIpa: String
+        let category: String
+        let source: String  // "main" or "user"
+        let masked: Bool
+    }
+
+    struct DictType: Identifiable, Equatable {
+        let id: String  // type name
+        let type: String
+        let count: Int
+    }
+
+    @Published var dictionaryEntries: [DictEntry] = []
+    @Published var dictionaryTotalCount: Int = 0
+    @Published var dictionaryCategories: [String] = []
+    @Published var dictTypes: [DictType] = []
+    private var dictLangTag: String = ""
+    private var dictSubType: String = ""
+
+    /// Returns the engine's current language tag (tgsb tag).
+    func currentEngineLangTag() -> String {
+        return selectedLanguage.tgsbTag
+    }
+
+    func loadDictTypes(langTag: String = "") {
+        guard let eng = engine else { return }
+        let tag = langTag.isEmpty ? "types" : "types:\(langTag)"
+        guard let ptr = tgsb_query_data(eng, TGSB_DATA_DICTIONARY, tag, 0, 0) else {
+            dictTypes = []
+            return
+        }
+        let jsonStr = String(cString: ptr)
+        tgsb_free_string(ptr)
+        guard let data = jsonStr.data(using: .utf8),
+              let arr = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]]
+        else {
+            dictTypes = []
+            return
+        }
+        dictTypes = arr.compactMap { obj in
+            guard let type = obj["type"] as? String,
+                  let count = obj["count"] as? Int else { return nil }
+            return DictType(id: type, type: type, count: count)
+        }
+    }
+
+    /// Build prefixed langTag: "stress:en-us" or just "en-us" for pronounce.
+    private func prefixedLangTag(_ subType: String, _ langTag: String) -> String {
+        if subType.isEmpty || subType == "pronounce" { return langTag }
+        return "\(subType):\(langTag)"
+    }
+
+    func loadDictionary(langTag: String, subType: String = "", offset: Int = 0,
+                        limit: Int = 100, search: String = "", append: Bool = false) {
+        guard let eng = engine else { return }
+        dictLangTag = langTag
+        dictSubType = subType
+
+        var tag = prefixedLangTag(subType, langTag)
+        if !search.isEmpty { tag += "?\(search)" }
+
+        dictionaryTotalCount = Int(tgsb_get_data_count(eng, TGSB_DATA_DICTIONARY, tag))
+
+        guard let ptr = tgsb_query_data(eng, TGSB_DATA_DICTIONARY, tag,
+                                         Int32(offset), Int32(limit)) else {
+            if !append { dictionaryEntries = [] }
+            return
+        }
+        let jsonStr = String(cString: ptr)
+        tgsb_free_string(ptr)
+
+        guard let data = jsonStr.data(using: .utf8),
+              let arr = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]]
+        else { return }
+
+        var entries: [DictEntry] = []
+        var cats = Set<String>()
+        for obj in arr {
+            let fromText = obj["fromText"] as? String ?? obj["key"] as? String ?? ""
+            let entry = DictEntry(
+                id: fromText,
+                fromText: fromText,
+                toText: obj["toText"] as? String ?? "",
+                fromIpa: obj["fromIpa"] as? String ?? "",
+                toIpa: obj["toIpa"] as? String ?? "",
+                category: obj["category"] as? String ?? "",
+                source: obj["source"] as? String ?? "main",
+                masked: obj["masked"] as? Bool ?? false
+            )
+            entries.append(entry)
+            if !entry.category.isEmpty { cats.insert(entry.category) }
+        }
+        if append {
+            dictionaryEntries.append(contentsOf: entries)
+        } else {
+            dictionaryEntries = entries
+        }
+        dictionaryCategories = cats.sorted()
+    }
+
+    func addDictEntry(fromText: String, toText: String, category: String = "") {
+        guard let eng = engine, !fromText.isEmpty, !toText.isEmpty else { return }
+        let tag = prefixedLangTag(dictSubType, dictLangTag)
+        var dict: [String: Any] = ["toText": toText]
+        if !category.isEmpty { dict["category"] = category }
+        if let data = try? JSONSerialization.data(withJSONObject: dict),
+           let str = String(data: data, encoding: .utf8) {
+            tgsb_set_data(eng, TGSB_DATA_DICTIONARY, tag, fromText, str)
+            saveDictOverride(dictLangTag, key: fromText, value: str)
+        }
+        loadDictionary(langTag: dictLangTag, subType: dictSubType)
+    }
+
+    func maskDictEntry(fromText: String, masked: Bool) {
+        guard let eng = engine else { return }
+        let tag = prefixedLangTag(dictSubType, dictLangTag)
+        let dict: [String: Any] = ["masked": masked]
+        if let data = try? JSONSerialization.data(withJSONObject: dict),
+           let str = String(data: data, encoding: .utf8) {
+            tgsb_set_data(eng, TGSB_DATA_DICTIONARY, tag, fromText, str)
+            saveDictOverride(dictLangTag, key: fromText, value: str)
+        }
+        loadDictionary(langTag: dictLangTag, subType: dictSubType)
+    }
+
+    func deleteDictEntry(fromText: String) {
+        guard let eng = engine else { return }
+        removeDictOverride(dictLangTag, key: fromText)
+        // Reload the language to restore base dict entries from disk,
+        // then reapply remaining user overrides. This ensures that
+        // removing a modified base entry reverts to the original.
+        tgsb_set_language(eng, dictLangTag, dictLangTag)
+        reapplyDictOverrides(dictLangTag)
+        loadDictionary(langTag: dictLangTag, subType: dictSubType)
+    }
+
+    // ── Dictionary override persistence ────────────────────────────
+
+    func reapplyDictOverrides(_ langTag: String) {
+        guard let eng = engine else { return }
+        let overrides = loadDictOverrides(langTag)
+        for (k, v) in overrides {
+            tgsb_set_data(eng, TGSB_DATA_DICTIONARY, langTag, k, v)
+        }
+        // Re-apply dict type disabled state
+        let disabled = loadDictDisabled(langTag)
+        for type in disabled {
+            tgsb_set_data(eng, TGSB_DATA_DICTIONARY, "config:\(langTag)", type, "false")
+        }
+    }
+
+    // ── Dict type exclusion ────────────────────────────────────────
+
+    func loadDictConfig(langTag: String) -> [(type: String, enabled: Bool)] {
+        guard let eng = engine else { return [] }
+        guard let ptr = tgsb_query_data(eng, TGSB_DATA_DICTIONARY, "config:\(langTag)", 0, 0) else { return [] }
+        let jsonStr = String(cString: ptr)
+        tgsb_free_string(ptr)
+        guard let data = jsonStr.data(using: .utf8),
+              let arr = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]]
+        else { return [] }
+        return arr.compactMap { obj in
+            guard let type = obj["type"] as? String,
+                  let enabled = obj["enabled"] as? Bool else { return nil }
+            return (type: type, enabled: enabled)
+        }
+    }
+
+    func setDictTypeEnabled(langTag: String, type: String, enabled: Bool) {
+        guard let eng = engine else { return }
+        tgsb_set_data(eng, TGSB_DATA_DICTIONARY, "config:\(langTag)", type, enabled ? "true" : "false")
+        saveDictDisabled(langTag, type: type, disabled: !enabled)
+    }
+
+    private func loadDictDisabled(_ langTag: String) -> Set<String> {
+        let d = UserDefaults(suiteName: kAppGroupId)
+        guard let json = d?.string(forKey: "dict_disabled_\(langTag)"),
+              let data = json.data(using: .utf8),
+              let arr = try? JSONSerialization.jsonObject(with: data) as? [String]
+        else { return [] }
+        return Set(arr)
+    }
+
+    private func saveDictDisabled(_ langTag: String, type: String, disabled: Bool) {
+        var current = loadDictDisabled(langTag)
+        if disabled {
+            current.insert(type)
+        } else {
+            current.remove(type)
+        }
+        let d = UserDefaults(suiteName: kAppGroupId)
+        if current.isEmpty {
+            d?.removeObject(forKey: "dict_disabled_\(langTag)")
+        } else {
+            if let data = try? JSONSerialization.data(withJSONObject: Array(current)),
+               let json = String(data: data, encoding: .utf8) {
+                d?.set(json, forKey: "dict_disabled_\(langTag)")
+            }
+        }
+        d?.synchronize()
+    }
+
+    private func loadDictOverrides(_ langTag: String) -> [String: String] {
+        let d = UserDefaults(suiteName: kAppGroupId)
+        guard let json = d?.string(forKey: "dict_overrides_\(langTag)"),
+              let data = json.data(using: .utf8),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: String]
+        else { return [:] }
+        return obj
+    }
+
+    private func bumpOverridesVersion() {
+        let d = UserDefaults(suiteName: kAppGroupId)
+        let ver = (d?.integer(forKey: "pack_overrides_version") ?? 0) + 1
+        d?.set(ver, forKey: "pack_overrides_version")
+        d?.synchronize()
+    }
+
+    private func saveDictOverride(_ langTag: String, key: String, value: String) {
+        var overrides = loadDictOverrides(langTag)
+        overrides[key] = value
+        let d = UserDefaults(suiteName: kAppGroupId)
+        if let data = try? JSONSerialization.data(withJSONObject: overrides),
+           let json = String(data: data, encoding: .utf8) {
+            d?.set(json, forKey: "dict_overrides_\(langTag)")
+        }
+        d?.synchronize()
+        bumpOverridesVersion()
+    }
+
+    private func removeDictOverride(_ langTag: String, key: String) {
+        var overrides = loadDictOverrides(langTag)
+        overrides.removeValue(forKey: key)
+        let d = UserDefaults(suiteName: kAppGroupId)
+        if overrides.isEmpty {
+            d?.removeObject(forKey: "dict_overrides_\(langTag)")
+        } else if let data = try? JSONSerialization.data(withJSONObject: overrides),
+                  let json = String(data: data, encoding: .utf8) {
+            d?.set(json, forKey: "dict_overrides_\(langTag)")
+        }
+        d?.synchronize()
+        bumpOverridesVersion()
+    }
+
     func speak(_ text: String) {
         guard let eng = engine else { return }
         stopSpeaking()
@@ -469,6 +1271,7 @@ class TgsbEngine: ObservableObject {
                           selectedLanguage.espeakTag,
                           selectedLanguage.tgsbTag)
         applyStoredOverrides(selectedLanguage.tgsbTag)
+        reapplyDictOverrides(selectedLanguage.tgsbTag)
         applySelectedVoice(eng)
         applyEngineSettings()
         tgsb_set_inflection(eng, inflectionValue / 100.0)

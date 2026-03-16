@@ -19,6 +19,8 @@ add_executable(tgsbPhonemeEditor WIN32
   VoiceProfileEditor.h
   RulesEditor.cpp
   RulesEditor.h
+  DictionaryEditor.cpp
+  DictionaryEditor.h
   WinUtils.cpp
   WinUtils.h
   AccessibilityUtils.cpp
@@ -37,6 +39,8 @@ add_executable(tgsbPhonemeEditor WIN32
   # Reuse TGSB's small YAML + UTF-8 helpers (no external deps).
   "${TGSB_ROOT}/src/frontend/yaml_min.cpp"
   "${TGSB_ROOT}/src/frontend/yaml_min.h"
+  "${TGSB_ROOT}/src/frontend/yaml_export.cpp"
+  "${TGSB_ROOT}/src/frontend/yaml_export.h"
   "${TGSB_ROOT}/src/frontend/utf8.cpp"
   "${TGSB_ROOT}/src/frontend/utf8.h"
 )
@@ -57,6 +61,7 @@ endif()
 if(WIN32)
   target_link_libraries(tgsbPhonemeEditor PRIVATE
     comctl32
+    comdlg32
     oleacc
     ole32
     shell32

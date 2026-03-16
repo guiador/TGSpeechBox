@@ -258,6 +258,20 @@ void tgsb_destroy(TgsbEngine *engine)
     free(engine);
 }
 
+void tgsb_set_override_directory(TgsbEngine *engine, const char *overrideDir)
+{
+    if (!engine || !engine->frontend) return;
+    nvspFrontend_setOverrideDirectory(engine->frontend, overrideDir);
+}
+
+char *tgsb_export_data(TgsbEngine *engine, int domain,
+                       const char *langTag, const char *overridesJson)
+{
+    if (!engine || !engine->frontend) return nullptr;
+    return nvspFrontend_exportData(engine->frontend, domain,
+                                   langTag, overridesJson);
+}
+
 int tgsb_set_language(TgsbEngine *engine,
                       const char *espeakLang,
                       const char *tgsbLang)
@@ -374,6 +388,14 @@ void tgsb_queue_text(TgsbEngine *engine,
                 }
                 clauseType = c;
                 p++;
+                break;
+            }
+            /* U+2026 ellipsis (UTF-8: E2 80 A6) — treat as period */
+            if ((unsigned char)c == 0xE2 &&
+                (unsigned char)*(p+1) == 0x80 &&
+                (unsigned char)*(p+2) == 0xA6) {
+                clauseType = '.';
+                p += 3;
                 break;
             }
             /* colon/semicolon only split when followed by whitespace
@@ -621,12 +643,6 @@ void tgsb_set_sample_rate(TgsbEngine *engine, int sampleRate)
 /* Pack settings editor API                                           */
 /* ------------------------------------------------------------------ */
 
-char *tgsb_get_pack_settings(TgsbEngine *engine)
-{
-    if (!engine || !engine->frontend) return NULL;
-    return nvspFrontend_getPackSettings(engine->frontend);
-}
-
 int tgsb_apply_setting_overrides(TgsbEngine *engine, const char *yamlSnippet)
 {
     if (!engine || !engine->frontend || !yamlSnippet) return 0;
@@ -642,6 +658,60 @@ char *tgsb_get_available_languages(TgsbEngine *engine)
 void tgsb_free_string(char *str)
 {
     nvspFrontend_freeString(str);
+}
+
+/* ------------------------------------------------------------------ */
+/* Phoneme preview                                                     */
+/* ------------------------------------------------------------------ */
+
+int tgsb_preview_phoneme(TgsbEngine *engine, const char *phonemeKey,
+                         double pitchHz, double durationMs)
+{
+    if (!engine || !engine->player || !engine->frontend) return 0;
+    if (!phonemeKey || !*phonemeKey) return 0;
+
+    engine->stopRequested = 0;
+
+    /* Purge stale frames */
+    speechPlayer_queueFrame(engine->player, NULL, 0, 0, -1, true);
+
+    if (pitchHz < 40.0) pitchHz = 40.0;
+    if (pitchHz > 500.0) pitchHz = 500.0;
+
+    FrameCtx ctx;
+    ctx.engine = engine;
+    ctx.frameCount = 0;
+
+    int ok = nvspFrontend_previewPhoneme(
+        engine->frontend, phonemeKey,
+        pitchHz, durationMs,
+        onFrame, &ctx
+    );
+    return ok;
+}
+
+/* ------------------------------------------------------------------ */
+/* Generic Data Query API (ABI v5+)                                   */
+/* ------------------------------------------------------------------ */
+
+int tgsb_get_data_count(TgsbEngine *engine, int domain, const char *langTag)
+{
+    if (!engine || !engine->frontend || !langTag) return -1;
+    return nvspFrontend_getDataCount(engine->frontend, domain, langTag);
+}
+
+char *tgsb_query_data(TgsbEngine *engine, int domain, const char *langTag,
+                      int offset, int limit)
+{
+    if (!engine || !engine->frontend || !langTag) return NULL;
+    return nvspFrontend_queryData(engine->frontend, domain, langTag, offset, limit);
+}
+
+int tgsb_set_data(TgsbEngine *engine, int domain, const char *langTag,
+                  const char *key, const char *value)
+{
+    if (!engine || !engine->frontend || !langTag || !key) return 0;
+    return nvspFrontend_setData(engine->frontend, domain, langTag, key, value);
 }
 
 } /* extern "C" */

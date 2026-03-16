@@ -247,6 +247,14 @@ static void synthesizeClauses(TgsbEngine *engine,
                 p++;
                 break;
             }
+            /* U+2026 ellipsis (UTF-8: E2 80 A6) — treat as period */
+            if ((unsigned char)c == 0xE2 &&
+                (unsigned char)*(p+1) == 0x80 &&
+                (unsigned char)*(p+2) == 0xA6) {
+                clauseType = '.';
+                p += 3;
+                break;
+            }
             /* colon/semicolon only split when followed by whitespace
              * (avoids splitting times like "5:44" or ratios like "3:1") */
             if (c == ';' || c == ':') {
@@ -375,10 +383,11 @@ Java_com_tgspeechbox_tts_TgsbTtsService_nativeCreate(
     speechPlayer_voicingTone_t tone = speechPlayer_getDefaultVoicingTone();
     speechPlayer_setVoicingTone(player, &tone);
 
-    /* Platform output gain: Android TTS stream is attenuated by the system,
-     * so we apply 3x gain inside the DSP (before the limiter) to match
-     * normal accessibility volume levels. */
-    speechPlayer_setOutputGain(player, 3.0);
+    /* Platform output gain: Android TTS stream is attenuated by the system.
+     * 1.7x keeps speech loud enough while leaving headroom so the limiter
+     * doesn't engage on hot vowels like /æ/ (3.0x caused constant limiting →
+     * buzzy/saturated quality, 2.0x still clipped /æ/ — issue #50). */
+    speechPlayer_setOutputGain(player, 1.6);
 
     TgsbEngine *engine = (TgsbEngine *)calloc(1, sizeof(TgsbEngine));
     engine->player = player;
@@ -728,7 +737,7 @@ Java_com_tgspeechbox_tts_TgsbTtsService_nativeSetSampleRate(
     }
     engine->player = speechPlayer_initialize(sampleRate);
     engine->sampleRate = sampleRate;
-    speechPlayer_setOutputGain(engine->player, 3.0);
+    speechPlayer_setOutputGain(engine->player, 1.6);
 
     /* Re-apply voicing tone settings */
     if (engine->hasUserTone) {
@@ -858,6 +867,48 @@ Java_com_tgspeechbox_tts_TgsbSpeakEngine_nativeQueueText(
          ctx.frameCount, sp, bp);
 }
 
+/*
+ * nativeQueueIpa — Queue raw IPA for synthesis, skipping eSpeak.
+ * Used for phoneme preview: play a single phoneme in isolation.
+ * Uses nvspFrontend_previewPhoneme to bypass the full pipeline
+ * (no allophone rules, no pitch contour — just raw DSP frame).
+ */
+JNIEXPORT void JNICALL
+Java_com_tgspeechbox_tts_TgsbSpeakEngine_nativeQueueIpa(
+    JNIEnv *env, jobject thiz,
+    jlong handle, jstring ipa, jdouble speed, jdouble pitchHz
+) {
+    TgsbEngine *engine = (TgsbEngine *)(intptr_t)handle;
+    if (!engine || !engine->player || !engine->frontend) return;
+
+    engine->stopRequested = 0;
+
+    speechPlayer_queueFrame(engine->player, NULL, 0, 0, -1, true);
+
+    const char *ipaChars = env->GetStringUTFChars(ipa, NULL);
+    if (!ipaChars || !*ipaChars) {
+        if (ipaChars) env->ReleaseStringUTFChars(ipa, ipaChars);
+        return;
+    }
+
+    double bp = pitchHz;
+    if (bp < 40.0) bp = 40.0;
+    if (bp > 500.0) bp = 500.0;
+
+    FrameCtx ctx;
+    ctx.engine = engine;
+    ctx.frameCount = 0;
+
+    int ok = nvspFrontend_previewPhoneme(
+        engine->frontend, ipaChars,
+        bp, 300.0,
+        onFrame, &ctx
+    );
+
+    LOGI("SpeakEngine: previewPhoneme ok=%d frames=%d", ok, ctx.frameCount);
+    env->ReleaseStringUTFChars(ipa, ipaChars);
+}
+
 JNIEXPORT jint JNICALL
 Java_com_tgspeechbox_tts_TgsbSpeakEngine_nativePullAudio(
     JNIEnv *env, jobject thiz,
@@ -966,23 +1017,9 @@ Java_com_tgspeechbox_tts_TgsbSpeakEngine_nativeSetPauseMode(
 
 /* ------------------------------------------------------------------ */
 /* Pack settings editor API                                           */
+/* DEPRECATED: Use nativeSetData(DATA_SETTINGS, ...) per-key instead. */
+/* Retained for backwards compatibility — all callers have migrated.  */
 /* ------------------------------------------------------------------ */
-
-JNIEXPORT jstring JNICALL
-Java_com_tgspeechbox_tts_TgsbTtsService_nativeGetPackSettings(
-    JNIEnv *env, jobject thiz, jlong handle
-) {
-    (void)thiz;
-    TgsbEngine *engine = (TgsbEngine *)(intptr_t)handle;
-    if (!engine || !engine->frontend) return NULL;
-
-    char *settings = nvspFrontend_getPackSettings(engine->frontend);
-    if (!settings) return NULL;
-
-    jstring result = env->NewStringUTF(settings);
-    nvspFrontend_freeString(settings);
-    return result;
-}
 
 JNIEXPORT jint JNICALL
 Java_com_tgspeechbox_tts_TgsbTtsService_nativeApplySettingOverrides(
@@ -1018,13 +1055,6 @@ Java_com_tgspeechbox_tts_TgsbTtsService_nativeGetAvailableLanguages(
 
 /* SpeakEngine delegates */
 
-JNIEXPORT jstring JNICALL
-Java_com_tgspeechbox_tts_TgsbSpeakEngine_nativeGetPackSettings(
-    JNIEnv *env, jobject thiz, jlong handle
-) {
-    return Java_com_tgspeechbox_tts_TgsbTtsService_nativeGetPackSettings(
-        env, thiz, handle);
-}
 
 JNIEXPORT jint JNICALL
 Java_com_tgspeechbox_tts_TgsbSpeakEngine_nativeApplySettingOverrides(
@@ -1040,6 +1070,130 @@ Java_com_tgspeechbox_tts_TgsbSpeakEngine_nativeGetAvailableLanguages(
 ) {
     return Java_com_tgspeechbox_tts_TgsbTtsService_nativeGetAvailableLanguages(
         env, thiz, handle);
+}
+
+/* ------------------------------------------------------------------ */
+/* Generic Data Query API (ABI v5+)                                   */
+/* ------------------------------------------------------------------ */
+
+JNIEXPORT jint JNICALL
+Java_com_tgspeechbox_tts_TgsbTtsService_nativeGetDataCount(
+    JNIEnv *env, jobject thiz, jlong handle, jint domain, jstring langTag
+) {
+    (void)thiz;
+    TgsbEngine *engine = (TgsbEngine *)(intptr_t)handle;
+    if (!engine || !engine->frontend || !langTag) return -1;
+
+    const char *tag = env->GetStringUTFChars(langTag, NULL);
+    if (!tag) return -1;
+
+    int count = nvspFrontend_getDataCount(engine->frontend, (int)domain, tag);
+    env->ReleaseStringUTFChars(langTag, tag);
+    return (jint)count;
+}
+
+JNIEXPORT jstring JNICALL
+Java_com_tgspeechbox_tts_TgsbTtsService_nativeQueryData(
+    JNIEnv *env, jobject thiz, jlong handle,
+    jint domain, jstring langTag, jint offset, jint limit
+) {
+    (void)thiz;
+    TgsbEngine *engine = (TgsbEngine *)(intptr_t)handle;
+    if (!engine || !engine->frontend || !langTag) return NULL;
+
+    const char *tag = env->GetStringUTFChars(langTag, NULL);
+    if (!tag) return NULL;
+
+    char *json = nvspFrontend_queryData(engine->frontend, (int)domain, tag,
+                                        (int)offset, (int)limit);
+    env->ReleaseStringUTFChars(langTag, tag);
+    if (!json) return NULL;
+
+    jstring result = env->NewStringUTF(json);
+    nvspFrontend_freeString(json);
+    return result;
+}
+
+JNIEXPORT jint JNICALL
+Java_com_tgspeechbox_tts_TgsbTtsService_nativeSetData(
+    JNIEnv *env, jobject thiz, jlong handle,
+    jint domain, jstring langTag, jstring key, jstring value
+) {
+    (void)thiz;
+    TgsbEngine *engine = (TgsbEngine *)(intptr_t)handle;
+    if (!engine || !engine->frontend || !langTag || !key) return 0;
+
+    const char *tag = env->GetStringUTFChars(langTag, NULL);
+    const char *k = env->GetStringUTFChars(key, NULL);
+    const char *v = value ? env->GetStringUTFChars(value, NULL) : "";
+    if (!tag || !k) {
+        if (tag) env->ReleaseStringUTFChars(langTag, tag);
+        if (k) env->ReleaseStringUTFChars(key, k);
+        if (value && v) env->ReleaseStringUTFChars(value, v);
+        return 0;
+    }
+
+    int ok = nvspFrontend_setData(engine->frontend, (int)domain, tag, k, v);
+
+    env->ReleaseStringUTFChars(langTag, tag);
+    env->ReleaseStringUTFChars(key, k);
+    if (value && v) env->ReleaseStringUTFChars(value, v);
+    return (jint)ok;
+}
+
+/* SpeakEngine delegates for data query API */
+
+JNIEXPORT jint JNICALL
+Java_com_tgspeechbox_tts_TgsbSpeakEngine_nativeGetDataCount(
+    JNIEnv *env, jobject thiz, jlong handle, jint domain, jstring langTag
+) {
+    return Java_com_tgspeechbox_tts_TgsbTtsService_nativeGetDataCount(
+        env, thiz, handle, domain, langTag);
+}
+
+JNIEXPORT jstring JNICALL
+Java_com_tgspeechbox_tts_TgsbSpeakEngine_nativeQueryData(
+    JNIEnv *env, jobject thiz, jlong handle,
+    jint domain, jstring langTag, jint offset, jint limit
+) {
+    return Java_com_tgspeechbox_tts_TgsbTtsService_nativeQueryData(
+        env, thiz, handle, domain, langTag, offset, limit);
+}
+
+JNIEXPORT jint JNICALL
+Java_com_tgspeechbox_tts_TgsbSpeakEngine_nativeSetData(
+    JNIEnv *env, jobject thiz, jlong handle,
+    jint domain, jstring langTag, jstring key, jstring value
+) {
+    return Java_com_tgspeechbox_tts_TgsbTtsService_nativeSetData(
+        env, thiz, handle, domain, langTag, key, value);
+}
+
+JNIEXPORT jstring JNICALL
+Java_com_tgspeechbox_tts_TgsbTtsService_nativeExportData(
+    JNIEnv *env, jobject thiz, jlong handle,
+    jint domain, jstring langTag, jstring overridesJson
+) {
+    TgsbEngine *engine = (TgsbEngine *)(intptr_t)handle;
+    if (!engine || !engine->frontend) return nullptr;
+    const char *lang = langTag ? env->GetStringUTFChars(langTag, nullptr) : nullptr;
+    const char *json = overridesJson ? env->GetStringUTFChars(overridesJson, nullptr) : nullptr;
+    char *result = nvspFrontend_exportData(engine->frontend, domain, lang, json);
+    if (lang) env->ReleaseStringUTFChars(langTag, lang);
+    if (json) env->ReleaseStringUTFChars(overridesJson, json);
+    if (!result) return nullptr;
+    jstring jResult = env->NewStringUTF(result);
+    nvspFrontend_freeString(result);
+    return jResult;
+}
+
+JNIEXPORT jstring JNICALL
+Java_com_tgspeechbox_tts_TgsbSpeakEngine_nativeExportData(
+    JNIEnv *env, jobject thiz, jlong handle,
+    jint domain, jstring langTag, jstring overridesJson
+) {
+    return Java_com_tgspeechbox_tts_TgsbTtsService_nativeExportData(
+        env, thiz, handle, domain, langTag, overridesJson);
 }
 
 } /* extern "C" */

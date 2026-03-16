@@ -106,7 +106,15 @@ static bool isPenultimateAtWordEnd(const std::vector<Token>& tokens, size_t i) {
 // Get the perceptual floor for a token based on its phoneme class.
 // Returns 0.0 if no floor applies. Check order matches briefing priority.
 static double getClassFloor(const Token& t, const LanguagePack& lang) {
-  if (isVowel(t))      return lang.rateCompVowelFloorMs;
+  if (isVowel(t)) {
+    // Compound diphthongs (single token with endCf sweep) bypass collapse
+    // and need a higher floor than monophthongs for the formant sweep.
+    // Tied/collapsed pairs already have their own durationFloorMs.
+    if (lang.rateCompDiphthongFloorMs > 0.0
+        && t.def && t.def->hasEndCf1)
+      return lang.rateCompDiphthongFloorMs;
+    return lang.rateCompVowelFloorMs;
+  }
   if (isNasal(t))      return lang.rateCompNasalFloorMs;
   if (isLiquid(t))     return lang.rateCompLiquidFloorMs;
   if (isSemivowel(t))  return lang.rateCompSemivowelFloorMs;
@@ -208,6 +216,63 @@ bool runRateCompensation(
             + bonus;
         if (t.durationMs < boostedFloor) {
           t.durationMs = boostedFloor;
+        }
+      }
+    }
+  }
+
+  // ── Phase 1c: Pre-rhotic cluster vowel protection ──
+  // Vowels before /ɹ/ + consonant ("stairs" /ɛɹz/, "pairs" /ɛɹz/) lose
+  // their quality because the rhotic pulls formants down before the vowel
+  // has time to establish.  Word-final /ɹ/ alone is fine ("stair", "air")
+  // because the vowel gets utterance-final lengthening.
+  if (lang.rateCompPreRhoticClusterBonusMs > 0.0) {
+    for (size_t i = 0; i < tokens.size(); ++i) {
+      Token& t = tokens[i];
+      if (isSilenceOrMissing(t) || !isVowel(t)) continue;
+
+      // Look for: vowel → liquid (rhotic) → non-silence consonant
+      bool nextIsLiquid = false;
+      bool afterLiquidIsConsonant = false;
+      size_t liquidIdx = 0;
+      for (size_t j = i + 1; j < tokens.size(); ++j) {
+        const Token& n = tokens[j];
+        if (isSyntheticGap(n) || n.silence) continue;
+        if (isLiquid(n)) {
+          nextIsLiquid = true;
+          liquidIdx = j;
+        }
+        break;
+      }
+      if (nextIsLiquid) {
+        for (size_t j = liquidIdx + 1; j < tokens.size(); ++j) {
+          const Token& n = tokens[j];
+          if (isSyntheticGap(n) || n.silence) continue;
+          if (!isVowel(n)) afterLiquidIsConsonant = true;
+          break;
+        }
+      }
+
+      if (nextIsLiquid && afterLiquidIsConsonant) {
+        // Protect the vowel.
+        double bonus = scaleFloor(
+            lang.rateCompPreRhoticClusterBonusMs,
+            lang.rateCompFloorSpeedScale, ctx.speed);
+        double boostedFloor = scaleFloor(
+            lang.rateCompVowelFloorMs, lang.rateCompFloorSpeedScale, ctx.speed)
+            + bonus;
+        if (t.durationMs < boostedFloor) {
+          t.durationMs = boostedFloor;
+        }
+        // Also protect the liquid — the /ɹ/ needs time for the F3 glide
+        // that creates the r-colored quality.  Without this, "stairs"
+        // compresses both /ɛ/ AND /ɹ/, losing the "air" percept.
+        Token& liq = tokens[liquidIdx];
+        double liqFloor = scaleFloor(
+            lang.rateCompLiquidFloorMs + bonus * 0.5,
+            lang.rateCompFloorSpeedScale, ctx.speed);
+        if (liq.durationMs < liqFloor) {
+          liq.durationMs = liqFloor;
         }
       }
     }

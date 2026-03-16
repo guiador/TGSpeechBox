@@ -475,12 +475,13 @@ class LanguagePack:
     microprosody_max_total_delta_hz: float = 0.0
     rate_comp_enabled: bool = False
     rate_comp_vowel_floor_ms: float = 25.0
+    rate_comp_diphthong_floor_ms: float = 0.0
     rate_comp_fricative_floor_ms: float = 18.0
     rate_comp_stop_floor_ms: float = 4.0
     rate_comp_nasal_floor_ms: float = 18.0
     rate_comp_liquid_floor_ms: float = 15.0
     rate_comp_affricate_floor_ms: float = 12.0
-    rate_comp_semivowel_floor_ms: float = 10.0
+    rate_comp_semivowel_floor_ms: float = 30.0
     rate_comp_tap_floor_ms: float = 10.0
     rate_comp_trill_floor_ms: float = 12.0
     rate_comp_voiced_consonant_floor_ms: float = 10.0
@@ -490,6 +491,7 @@ class LanguagePack:
     rate_comp_cluster_max_ratio_shift: float = 0.4
     rate_comp_sonorant_context_bonus_ms: float = 8.0
     sonorant_context_amplitude_scale: float = 1.15
+    rate_comp_pre_rhotic_cluster_bonus_ms: float = 10.0
     rate_comp_schwa_reduction_enabled: bool = False
     rate_comp_schwa_threshold: float = 2.5
     rate_comp_schwa_scale: float = 0.8
@@ -1001,6 +1003,7 @@ def _merge_settings(lp: LanguagePack, s: dict):
     lp.nasal_min_duration_ms = gn("nasalMinDurationMs", lp.nasal_min_duration_ms)
     lp.rate_comp_enabled = gb("rateCompEnabled", lp.rate_comp_enabled)
     lp.rate_comp_vowel_floor_ms = gn("rateCompVowelFloorMs", lp.rate_comp_vowel_floor_ms)
+    lp.rate_comp_diphthong_floor_ms = gn("rateCompDiphthongFloorMs", lp.rate_comp_diphthong_floor_ms)
     lp.rate_comp_fricative_floor_ms = gn("rateCompFricativeFloorMs", lp.rate_comp_fricative_floor_ms)
     lp.rate_comp_stop_floor_ms = gn("rateCompStopFloorMs", lp.rate_comp_stop_floor_ms)
     lp.rate_comp_nasal_floor_ms = gn("rateCompNasalFloorMs", lp.rate_comp_nasal_floor_ms)
@@ -1015,6 +1018,7 @@ def _merge_settings(lp: LanguagePack, s: dict):
     lp.rate_comp_cluster_proportion_guard = gb("rateCompClusterProportionGuard", lp.rate_comp_cluster_proportion_guard)
     lp.rate_comp_cluster_max_ratio_shift = gn("rateCompClusterMaxRatioShift", lp.rate_comp_cluster_max_ratio_shift)
     lp.rate_comp_sonorant_context_bonus_ms = gn("rateCompSonorantContextBonusMs", lp.rate_comp_sonorant_context_bonus_ms)
+    lp.rate_comp_pre_rhotic_cluster_bonus_ms = gn("rateCompPreRhoticClusterBonusMs", lp.rate_comp_pre_rhotic_cluster_bonus_ms)
     lp.sonorant_context_amplitude_scale = gn("sonorantContextAmplitudeScale", lp.sonorant_context_amplitude_scale)
     lp.rate_comp_schwa_reduction_enabled = gb("rateCompSchwaReductionEnabled", lp.rate_comp_schwa_reduction_enabled)
     lp.rate_comp_schwa_threshold = gn("rateCompSchwaThreshold", lp.rate_comp_schwa_threshold)
@@ -1147,9 +1151,11 @@ def _merge_settings(lp: LanguagePack, s: dict):
         lp.rate_comp_cluster_proportion_guard = _gb_from(_rc, "clusterProportionGuard", lp.rate_comp_cluster_proportion_guard)
         lp.rate_comp_cluster_max_ratio_shift = _gn_from(_rc, "clusterMaxRatioShift", lp.rate_comp_cluster_max_ratio_shift)
         lp.rate_comp_sonorant_context_bonus_ms = _gn_from(_rc, "sonorantContextBonusMs", lp.rate_comp_sonorant_context_bonus_ms)
+        lp.rate_comp_pre_rhotic_cluster_bonus_ms = _gn_from(_rc, "preRhoticClusterBonusMs", lp.rate_comp_pre_rhotic_cluster_bonus_ms)
         if "minimumDurations" in _rc and isinstance(_rc["minimumDurations"], dict):
             _md = _rc["minimumDurations"]
             lp.rate_comp_vowel_floor_ms = _gn_from(_md, "vowelMs", lp.rate_comp_vowel_floor_ms)
+            lp.rate_comp_diphthong_floor_ms = _gn_from(_md, "diphthongMs", lp.rate_comp_diphthong_floor_ms)
             lp.rate_comp_fricative_floor_ms = _gn_from(_md, "fricativeMs", lp.rate_comp_fricative_floor_ms)
             lp.rate_comp_stop_floor_ms = _gn_from(_md, "stopMs", lp.rate_comp_stop_floor_ms)
             lp.rate_comp_nasal_floor_ms = _gn_from(_md, "nasalMs", lp.rate_comp_nasal_floor_ms)

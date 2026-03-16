@@ -71,7 +71,7 @@ class TgsbTtsService : TextToSpeechService() {
             LangDef("eng", "USA", "en-us", "en-us", Locale("en", "US")),
             LangDef("eng", "GBR", "en-gb", "en-gb", Locale("en", "GB")),
             LangDef("eng", "AUS", "en",    "en-au", Locale("en", "AU")),
-            LangDef("eng", "CAN", "en",    "en-ca", Locale("en", "CA")),
+            LangDef("eng", "CAN", "en-us", "en-ca", Locale("en", "CA")),
             LangDef("eng", "",    "en-us", "en-us", Locale("en", "US")), // fallback
 
             // Romance
@@ -170,6 +170,7 @@ class TgsbTtsService : TextToSpeechService() {
     /** Tracks what the native side actually has loaded.
      *  null = unknown/failed — forces re-try on next synthesis. */
     private var confirmedNativeLang: LangDef? = null
+    private var cachedOverridesVersion: Int = -1
     private lateinit var prefs: SharedPreferences
 
     // JNI declarations
@@ -219,6 +220,7 @@ class TgsbTtsService : TextToSpeechService() {
     private external fun nativeSetSampleRate(handle: Long, sampleRate: Int)
     private external fun nativeSetPauseMode(handle: Long, mode: Int)
     private external fun nativeApplySettingOverrides(handle: Long, yamlSnippet: String): Int
+    private external fun nativeSetData(handle: Long, domain: Int, langTag: String, key: String, value: String): Int
 
     override fun onCreate() {
         super.onCreate()
@@ -273,16 +275,50 @@ class TgsbTtsService : TextToSpeechService() {
         }
     }
 
-    /** Apply pack setting overrides saved by the editor. */
+    /** Apply pack setting overrides saved by the editor via per-key setData. */
     private fun applyStoredOverrides(tgsbLang: String) {
         if (nativeHandle == 0L) return
-        val json = prefs.getString("pack_overrides_$tgsbLang", null) ?: return
+        // Pack settings overrides (may not exist — that's OK).
+        val json = prefs.getString("pack_overrides_$tgsbLang", null)
+        if (json != null) {
+            val overrides = try {
+                val obj = org.json.JSONObject(json)
+                obj.keys().asSequence().associateWith { obj.getString(it) }
+            } catch (e: Exception) { emptyMap() }
+            for ((k, v) in overrides) {
+                nativeSetData(nativeHandle, TgsbSpeakEngine.DATA_SETTINGS, tgsbLang, k, v)
+            }
+        }
+        // Always apply dictionary overlays and exclusions.
+        applyDictOverrides(tgsbLang)
+        applyDictDisabled(tgsbLang)
+    }
+
+    /** Apply user dictionary overlays saved by the editor. */
+    private fun applyDictOverrides(tgsbLang: String) {
+        if (nativeHandle == 0L) return
+        val json = prefs.getString("dict_overrides_$tgsbLang", null)
+        if (json == null) return
         val overrides = try {
             val obj = org.json.JSONObject(json)
-            obj.keys().asSequence().map { "${it}: ${obj.getString(it)}" }.joinToString("\n")
+            obj.keys().asSequence().associateWith { obj.getString(it) }
         } catch (e: Exception) { return }
-        if (overrides.isEmpty()) return
-        nativeApplySettingOverrides(nativeHandle, overrides)
+        for ((k, v) in overrides) {
+            nativeSetData(nativeHandle, TgsbSpeakEngine.DATA_DICTIONARY, tgsbLang, k, v)
+        }
+    }
+
+    /** Apply dictionary type exclusions saved by the editor. */
+    private fun applyDictDisabled(tgsbLang: String) {
+        if (nativeHandle == 0L) return
+        val json = prefs.getString("dict_disabled_$tgsbLang", null) ?: return
+        val disabled = try {
+            val arr = org.json.JSONArray(json)
+            (0 until arr.length()).map { arr.getString(it) }
+        } catch (e: Exception) { return }
+        for (type in disabled) {
+            nativeSetData(nativeHandle, TgsbSpeakEngine.DATA_DICTIONARY, "config:$tgsbLang", type, "false")
+        }
     }
 
     /**
@@ -409,7 +445,7 @@ class TgsbTtsService : TextToSpeechService() {
     // ---- Asset extraction ----
 
     private fun extractAssets() {
-        val assetVersion = 6
+        val assetVersion = 13
         val marker = File(filesDir, ".assets_v$assetVersion")
         if (marker.exists()) return
 
@@ -577,7 +613,13 @@ class TgsbTtsService : TextToSpeechService() {
         // Ensure the native side has the right language loaded BEFORE
         // applying advanced settings — setPitchMode writes to h->pack
         // which requires a loaded language pack.
-        if (confirmedNativeLang != currentLang) {
+        // Check overrides version: if the editor changed overrides, force
+        // a full pack reload so cleared/changed overrides take effect.
+        val overridesVer = prefs.getInt("pack_overrides_version", 0)
+        val overridesChanged = overridesVer != cachedOverridesVersion
+        cachedOverridesVersion = overridesVer
+
+        if (confirmedNativeLang != currentLang || overridesChanged) {
             setNativeLanguage(currentLang)
         } else {
             applyStoredOverrides(currentLang.tgsbLang)

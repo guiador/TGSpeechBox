@@ -25,6 +25,16 @@ TgsbEngine *tgsb_create(const char *espeakDataPath,
 void tgsb_destroy(TgsbEngine *engine);
 
 /* --- Configuration --- */
+
+/* Set an override directory checked before the bundle for lang YAML files.
+   Call after tgsb_create, before tgsb_set_language. Pass NULL to clear. */
+void tgsb_set_override_directory(TgsbEngine *engine, const char *overrideDir);
+
+/* Export merged YAML (base + overrides) for a domain.
+   Returns malloc'd string — caller must free(). Returns NULL on error. */
+char *tgsb_export_data(TgsbEngine *engine, int domain,
+                       const char *langTag, const char *overridesJson);
+
 int tgsb_set_language(TgsbEngine *engine,
                       const char *espeakLang,
                       const char *tgsbLang);
@@ -105,14 +115,9 @@ char *tgsb_get_voice_profile_names(TgsbEngine *engine);
 /* --- Pack settings editor --- */
 
 /*
- * Get all effective pack settings as "key\tvalue\n" pairs.
- * Caller must free() the returned string.
- */
-char *tgsb_get_pack_settings(TgsbEngine *engine);
-
-/*
- * Apply setting overrides from a YAML snippet ("key: value\n...").
- * Returns 1 on success, 0 on failure.
+ * DEPRECATED: Use tgsb_set_data(engine, TGSB_DATA_SETTINGS, langTag, key, value)
+ * for per-key overrides instead. This YAML batch path is retained for
+ * backwards compatibility but all callers have been migrated.
  */
 int tgsb_apply_setting_overrides(TgsbEngine *engine, const char *yamlSnippet);
 
@@ -122,8 +127,37 @@ int tgsb_apply_setting_overrides(TgsbEngine *engine, const char *yamlSnippet);
  */
 char *tgsb_get_available_languages(TgsbEngine *engine);
 
-/* Free a string returned by tgsb_get_pack_settings or tgsb_get_available_languages. */
+/* Free a string returned by tgsb_query_data or tgsb_get_available_languages. */
 void tgsb_free_string(char *str);
+
+/* --- Phoneme preview --- */
+
+/*
+ * Preview a single phoneme in isolation (bypasses eSpeak + pipeline).
+ * Queues DSP frames directly — call tgsb_pull_audio() afterwards.
+ * Returns 1 on success, 0 if phoneme not found.
+ */
+int tgsb_preview_phoneme(TgsbEngine *engine, const char *phonemeKey,
+                         double pitchHz, double durationMs);
+
+/* --- Generic Data Query API (ABI v5+) --- */
+
+/* Domain constants (match NVSP_DATA_* in nvspFrontend.h). */
+#define TGSB_DATA_SETTINGS   0
+#define TGSB_DATA_PHONEMES   1
+#define TGSB_DATA_DICTIONARY 2
+
+/* Count records in a domain for a language. Returns -1 on error. */
+int tgsb_get_data_count(TgsbEngine *engine, int domain, const char *langTag);
+
+/* Query a page of typed records as a JSON array string.
+   Caller must free with tgsb_free_string(). Returns NULL on error. */
+char *tgsb_query_data(TgsbEngine *engine, int domain, const char *langTag,
+                      int offset, int limit);
+
+/* Set a single value in a domain. Returns 1 on success, 0 on failure. */
+int tgsb_set_data(TgsbEngine *engine, int domain, const char *langTag,
+                  const char *key, const char *value);
 
 #ifdef __cplusplus
 }

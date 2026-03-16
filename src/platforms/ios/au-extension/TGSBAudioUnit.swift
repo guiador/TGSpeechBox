@@ -40,6 +40,7 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
     private var cachedEspeakLang: String = ""
     private var cachedTgsbLang: String = ""
     private var cachedSettingsVersion: Int = -1
+    private var requestCount: Int = 0
 
     // Reusable synthesis buffers to avoid per-utterance allocation
     private var pullChunk = [Int16](repeating: 0, count: 4096)
@@ -53,7 +54,7 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
     private static let languageMap: [(bcp47: String, espeak: String, tgsb: String)] = [
         ("en-US", "en-us", "en-us"),
         ("en-GB", "en-gb", "en-gb"),
-        ("en-CA", "en-us", "en-us"),
+        ("en-CA", "en-us", "en-ca"),
         ("en-AU", "en",    "en-au"),
         ("fr-FR", "fr",    "fr"),
         ("fr-CA", "fr",    "fr"),
@@ -138,6 +139,12 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
         guard fm.fileExists(atPath: espeakDataPath),
               fm.fileExists(atPath: packDir) else { return }
         engine = tgsb_create(espeakDataPath, packDir, Int32(dspRate))
+
+        // Override directory: app group container for user-imported packs/dicts.
+        if let containerURL = FileManager.default
+            .containerURL(forSecurityApplicationGroupIdentifier: "group.com.tgspeechbox.app") {
+            tgsb_set_override_directory(engine, containerURL.path)
+        }
     }
 
     deinit {
@@ -216,22 +223,31 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
     public override func synthesizeSpeechRequest(
         _ speechRequest: AVSpeechSynthesisProviderRequest
     ) {
-        let plainText = extractPlainText(from: speechRequest.ssmlRepresentation)
-        guard !plainText.isEmpty else {
-            // Empty text — provide a single silent frame so the render
-            // block can signal offlineUnitRenderAction_Complete and
-            // VoiceOver proceeds to the next utterance (e.g. hint).
-            outputMutex.wait()
-            output = [0]
-            outputOffset = 0
-            outputMutex.signal()
-            return
-        }
-
         // Extract voice name and language from identifier
         let parts = speechRequest.voice.identifier.split(separator: ".")
         let voiceName = parts.count >= 3 ? String(parts[2]) : "adam"
         let bcp47 = parts.count >= 4 ? String(parts[3]) : "en-us"
+
+        requestCount += 1
+        var plainText = extractPlainText(from: speechRequest.ssmlRepresentation)
+        if plainText.isEmpty {
+            if requestCount == 1 {
+                // First request with empty text — likely a voice preview
+                // from VoiceOver Settings. Speak a demo so the user can
+                // hear the voice. Subsequent empty requests (hints, spacers)
+                // get a silent frame instead.
+                plainText = "Hello, this is \(voiceName.capitalized)."
+            } else {
+                // Empty text during normal use — provide a single silent
+                // frame so the render block can signal completion and
+                // VoiceOver proceeds to the next utterance (e.g. hint).
+                outputMutex.wait()
+                output = [0]
+                outputOffset = 0
+                outputMutex.signal()
+                return
+            }
+        }
 
         // Force cross-process sync so AU extension sees host app's latest writes.
         // Without this, VoiceOver restart can leave the extension with stale/empty
@@ -303,7 +319,14 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
         // Re-apply engine settings after voice/language identity is set.
         // Language change reloads the pack which resets pitch mode, so
         // settings must also be re-applied after a language change.
-        if curVersion != cachedSettingsVersion || voiceChanged || languageChanged {
+        // Settings version bump also forces a language reload to clear
+        // stale pack overrides from the in-memory pack.
+        let settingsChanged = curVersion != cachedSettingsVersion
+        if settingsChanged && !languageChanged {
+            // Force pack reload to wipe stale in-memory overrides.
+            tgsb_set_language(eng, espeakLang, tgsbLang)
+        }
+        if settingsChanged || voiceChanged || languageChanged {
             let newRate = Self.loadDspRate()
             if newRate != dspRate {
                 tgsb_set_sample_rate(eng, Int32(newRate))
@@ -313,6 +336,8 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
             cachedSettingsVersion = curVersion
         }
         applyStoredOverrides(tgsbLang)
+        applyDictOverrides(tgsbLang)
+        applyDictDisabled(tgsbLang)
 
         tgsb_queue_text(eng, plainText, speed, pitch)
 
@@ -497,8 +522,35 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
               let obj = try? JSONSerialization.jsonObject(with: data) as? [String: String],
               !obj.isEmpty
         else { return }
-        let yaml = obj.map { "\($0.key): \($0.value)" }.joined(separator: "\n")
-        _ = tgsb_apply_setting_overrides(eng, yaml)
+        for (k, v) in obj {
+            tgsb_set_data(eng, TGSB_DATA_SETTINGS, tgsbLang, k, v)
+        }
+    }
+
+    private func applyDictOverrides(_ tgsbLang: String) {
+        guard let eng = engine else { return }
+        let d = UserDefaults(suiteName: "group.com.tgspeechbox.app")
+        guard let json = d?.string(forKey: "dict_overrides_\(tgsbLang)"),
+              let data = json.data(using: .utf8),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: String],
+              !obj.isEmpty
+        else { return }
+        for (k, v) in obj {
+            tgsb_set_data(eng, TGSB_DATA_DICTIONARY, tgsbLang, k, v)
+        }
+    }
+
+    private func applyDictDisabled(_ tgsbLang: String) {
+        guard let eng = engine else { return }
+        let d = UserDefaults(suiteName: "group.com.tgspeechbox.app")
+        guard let json = d?.string(forKey: "dict_disabled_\(tgsbLang)"),
+              let data = json.data(using: .utf8),
+              let arr = try? JSONSerialization.jsonObject(with: data) as? [String],
+              !arr.isEmpty
+        else { return }
+        for type in arr {
+            tgsb_set_data(eng, TGSB_DATA_DICTIONARY, "config:\(tgsbLang)", type, "false")
+        }
     }
 
     // MARK: - Resampling

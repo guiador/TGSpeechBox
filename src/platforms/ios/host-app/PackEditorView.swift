@@ -1,32 +1,75 @@
 /*
- * PackEditorView — Pack settings editor tab.
+ * PackEditorView — Pack settings and phoneme editor.
  *
- * Lets users view and override language pack settings.
+ * Tabbed interface: Packs (language pack settings) and Phonemes
+ * (acoustic parameters with live preview).
  * Changes stored in App Group UserDefaults, re-applied after setLanguage.
  *
  * License: GPL-3.0
  */
 
 import SwiftUI
+import UniformTypeIdentifiers
+
+/// Navigation wrapper types so Packs and Phonemes don't clash in a single NavigationStack.
+struct PackLangNav: Hashable { let lang: String }
+struct PhonemeNav: Hashable { let key: String }
 
 struct PackEditorView: View {
     @ObservedObject var engine: TgsbEngine
     @Binding var engineStarted: Bool
-    @State private var selectedLang: String?
+    @SceneStorage("editorSelectedTab3") private var selectedTab = 0
+    @State private var langFilter: String = ""
 
     var body: some View {
-        if let lang = selectedLang {
-            PackSettingsListView(
-                engine: engine,
-                langTag: lang,
-                onBack: { selectedLang = nil }
-            )
-        } else {
-            LanguageListView(
-                engine: engine,
-                engineStarted: $engineStarted,
-                onLanguageSelected: { selectedLang = $0 }
-            )
+        NavigationStack {
+            VStack(spacing: 0) {
+                Picker("", selection: $selectedTab) {
+                    Text("Packs").tag(0)
+                    Text("Phonemes").tag(1)
+                    Text("Pronounce").tag(2)
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal)
+                .padding(.top, 8)
+
+                switch selectedTab {
+                case 0:
+                    LanguageListView(
+                        engine: engine,
+                        engineStarted: $engineStarted
+                    )
+                case 2:
+                    DictionaryEditorView(
+                        engine: engine,
+                        engineStarted: $engineStarted
+                    )
+                default:
+                    PhonemeListView(
+                        engine: engine,
+                        engineStarted: $engineStarted,
+                        langFilter: $langFilter
+                    )
+                }
+            }
+            .navigationDestination(for: PackLangNav.self) { nav in
+                PackSettingsListView(
+                    engine: engine,
+                    langTag: nav.lang
+                )
+#if os(iOS)
+                .toolbar(.hidden, for: .tabBar)
+#endif
+            }
+            .navigationDestination(for: PhonemeNav.self) { nav in
+                PhonemeDetailView(
+                    engine: engine,
+                    phonemeKey: nav.key
+                )
+#if os(iOS)
+                .toolbar(.hidden, for: .tabBar)
+#endif
+            }
         }
     }
 }
@@ -36,7 +79,6 @@ struct PackEditorView: View {
 private struct LanguageListView: View {
     @ObservedObject var engine: TgsbEngine
     @Binding var engineStarted: Bool
-    var onLanguageSelected: (String) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -54,7 +96,7 @@ private struct LanguageListView: View {
                     .padding(.top, 20)
             } else {
                 List(engine.editorLanguages, id: \.self) { lang in
-                    Button(action: { onLanguageSelected(lang) }) {
+                    NavigationLink(value: PackLangNav(lang: lang)) {
                         Text(lang)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
@@ -81,32 +123,41 @@ private struct LanguageListView: View {
 private struct PackSettingsListView: View {
     @ObservedObject var engine: TgsbEngine
     let langTag: String
-    var onBack: () -> Void
+    @Environment(\.dismiss) private var dismiss
 
     @State private var editingKey: String?
     @State private var editingValue: String = ""
     @State private var showResetAll = false
-    @AccessibilityFocusState private var headerFocused: Bool
+    @State private var showImportPicker = false
+    @State private var showExportPicker = false
+    @State private var exportFileURL: URL?
+    @State private var showImportConfirm = false
+    @State private var pendingImportURL: URL?
+    @State private var statusMessage: String?
 
     var body: some View {
         VStack(spacing: 0) {
             // Header
             HStack {
-                Button(action: onBack) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "chevron.left")
-                        Text("Back")
-                    }
-                }
-                .accessibilityFocused($headerFocused)
-                Spacer()
-                Text(langTag)
-                    .font(.headline)
-                    .accessibilityAddTraits(.isHeader)
                 Spacer()
                 Button("Reset All") { showResetAll = true }
             }
-            .padding()
+            .padding(.horizontal)
+            .padding(.top, 8)
+
+            // Import / Export actions
+            HStack(spacing: 12) {
+                Button("Import Settings") { showImportPicker = true }
+                    .buttonStyle(.bordered)
+                Button("Export") { showExportPicker = true }
+                    .buttonStyle(.bordered)
+                if let url = exportFileURL {
+                    ShareLink("Share", item: url)
+                        .buttonStyle(.bordered)
+                }
+            }
+            .padding(.horizontal)
+            .padding(.bottom, 8)
 
             if engine.editorSettings.isEmpty {
                 Text("No settings found")
@@ -137,15 +188,18 @@ private struct PackSettingsListView: View {
         }
         .onAppear {
             engine.loadEditorSettings(langTag: langTag)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                headerFocused = true
-            }
+            exportFileURL = engine.exportPackToTempFile(langTag: langTag)
         }
+        .navigationTitle(langTag)
         .alert("Edit Value", isPresented: Binding(
             get: { editingKey != nil },
             set: { if !$0 { editingKey = nil } }
         )) {
+            let isNumeric = engine.editorSettings.first(where: { $0.key == editingKey })?.type == .number
             TextField("Value", text: $editingValue)
+#if os(iOS)
+                .keyboardType(isNumeric ? .decimalPad : .default)
+#endif
             Button("OK") {
                 if let key = editingKey {
                     engine.setEditorOverride(langTag: langTag,
@@ -165,6 +219,47 @@ private struct PackSettingsListView: View {
         } message: {
             Text("Remove all custom overrides for this language?")
         }
+        .fileImporter(
+            isPresented: $showImportPicker,
+            allowedContentTypes: [.yaml, .plainText, .data],
+            allowsMultipleSelection: false
+        ) { result in
+            if case .success(let urls) = result, let url = urls.first {
+                pendingImportURL = url
+                showImportConfirm = true
+            }
+        }
+        .fileExporter(
+            isPresented: $showExportPicker,
+            document: PackYamlDocument(engine: engine, langTag: langTag),
+            contentType: .yaml,
+            defaultFilename: "\(langTag).yaml"
+        ) { result in
+            if case .success = result {
+                statusMessage = "Exported \(langTag).yaml"
+            } else if case .failure(let error) = result {
+                statusMessage = "Export failed: \(error.localizedDescription)"
+            }
+        }
+        .alert("Import Settings", isPresented: $showImportConfirm) {
+            Button("Import") {
+                if let url = pendingImportURL {
+                    statusMessage = engine.importPackYaml(langTag: langTag, from: url)
+                }
+                pendingImportURL = nil
+            }
+            Button("Cancel", role: .cancel) { pendingImportURL = nil }
+        } message: {
+            Text("Import pack settings for \(langTag) from the selected file? This imports settings only, not the full language pack.")
+        }
+        .alert("Result", isPresented: Binding(
+            get: { statusMessage != nil },
+            set: { if !$0 { statusMessage = nil } }
+        )) {
+            Button("OK") { statusMessage = nil }
+        } message: {
+            Text(statusMessage ?? "")
+        }
     }
 }
 
@@ -175,6 +270,8 @@ private struct SettingRowView: View {
     var onToggle: (String) -> Void
     var onEdit: () -> Void
     var onReset: () -> Void
+
+    private var hasOptions: Bool { setting.options != nil && !setting.options!.isEmpty }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -199,21 +296,37 @@ private struct SettingRowView: View {
                     ))
                     .labelsHidden()
                 default:
-                    Text(setting.value)
-                        .foregroundColor(.secondary)
-                        .font(.body)
+                    if hasOptions {
+                        Picker(setting.displayName, selection: Binding(
+                            get: { setting.value },
+                            set: { onToggle($0) }
+                        )) {
+                            ForEach(setting.options!, id: \.self) { option in
+                                Text(option).tag(option)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                        .labelsHidden()
+                    } else {
+                        Text(setting.value)
+                            .foregroundColor(.secondary)
+                            .font(.body)
+                    }
                 }
             }
             .contentShape(Rectangle())
             .onTapGesture {
-                if setting.type != .bool_ {
+                if setting.type != .bool_ && !hasOptions {
                     onEdit()
                 }
             }
             .accessibilityElement(children: .combine)
-            .accessibilityLabel("\(setting.displayName), \(setting.value)\(setting.isOverridden ? ", customized" : "")")
-            .accessibilityAddTraits(setting.type != .bool_ ? .isButton : [])
-            .accessibilityHint(setting.type != .bool_ ? "Double tap to edit" : "")
+            .accessibilityLabel({
+                let valLabel = setting.type == .bool_ ? (setting.value == "true" ? "on" : "off") : setting.value
+                return "\(setting.displayName), \(valLabel)\(setting.isOverridden ? ", customized" : "")"
+            }())
+            .accessibilityAddTraits(setting.type != .bool_ && !hasOptions ? .isButton : [])
+            .accessibilityHint(setting.type != .bool_ && !hasOptions ? "Double tap to edit" : "")
 
             if setting.isOverridden {
                 Button("Reset \(setting.displayName)") {
@@ -223,5 +336,31 @@ private struct SettingRowView: View {
             }
         }
         .padding(.vertical, 4)
+    }
+}
+
+
+// MARK: - File Document for Export
+
+struct PackYamlDocument: FileDocument {
+    static var readableContentTypes: [UTType] { [.yaml, .plainText] }
+
+    let content: String
+
+    @MainActor init(engine: TgsbEngine, langTag: String) {
+        content = engine.packYamlContent(langTag: langTag) ?? ""
+    }
+
+    init(configuration: ReadConfiguration) throws {
+        if let data = configuration.file.regularFileContents {
+            content = String(data: data, encoding: .utf8) ?? ""
+        } else {
+            content = ""
+        }
+    }
+
+    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
+        let data = content.data(using: .utf8) ?? Data()
+        return FileWrapper(regularFileWithContents: data)
     }
 }
