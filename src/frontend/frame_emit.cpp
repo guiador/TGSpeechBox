@@ -356,24 +356,30 @@ static void generateAcousticEvents(
 
     double userSharpness = (frameExDefaults.sharpness > 0.0) ? frameExDefaults.sharpness : 1.0;
     frameEx.sharpness = clampSharpness(phonemeSharpness * userSharpness);    
-    // Formant end targets: token-level (from coarticulation) takes priority,
-    // then phoneme-level, otherwise NAN (no ramping).
-    // This enables Klatt-style within-frame formant ramping for CV transitions.
-    frameEx.endCf1 = t.hasEndCf1 ? t.endCf1 : 
-                     (t.def && t.def->hasEndCf1) ? t.def->endCf1 : NAN;
-    frameEx.endCf2 = t.hasEndCf2 ? t.endCf2 : 
-                     (t.def && t.def->hasEndCf2) ? t.def->endCf2 : NAN;
-    frameEx.endCf3 = t.hasEndCf3 ? t.endCf3 : 
-                     (t.def && t.def->hasEndCf3) ? t.def->endCf3 : NAN;
-    frameEx.endPf1 = t.hasEndPf1 ? t.endPf1 :   // Token-level parallel (diphthong/nasal)
-                     t.hasEndCf1 ? t.endCf1 :    // Fall back to cascade (coarticulation)
-                     (t.def && t.def->hasEndPf1) ? t.def->endPf1 : NAN;
-    frameEx.endPf2 = t.hasEndPf2 ? t.endPf2 :
-                     t.hasEndCf2 ? t.endCf2 :
-                     (t.def && t.def->hasEndPf2) ? t.def->endPf2 : NAN;
-    frameEx.endPf3 = t.hasEndPf3 ? t.endPf3 :
-                     t.hasEndCf3 ? t.endCf3 :
-                     (t.def && t.def->hasEndPf3) ? t.def->endPf3 : NAN;
+    // Formant end targets: phoneme-level (deliberate sweep) takes priority,
+    // then token-level (from coarticulation), otherwise NAN (no ramping).
+    // Phoneme-level endCf encodes within-segment formant movement (e.g.
+    // diphthongized GOOSE).  Coarticulation endCf blends toward the next
+    // consonant's locus — useful default but must not override intentional
+    // phoneme sweeps.
+    frameEx.endCf1 = (t.def && t.def->hasEndCf1) ? t.def->endCf1 :
+                     t.hasEndCf1 ? t.endCf1 : NAN;
+    frameEx.endCf2 = (t.def && t.def->hasEndCf2) ? t.def->endCf2 :
+                     t.hasEndCf2 ? t.endCf2 : NAN;
+    frameEx.endCf3 = (t.def && t.def->hasEndCf3) ? t.def->endCf3 :
+                     t.hasEndCf3 ? t.endCf3 : NAN;
+    frameEx.endPf1 = (t.def && t.def->hasEndPf1) ? t.def->endPf1 :
+                     t.hasEndPf1 ? t.endPf1 :
+                     (t.def && t.def->hasEndCf1) ? t.def->endCf1 :
+                     t.hasEndCf1 ? t.endCf1 : NAN;
+    frameEx.endPf2 = (t.def && t.def->hasEndPf2) ? t.def->endPf2 :
+                     t.hasEndPf2 ? t.endPf2 :
+                     (t.def && t.def->hasEndCf2) ? t.def->endCf2 :
+                     t.hasEndCf2 ? t.endCf2 : NAN;
+    frameEx.endPf3 = (t.def && t.def->hasEndPf3) ? t.def->endPf3 :
+                     t.hasEndPf3 ? t.endPf3 :
+                     (t.def && t.def->hasEndCf3) ? t.def->endCf3 :
+                     t.hasEndCf3 ? t.endCf3 : NAN;
 
     // Per-parameter transition speed scales (set by boundary_smoothing pass).
     frameEx.transF1Scale = t.transF1Scale;
@@ -1119,10 +1125,20 @@ static void generateAcousticEvents(
       // Phase 3: recovery — formants blend AWAY from tap back toward
       // neutral.  Uses 50/50 blend; the DSP crossfade to the next token
       // completes the trajectory to the following vowel.
+      //
+      // Exception: utterance-final taps (e.g. Spanish "amor") skip the
+      // vowel blend — there's no following vowel to transition toward.
+      // Instead, keep tap formants and decay amplitude so the frication
+      // burst carries the release cue.  Without this, singleWordFinalHold
+      // sustains the vowel-blended recovery for ~35ms, sounding lateral.
       {
+        const bool isLastToken = (&t == &tokens.back());
         double seg[kFrameFieldCount];
         std::memcpy(seg, base, sizeof(seg));
-        if (trajectoryState->hasPrevBase) {
+        if (isLastToken) {
+          // Utterance-final: decay voicing, keep tap formants + frication.
+          seg[vaIdx] = notchAmp * 0.3;
+        } else if (trajectoryState->hasPrevBase) {
           // Blend back toward vowel space — abrupt exit from tap.
           const double prevW = 0.65;
           const double tapW  = 0.35;

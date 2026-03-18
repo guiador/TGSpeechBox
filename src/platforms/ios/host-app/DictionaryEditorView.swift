@@ -39,12 +39,10 @@ struct DictionaryEditorView: View {
     @State private var showExcludeSheet = false
     @State private var statusMessage: String?
 
-    // Export state
-    @State private var showExportAllPicker = false
-    @State private var showExportChangedPicker = false
+    // Export state — single fileExporter to avoid SwiftUI dual-modifier conflict
+    @State private var showExportPicker = false
+    @State private var exportUserOnly = false
     @State private var showImportPicker = false
-    @State private var exportAllFileURL: URL?
-    @State private var exportChangedFileURL: URL?
 
     private var typePickerLabel: String {
         if selectedType.isEmpty { return "Select type" }
@@ -128,8 +126,8 @@ struct DictionaryEditorView: View {
                     // Export all (pronunciation + character)
                     if selectedType == "pronounce" || selectedType == "character" {
                         Button(action: {
-                            exportAllFileURL = exportDictToTempFile(userOnly: false)
-                            showExportAllPicker = true
+                            exportUserOnly = false
+                            showExportPicker = true
                         }) {
                             Label("Export all", systemImage: "square.and.arrow.up")
                         }
@@ -137,8 +135,8 @@ struct DictionaryEditorView: View {
 
                     // Export changed (all types)
                     Button(action: {
-                        exportChangedFileURL = exportDictToTempFile(userOnly: true)
-                        showExportChangedPicker = true
+                        exportUserOnly = true
+                        showExportPicker = true
                     }) {
                         Label("Export changed", systemImage: "square.and.arrow.up")
                     }
@@ -193,6 +191,11 @@ struct DictionaryEditorView: View {
                         .font(.body)
                 }
                 .accessibilityLabel("More options")
+#if os(iOS)
+                .accessibilityElement()
+                .accessibilityAddTraits(.isButton)
+                .accessibilityHint("Double tap to show actions")
+#endif
             }
             .padding(.horizontal)
             .padding(.vertical, 4)
@@ -234,7 +237,10 @@ struct DictionaryEditorView: View {
                             },
                             onDelete: {
                                 engine.deleteDictEntry(fromText: entry.fromText)
-                            }
+                            },
+                            onPreview: (selectedType == "pronounce" || selectedType == "character") ? {
+                                engine.previewDictEntry(from: entry.fromText, to: entry.toText)
+                            } : nil
                         )
                     }
 
@@ -314,10 +320,14 @@ struct DictionaryEditorView: View {
         .sheet(isPresented: $showAddSheet) {
             DictEntrySheet(
                 title: "Add Entry",
-                dictType: selectedType
-            ) { from, to, cat in
-                engine.addDictEntry(fromText: from, toText: to, category: cat)
-            }
+                dictType: selectedType,
+                onSave: { from, to, cat in
+                    engine.addDictEntry(fromText: from, toText: to, category: cat)
+                },
+                onPreview: (selectedType == "pronounce" || selectedType == "character") ? { from, to in
+                    engine.previewDictEntry(from: from, to: to)
+                } : nil
+            )
         }
         .sheet(item: $editingEntry) { entry in
             DictEntrySheet(
@@ -326,13 +336,17 @@ struct DictionaryEditorView: View {
                 initialFrom: entry.fromText,
                 initialTo: entry.toText,
                 initialCategory: entry.category,
-                isEdit: true
-            ) { from, to, cat in
-                if from != entry.fromText {
-                    engine.deleteDictEntry(fromText: entry.fromText)
-                }
-                engine.addDictEntry(fromText: from, toText: to, category: cat)
-            }
+                isEdit: true,
+                onSave: { from, to, cat in
+                    if from != entry.fromText {
+                        engine.deleteDictEntry(fromText: entry.fromText)
+                    }
+                    engine.addDictEntry(fromText: from, toText: to, category: cat)
+                },
+                onPreview: (selectedType == "pronounce" || selectedType == "character") ? { from, to in
+                    engine.previewDictEntry(from: from, to: to)
+                } : nil
+            )
         }
         .alert("Remove changed entries", isPresented: $showRemoveConfirm) {
             Button("Remove", role: .destructive) {
@@ -354,25 +368,15 @@ struct DictionaryEditorView: View {
             ExcludeDictionariesSheet(engine: engine, langTag: langFilter)
         }
         .fileExporter(
-            isPresented: $showExportAllPicker,
-            document: DictTsvDocument(entries: engine.dictionaryEntries, userOnly: false),
+            isPresented: $showExportPicker,
+            document: DictTsvDocument(entries: engine.dictionaryEntries, userOnly: exportUserOnly),
             contentType: .tabSeparatedText,
-            defaultFilename: "\(selectedType)_\(langFilter).tsv"
+            defaultFilename: exportUserOnly
+                ? "\(selectedType)_\(langFilter)_changed.tsv"
+                : "\(selectedType)_\(langFilter).tsv"
         ) { result in
             if case .success = result {
-                statusMessage = "Exported all entries"
-            } else if case .failure(let error) = result {
-                statusMessage = "Export failed: \(error.localizedDescription)"
-            }
-        }
-        .fileExporter(
-            isPresented: $showExportChangedPicker,
-            document: DictTsvDocument(entries: engine.dictionaryEntries, userOnly: true),
-            contentType: .tabSeparatedText,
-            defaultFilename: "\(selectedType)_\(langFilter)_changed.tsv"
-        ) { result in
-            if case .success = result {
-                statusMessage = "Exported changed entries"
+                statusMessage = exportUserOnly ? "Exported changed entries" : "Exported all entries"
             } else if case .failure(let error) = result {
                 statusMessage = "Export failed: \(error.localizedDescription)"
             }
@@ -468,6 +472,7 @@ private struct DictEntryRow: View {
     let onEdit: () -> Void
     let onMask: () -> Void
     let onDelete: () -> Void
+    var onPreview: (() -> Void)? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -501,6 +506,12 @@ private struct DictEntryRow: View {
                     .tint(entry.masked ? .green : .orange)
             }
         }
+        .swipeActions(edge: .leading) {
+            if let onPreview = onPreview {
+                Button("Preview") { onPreview() }
+                    .tint(.blue)
+            }
+        }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(
             "\(entry.fromText) maps to \(entry.toText), " +
@@ -525,12 +536,14 @@ private struct DictEntrySheet: View {
     @State var caseSensitive: Bool = false
     var isEdit: Bool = false
     let onSave: (String, String, String) -> Void
+    var onPreview: ((String, String) -> Void)? = nil
     @Environment(\.dismiss) private var dismiss
 
     init(title: String, dictType: String, initialFrom: String = "",
          initialTo: String = "", initialCategory: String = "",
          isEdit: Bool = false,
-         onSave: @escaping (String, String, String) -> Void) {
+         onSave: @escaping (String, String, String) -> Void,
+         onPreview: ((String, String) -> Void)? = nil) {
         self.title = title
         self.dictType = dictType
         self._fromText = State(initialValue: initialFrom)
@@ -539,6 +552,7 @@ private struct DictEntrySheet: View {
         self._caseSensitive = State(initialValue: initialFrom != initialFrom.lowercased())
         self.isEdit = isEdit
         self.onSave = onSave
+        self.onPreview = onPreview
     }
 
     private var toLabel: String {
@@ -573,6 +587,9 @@ private struct DictEntrySheet: View {
                 Section(fromLabel) {
                     TextField(fromLabel, text: $fromText)
                         .autocorrectionDisabled()
+                        #if os(iOS)
+                        .textInputAutocapitalization(.never)
+                        #endif
                         .accessibilityLabel(fromLabel)
                         .onChange(of: fromText) { newValue in
                             if dictType == "character" {
@@ -584,6 +601,9 @@ private struct DictEntrySheet: View {
                 Section(toLabel) {
                     TextField(toLabel, text: $toText)
                         .autocorrectionDisabled()
+                        #if os(iOS)
+                        .textInputAutocapitalization(.never)
+                        #endif
                     if let helper = toHelperText {
                         Text(helper)
                             .font(.caption)
@@ -594,6 +614,9 @@ private struct DictEntrySheet: View {
                     Section("Category (optional)") {
                         TextField("Category", text: $category)
                             .autocorrectionDisabled()
+                            #if os(iOS)
+                            .textInputAutocapitalization(.never)
+                            #endif
                     }
                 }
                 if dictType == "pronounce" {
@@ -609,6 +632,21 @@ private struct DictEntrySheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
+                }
+                if let onPreview = onPreview {
+                    ToolbarItem(placement: .bottomBar) {
+                        Button("Preview") {
+                            let word = fromText.trimmingCharacters(in: .whitespaces)
+                            let replacement = toText.trimmingCharacters(in: .whitespaces)
+                            if !word.isEmpty && !replacement.isEmpty {
+                                onPreview(word, replacement)
+                            }
+                        }
+                        .disabled(
+                            fromText.trimmingCharacters(in: .whitespaces).isEmpty ||
+                            toText.trimmingCharacters(in: .whitespaces).isEmpty
+                        )
+                    }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {

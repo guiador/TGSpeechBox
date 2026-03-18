@@ -60,7 +60,12 @@ struct TgsbVoice: Identifiable, Hashable {
 @MainActor
 class TgsbEngine: ObservableObject {
     @Published var isSpeaking = false
-    @Published var selectedLanguage: TgsbLanguage
+    @Published var selectedLanguage: TgsbLanguage {
+        didSet {
+            UserDefaults(suiteName: kAppGroupId)?
+                .set(selectedLanguage.tgsbTag, forKey: "tgsb_speak_lang")
+        }
+    }
     @Published var selectedVoice: TgsbVoice
     @Published var speed: Double = 1.0
     @Published var pitch: Double = 110.0
@@ -106,7 +111,14 @@ class TgsbEngine: ObservableObject {
         self.voices = v
         self.selectedVoice = v.first ?? TgsbVoice(id: "adam",
                                                    displayName: "Adam")
-        self.selectedLanguage = kLanguages[0] // en-us
+        // Restore saved Speak-tab language, fall back to en-us.
+        if let savedTag = UserDefaults(suiteName: kAppGroupId)?
+                            .string(forKey: "tgsb_speak_lang"),
+           let match = kLanguages.first(where: { $0.tgsbTag == savedTag }) {
+            self.selectedLanguage = match
+        } else {
+            self.selectedLanguage = kLanguages[0] // en-us
+        }
     }
 
     func start() -> Bool {
@@ -1009,6 +1021,7 @@ class TgsbEngine: ObservableObject {
             d?.set(json, forKey: "phoneme_overrides")
         }
         d?.synchronize()
+        bumpOverridesVersion()
     }
 
     // MARK: - Dictionary editor
@@ -1260,6 +1273,11 @@ class TgsbEngine: ObservableObject {
         }
         d?.synchronize()
         bumpOverridesVersion()
+    }
+
+    /// Preview a dictionary entry: speaks "fromText. toText."
+    func previewDictEntry(from: String, to: String) {
+        speak("\(from). \(to).")
     }
 
     func speak(_ text: String) {

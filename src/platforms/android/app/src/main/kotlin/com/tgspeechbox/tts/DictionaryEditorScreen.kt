@@ -28,6 +28,8 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -250,6 +252,10 @@ fun DictionaryListScreen(viewModel: TgsbViewModel) {
             onValueChange = { searchQuery = it },
             label = { Text("Search") },
             singleLine = true,
+            keyboardOptions = KeyboardOptions(
+                capitalization = KeyboardCapitalization.None,
+                autoCorrect = false
+            ),
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 4.dp)
@@ -483,6 +489,15 @@ fun DictionaryListScreen(viewModel: TgsbViewModel) {
                             expanded = contextMenuEntry == entry.fromText,
                             onDismissRequest = { contextMenuEntry = null }
                         ) {
+                            if (selectedType == "pronounce" || selectedType == "character") {
+                                DropdownMenuItem(
+                                    text = { Text("Preview") },
+                                    onClick = {
+                                        viewModel.previewDictEntry(entry.fromText, entry.toText)
+                                        contextMenuEntry = null
+                                    }
+                                )
+                            }
                             DropdownMenuItem(
                                 text = { Text("Edit") },
                                 onClick = {
@@ -552,7 +567,10 @@ fun DictionaryListScreen(viewModel: TgsbViewModel) {
             onConfirm = { from, to, cat ->
                 viewModel.addDictEntry(from, to, cat)
                 showAddDialog = false
-            }
+            },
+            onPreview = if (selectedType == "pronounce" || selectedType == "character") {
+                { from, to -> viewModel.previewDictEntry(from, to) }
+            } else null
         )
     }
 
@@ -567,7 +585,10 @@ fun DictionaryListScreen(viewModel: TgsbViewModel) {
                 if (from != entry.fromText) viewModel.deleteDictEntry(entry.fromText)
                 viewModel.addDictEntry(from, to, cat)
                 editingEntry = null
-            }
+            },
+            onPreview = if (selectedType == "pronounce" || selectedType == "character") {
+                { from, to -> viewModel.previewDictEntry(from, to) }
+            } else null
         )
     }
 
@@ -652,7 +673,8 @@ private fun shareDictEntries(
 private fun DictAddDialog(
     dictType: String,
     onDismiss: () -> Unit,
-    onConfirm: (from: String, to: String, category: String) -> Unit
+    onConfirm: (from: String, to: String, category: String) -> Unit,
+    onPreview: ((from: String, to: String) -> Unit)? = null
 ) {
     var fromText by rememberSaveable { mutableStateOf("") }
     var toText by rememberSaveable { mutableStateOf("") }
@@ -707,6 +729,10 @@ private fun DictAddDialog(
                     },
                     label = { Text(fromLabel) },
                     singleLine = true,
+                    keyboardOptions = KeyboardOptions(
+                        capitalization = KeyboardCapitalization.None,
+                        autoCorrect = false
+                    ),
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
@@ -714,6 +740,10 @@ private fun DictAddDialog(
                     onValueChange = { toText = it },
                     label = { Text(toLabel) },
                     singleLine = true,
+                    keyboardOptions = KeyboardOptions(
+                        capitalization = KeyboardCapitalization.None,
+                        autoCorrect = false
+                    ),
                     modifier = Modifier.fillMaxWidth()
                 )
                 if (toHelper != null) {
@@ -729,6 +759,10 @@ private fun DictAddDialog(
                         onValueChange = { category = it },
                         label = { Text("Category (optional)") },
                         singleLine = true,
+                        keyboardOptions = KeyboardOptions(
+                            capitalization = KeyboardCapitalization.None,
+                            autoCorrect = false
+                        ),
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
@@ -740,6 +774,12 @@ private fun DictAddDialog(
                         Text("Match capitalization", modifier = Modifier.weight(1f))
                         Switch(checked = caseSensitive, onCheckedChange = { caseSensitive = it })
                     }
+                }
+                if (onPreview != null) {
+                    TextButton(
+                        onClick = { onPreview(finalFromText(), toText.trim()) },
+                        enabled = fromText.isNotBlank() && toText.isNotBlank()
+                    ) { Text("Preview") }
                 }
             }
         },
@@ -760,7 +800,8 @@ private fun DictEditDialog(
     dictType: String,
     entry: TgsbViewModel.DictEntry,
     onDismiss: () -> Unit,
-    onConfirm: (from: String, to: String, category: String) -> Unit
+    onConfirm: (from: String, to: String, category: String) -> Unit,
+    onPreview: ((from: String, to: String) -> Unit)? = null
 ) {
     var fromText by rememberSaveable { mutableStateOf(entry.fromText) }
     var toText by rememberSaveable { mutableStateOf(entry.toText) }
@@ -805,6 +846,10 @@ private fun DictEditDialog(
                     onValueChange = { fromText = it },
                     label = { Text(fromLabel) },
                     singleLine = true,
+                    keyboardOptions = KeyboardOptions(
+                        capitalization = KeyboardCapitalization.None,
+                        autoCorrect = false
+                    ),
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
@@ -812,6 +857,10 @@ private fun DictEditDialog(
                     onValueChange = { toText = it },
                     label = { Text(toLabel) },
                     singleLine = true,
+                    keyboardOptions = KeyboardOptions(
+                        capitalization = KeyboardCapitalization.None,
+                        autoCorrect = false
+                    ),
                     modifier = Modifier.fillMaxWidth()
                 )
                 if (showCategory) {
@@ -820,6 +869,10 @@ private fun DictEditDialog(
                         onValueChange = { category = it },
                         label = { Text("Category (optional)") },
                         singleLine = true,
+                        keyboardOptions = KeyboardOptions(
+                            capitalization = KeyboardCapitalization.None,
+                            autoCorrect = false
+                        ),
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
@@ -831,6 +884,12 @@ private fun DictEditDialog(
                         Text("Match capitalization", modifier = Modifier.weight(1f))
                         Switch(checked = caseSensitive, onCheckedChange = { caseSensitive = it })
                     }
+                }
+                if (onPreview != null) {
+                    TextButton(
+                        onClick = { onPreview(fromText.trim(), toText.trim()) },
+                        enabled = fromText.isNotBlank() && toText.isNotBlank()
+                    ) { Text("Preview") }
                 }
             }
         },
