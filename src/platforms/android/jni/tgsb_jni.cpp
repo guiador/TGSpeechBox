@@ -26,6 +26,57 @@
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, TAG, __VA_ARGS__)
 
 /* ------------------------------------------------------------------ */
+/* Emoji spacing — pad emoji codepoints with spaces so eSpeak treats  */
+/* them as separate words for $textmode dictionary lookup.             */
+/* ------------------------------------------------------------------ */
+
+static bool isEmojiLeadByte(unsigned char b) {
+    // 4-byte UTF-8 sequences starting with F0 9F cover U+1F000..U+1FFFF
+    // which includes all major emoji blocks.
+    // We also handle U+2600..U+27BF (Misc Symbols + Dingbats) as 3-byte.
+    return (b == 0xF0);
+}
+
+static std::string padEmojiWithSpaces(const char *text) {
+    std::string out;
+    out.reserve(strlen(text) * 2);
+    const unsigned char *p = (const unsigned char *)text;
+    while (*p) {
+        // 4-byte UTF-8: emoji in U+1F000..U+1FFFF (F0 9F xx xx)
+        if (p[0] == 0xF0 && p[1] >= 0x9F && p[1] <= 0x9F &&
+            (p[2] & 0xC0) == 0x80 && (p[3] & 0xC0) == 0x80) {
+            if (!out.empty() && out.back() != ' ') out += ' ';
+            out += (char)p[0]; out += (char)p[1];
+            out += (char)p[2]; out += (char)p[3];
+            p += 4;
+            // Skip variation selectors (FE0E/FE0F) — 3-byte: EF B8 8E/8F
+            while (p[0] == 0xEF && p[1] == 0xB8 && (p[2] == 0x8E || p[2] == 0x8F)) {
+                out += (char)p[0]; out += (char)p[1]; out += (char)p[2];
+                p += 3;
+            }
+            if (*p && *p != ' ') out += ' ';
+            continue;
+        }
+        // 3-byte UTF-8: U+2600..U+27BF (E2 98 80..E2 9E BF)
+        if (p[0] == 0xE2 && p[1] >= 0x98 && p[1] <= 0x9E &&
+            (p[2] & 0xC0) == 0x80) {
+            if (!out.empty() && out.back() != ' ') out += ' ';
+            out += (char)p[0]; out += (char)p[1]; out += (char)p[2];
+            p += 3;
+            // Skip variation selectors
+            while (p[0] == 0xEF && p[1] == 0xB8 && (p[2] == 0x8E || p[2] == 0x8F)) {
+                out += (char)p[0]; out += (char)p[1]; out += (char)p[2];
+                p += 3;
+            }
+            if (*p && *p != ' ') out += ' ';
+            continue;
+        }
+        out += (char)*p++;
+    }
+    return out;
+}
+
+/* ------------------------------------------------------------------ */
 /* Voice presets                                                       */
 /* ------------------------------------------------------------------ */
 
@@ -286,6 +337,13 @@ static void synthesizeClauses(TgsbEngine *engine,
             clause = splitClause;
         }
 
+        /* Pad emoji with spaces so eSpeak treats them as separate words */
+        std::string padded = padEmojiWithSpaces(clause);
+        if (padded.size() != strlen(clause)) {
+            free(clause);
+            clause = strdup(padded.c_str());
+        }
+
         /* eSpeak → IPA for this clause.
          * Accumulate all IPA chunks into one string so the text parser
          * can align the full clause text against the full IPA output
@@ -518,7 +576,15 @@ Java_com_tgspeechbox_tts_TgsbTtsService_nativeQueueText(
     /* Map Android rate/pitch to TGSpeechBox params */
     double speed = (double)speechRate / 100.0;
     if (speed < 0.1) speed = 0.1;
-    if (speed > 5.0) speed = 5.0;
+
+    /* Automatic speed split: cap synthesis at 2.0x, frame-advance the rest */
+    const double kSynthCap = 2.0;
+    double timeStretch = 1.0;
+    if (speed > kSynthCap) {
+        timeStretch = speed / kSynthCap;
+        speed = kSynthCap;
+    }
+    speechPlayer_setTimeStretch(engine->player, timeStretch);
 
     double basePitch = 110.0 * ((double)pitch / 100.0);
     if (basePitch < 40.0) basePitch = 40.0;
@@ -851,7 +917,17 @@ Java_com_tgspeechbox_tts_TgsbSpeakEngine_nativeQueueText(
 
     double sp = speed;
     if (sp < 0.1) sp = 0.1;
-    if (sp > 5.0) sp = 5.0;
+
+    // Automatic speed split: cap synthesis at 2.0x and put the excess
+    // into DSP time-stretch (frame-advance).  Prevents formant mush
+    // at extreme rates while maintaining clean output.
+    const double kSynthCap = 2.0;
+    double timeStretch = 1.0;
+    if (sp > kSynthCap) {
+        timeStretch = sp / kSynthCap;
+        sp = kSynthCap;
+    }
+    speechPlayer_setTimeStretch(engine->player, timeStretch);
 
     double bp = pitchHz;
     if (bp < 40.0) bp = 40.0;
@@ -863,8 +939,8 @@ Java_com_tgspeechbox_tts_TgsbSpeakEngine_nativeQueueText(
 
     synthesizeClauses(engine, textChars, sp, bp, onFrame, &ctx);
     env->ReleaseStringUTFChars(text, textChars);
-    LOGI("SpeakEngine: queued %d frames (speed=%.2f pitch=%.0f)",
-         ctx.frameCount, sp, bp);
+    LOGI("SpeakEngine: queued %d frames (speed=%.2f ts=%.2f pitch=%.0f)",
+         ctx.frameCount, sp, timeStretch, bp);
 }
 
 /*

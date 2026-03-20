@@ -297,8 +297,8 @@ fun AdvancedScreen(
             Slider(
                 value = globalRateVal,
                 onValueChange = { viewModel.onGlobalRateChanged(it) },
-                valueRange = 0.3f..3.0f,
-                steps = 26,
+                valueRange = 0.3f..4.0f,
+                steps = 36,
                 enabled = overrideRate,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -306,6 +306,29 @@ fun AdvancedScreen(
                         contentDescription = rateLabel
                         stateDescription = "${"%.1f".format(globalRateVal)}x"
                     }
+            )
+        }
+
+        // Rate Boost checkbox
+        val rateBoost by viewModel.rateBoostEnabled.collectAsState()
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .toggleable(
+                    value = rateBoost,
+                    onValueChange = { viewModel.onRateBoostEnabledChanged(it) },
+                    role = androidx.compose.ui.semantics.Role.Checkbox
+                )
+                .padding(vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Checkbox(
+                checked = rateBoost,
+                onCheckedChange = null
+            )
+            Text(
+                text = "Rate boost",
+                modifier = Modifier.padding(start = 12.dp)
             )
         }
 
@@ -371,6 +394,39 @@ fun AdvancedScreen(
                         stateDescription = "$currentRate Hz"
                     }
             )
+
+            Spacer(Modifier.height(8.dp))
+
+            val lockLang by viewModel.lockLanguage.collectAsState()
+            val langIdx by viewModel.selectedLanguageIndex.collectAsState()
+            val lockLangName = viewModel.languages.getOrNull(langIdx)?.displayName ?: ""
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .toggleable(
+                        value = lockLang,
+                        onValueChange = { viewModel.onLockLanguageChanged(it) },
+                        role = androidx.compose.ui.semantics.Role.Checkbox
+                    )
+                    .padding(vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Checkbox(
+                    checked = lockLang,
+                    onCheckedChange = null
+                )
+                Column(modifier = Modifier.padding(start = 12.dp)) {
+                    Text(text = "Lock language")
+                    if (lockLang) {
+                        Text(
+                            text = lockLangName,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
         }
 
         Spacer(Modifier.height(16.dp))

@@ -634,7 +634,7 @@ private struct DictEntrySheet: View {
                     Button("Cancel") { dismiss() }
                 }
                 if let onPreview = onPreview {
-                    ToolbarItem(placement: .bottomBar) {
+                    ToolbarItem(placement: .automatic) {
                         Button("Preview") {
                             let word = fromText.trimmingCharacters(in: .whitespaces)
                             let replacement = toText.trimmingCharacters(in: .whitespaces)

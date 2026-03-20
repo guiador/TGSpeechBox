@@ -76,9 +76,11 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
 
     val overrideSystemRate = MutableStateFlow(loadGlobalBool("overrideSystemRate", false))
     val globalRate = MutableStateFlow(loadGlobalFloat("globalRate", 1.0f))
+    val rateBoostEnabled = MutableStateFlow(loadGlobalBool("rateBoostEnabled", false))
 
     // ── Output (global, NOT per-voice) ───────────────────────────────
 
+    val lockLanguage = MutableStateFlow(loadGlobalBool("lockLanguage", false))
     val pauseMode = MutableStateFlow(loadGlobalInt("pauseMode", 1))  // 0=off, 1=short, 2=long
     val systemVolume = MutableStateFlow(loadGlobalFloat("systemVolume", 1.0f))
     val sampleRateIndex = MutableStateFlow(loadGlobalInt("sampleRate", 22050).let { rate ->
@@ -188,8 +190,9 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
         engine.setPauseMode(pauseMode.value)
 
         errorMessage.value = null
-        engine.speak(text, speedRate.value.toDouble(), pitchHz.value.toDouble())
-        Log.i(TAG, "speak: lang=${ld.espeakLang} speed=${speedRate.value} pitch=${pitchHz.value}")
+        val effectiveSpeed = speedRate.value.toDouble() * (if (rateBoostEnabled.value) 2.0 else 1.0)
+        engine.speak(text, effectiveSpeed, pitchHz.value.toDouble())
+        Log.i(TAG, "speak: lang=${ld.espeakLang} speed=$effectiveSpeed pitch=${pitchHz.value}")
     }
 
     /** Speak arbitrary text using current Speak-tab settings. */
@@ -204,12 +207,13 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
         applyFrameExDefaults()
         applyPitchSettings()
         engine.setPauseMode(pauseMode.value)
-        engine.speak(text, speedRate.value.toDouble(), pitchHz.value.toDouble())
+        val effectiveSpeed = speedRate.value.toDouble() * (if (rateBoostEnabled.value) 2.0 else 1.0)
+        engine.speak(text, effectiveSpeed, pitchHz.value.toDouble())
     }
 
-    /** Preview a dictionary entry: speaks "fromText. toText." */
+    /** Preview a dictionary entry: speaks the replacement text. */
     fun previewDictEntry(fromText: String, toText: String) {
-        speakText("$fromText. $toText.")
+        speakText(toText)
     }
 
     fun stop() {
@@ -299,12 +303,17 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
     fun onInflectionChanged(v: Float)          { inflection.value = v;         saveSlider("inflection", v);         applyPitchSettings() }
     fun onOverrideSystemRateChanged(v: Boolean){ overrideSystemRate.value = v;  saveGlobalBool("overrideSystemRate", v) }
     fun onGlobalRateChanged(v: Float)          { globalRate.value = v;          saveGlobalFloat("globalRate", v) }
+    fun onRateBoostEnabledChanged(v: Boolean)  { rateBoostEnabled.value = v;    saveGlobalBool("rateBoostEnabled", v) }
     fun onSystemVolumeChanged(v: Float)        { systemVolume.value = v;        saveGlobalFloat("systemVolume", v);  engine.setVolume(v) }
     fun onSampleRateChanged(index: Float) {
         sampleRateIndex.value = index
         val rate = SAMPLE_RATES[index.roundToInt().coerceIn(0, SAMPLE_RATES.size - 1)]
         saveGlobalInt("sampleRate", rate)
         engine.setSampleRate(rate)
+    }
+    fun onLockLanguageChanged(enabled: Boolean) {
+        lockLanguage.value = enabled
+        saveGlobalBool("lockLanguage", enabled)
     }
     fun onPauseModeChanged(mode: Int) {
         pauseMode.value = mode
@@ -371,9 +380,11 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
 
         // Global: System rate
         onOverrideSystemRateChanged(false)
+        onRateBoostEnabledChanged(false)
         globalRate.value = 1.0f;     onGlobalRateChanged(1.0f)
 
         // Global: Output
+        onLockLanguageChanged(false)
         onPauseModeChanged(1)  // short
         onSampleRateChanged(2f)  // 22050 Hz
         onSystemVolumeChanged(1.0f)
@@ -539,9 +550,11 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun buildLanguageList(): List<LanguageItem> {
+        val enabledKeys = TgsbTtsService.getEnabledLocaleKeys(prefs)
         val seen = mutableSetOf<String>()
         val items = mutableListOf<LanguageItem>()
         for (ld in TgsbTtsService.LANGUAGES) {
+            if (!TgsbTtsService.isLangEnabled(ld, enabledKeys)) continue
             val key = ld.displayLocale.toString()
             if (key in seen) continue
             seen.add(key)

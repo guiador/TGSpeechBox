@@ -68,6 +68,12 @@ class TgsbEngine: ObservableObject {
     }
     @Published var selectedVoice: TgsbVoice
     @Published var speed: Double = 1.0
+    @Published var rateBoost: Bool = UserDefaults(suiteName: kAppGroupId)?
+        .bool(forKey: "rateBoost") ?? false {
+        didSet {
+            UserDefaults(suiteName: kAppGroupId)?.set(rateBoost, forKey: "rateBoost")
+        }
+    }
     @Published var pitch: Double = 110.0
     @Published var inflectionValue: Double = 50.0  // 0–100 slider
 
@@ -1275,9 +1281,9 @@ class TgsbEngine: ObservableObject {
         bumpOverridesVersion()
     }
 
-    /// Preview a dictionary entry: speaks "fromText. toText."
+    /// Preview a dictionary entry: speaks the replacement text.
     func previewDictEntry(from: String, to: String) {
-        speak("\(from). \(to).")
+        speak(to)
     }
 
     func speak(_ text: String) {
@@ -1296,7 +1302,13 @@ class TgsbEngine: ObservableObject {
 
         isSpeaking = true
 
-        let speed = self.speed
+        // Use override rate if enabled, otherwise Speak tab slider
+        let d = UserDefaults(suiteName: kAppGroupId)
+        var speed = self.speed
+        if d?.bool(forKey: "adv_overrideRate") == true {
+            speed = d?.double(forKey: "adv_globalRate") ?? 1.0
+        }
+        if self.rateBoost { speed *= 2.0 }
         let pitch = self.pitch
         let sr = self.sampleRate
 

@@ -460,7 +460,7 @@ class TgsbTtsService : TextToSpeechService() {
     // ---- Asset extraction ----
 
     private fun extractAssets() {
-        val assetVersion = 13
+        val assetVersion = 15
         val marker = File(filesDir, ".assets_v$assetVersion")
         if (marker.exists()) return
 
@@ -606,18 +606,29 @@ class TgsbTtsService : TextToSpeechService() {
             return
         }
 
-        // Resolve language from the request.  Voice name takes priority
-        // over locale fields (the Voice API is the modern path).
-        val voiceName = request.voiceName
-        if (!voiceName.isNullOrEmpty()) {
-            val ld = parseVoiceName(voiceName)
-            if (ld != null) currentLang = ld
-        } else {
-            val reqLang = request.language ?: ""
-            val reqCountry = request.country ?: ""
-            if (reqLang.isNotEmpty()) {
-                val ld = findLangDef(reqLang, reqCountry)
+        // Lock language: if enabled, use the Speak tab's saved language
+        // instead of whatever the screen reader / system requests.
+        val lockLang = prefs.getBoolean("adv_lockLanguage", false)
+        if (lockLang) {
+            val lockedTag = prefs.getString("tgsb_speak_lang", null)
+            if (lockedTag != null) {
+                val ld = LANGUAGES.find { it.tgsbLang == lockedTag }
                 if (ld != null) currentLang = ld
+            }
+        } else {
+            // Resolve language from the request.  Voice name takes priority
+            // over locale fields (the Voice API is the modern path).
+            val voiceName = request.voiceName
+            if (!voiceName.isNullOrEmpty()) {
+                val ld = parseVoiceName(voiceName)
+                if (ld != null) currentLang = ld
+            } else {
+                val reqLang = request.language ?: ""
+                val reqCountry = request.country ?: ""
+                if (reqLang.isNotEmpty()) {
+                    val ld = findLangDef(reqLang, reqCountry)
+                    if (ld != null) currentLang = ld
+                }
             }
         }
 
@@ -666,6 +677,9 @@ class TgsbTtsService : TextToSpeechService() {
         if (prefs.getBoolean("adv_overrideSystemRate", false)) {
             val rate = prefs.getFloat("adv_globalRate", 1.0f)
             effectiveRate = (rate * 100f).toInt()
+        }
+        if (prefs.getBoolean("adv_rateBoostEnabled", false)) {
+            effectiveRate = effectiveRate * 2
         }
         try {
             nativeQueueText(nativeHandle, text, effectiveRate, request.pitch)

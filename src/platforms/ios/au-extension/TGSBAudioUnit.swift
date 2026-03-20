@@ -268,15 +268,38 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
             return
         }
 
-        let langEntry = Self.languageMap.first {
-            $0.bcp47.lowercased() == bcp47.lowercased()
+        // Shared UserDefaults for Engine Settings.
+        let ud = UserDefaults(suiteName: "group.com.tgspeechbox.app")
+
+        // Lock language: if enabled, use the Speak tab's saved language
+        // instead of the VoiceOver request's BCP-47 tag.
+        let lockLang = ud?.bool(forKey: "adv_lockLanguage") == true
+        let espeakLang: String
+        let tgsbLang: String
+        if lockLang, let lockedTag = ud?.string(forKey: "tgsb_speak_lang"),
+           let locked = Self.languageMap.first(where: { $0.tgsb == lockedTag }) {
+            espeakLang = locked.espeak
+            tgsbLang = locked.tgsb
+        } else {
+            let langEntry = Self.languageMap.first {
+                $0.bcp47.lowercased() == bcp47.lowercased()
+            }
+            espeakLang = langEntry?.espeak ?? "en-us"
+            tgsbLang = langEntry?.tgsb ?? "en-us"
         }
-        let espeakLang = langEntry?.espeak ?? "en-us"
-        let tgsbLang = langEntry?.tgsb ?? "en-us"
 
         let ssml = speechRequest.ssmlRepresentation
-        let speed = extractRate(from: ssml)
+        var speed = extractRate(from: ssml)
         let pitch = extractPitch(from: ssml)
+
+        // Apply user rate overrides from Engine Settings.
+        if ud?.bool(forKey: "adv_overrideRate") == true {
+            let globalRate = ud?.double(forKey: "adv_globalRate") ?? 1.0
+            if globalRate > 0.0 { speed = globalRate }
+        }
+        if ud?.bool(forKey: "rateBoost") == true {
+            speed *= 1.35
+        }
 
         // Volume: SSML prosody if present, multiplied by shared app setting
         var vol = Float32(extractVolume(from: ssml))

@@ -14,6 +14,7 @@ import android.content.Context
 import android.content.Intent
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.compose.foundation.selection.toggleable
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
@@ -425,6 +426,11 @@ fun DictionaryListScreen(viewModel: TgsbViewModel) {
                                         if (entry.category.isNotEmpty()) append(", ${entry.category}")
                                     }
                                     customActions = buildList {
+                                        if (selectedType == "pronounce" || selectedType == "character") {
+                                            add(CustomAccessibilityAction("Preview") {
+                                                viewModel.previewDictEntry(entry.fromText, entry.toText); true
+                                            })
+                                        }
                                         add(CustomAccessibilityAction("Edit") {
                                             editingEntry = entry; true
                                         })
@@ -768,11 +774,17 @@ private fun DictAddDialog(
                 }
                 if (dictType == "pronounce") {
                     Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .toggleable(
+                                value = caseSensitive,
+                                onValueChange = { caseSensitive = it },
+                                role = androidx.compose.ui.semantics.Role.Switch
+                            ),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text("Match capitalization", modifier = Modifier.weight(1f))
-                        Switch(checked = caseSensitive, onCheckedChange = { caseSensitive = it })
+                        Switch(checked = caseSensitive, onCheckedChange = null)
                     }
                 }
                 if (onPreview != null) {
@@ -878,11 +890,17 @@ private fun DictEditDialog(
                 }
                 if (dictType == "pronounce") {
                     Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .toggleable(
+                                value = caseSensitive,
+                                onValueChange = { caseSensitive = it },
+                                role = androidx.compose.ui.semantics.Role.Switch
+                            ),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text("Match capitalization", modifier = Modifier.weight(1f))
-                        Switch(checked = caseSensitive, onCheckedChange = { caseSensitive = it })
+                        Switch(checked = caseSensitive, onCheckedChange = null)
                     }
                 }
                 if (onPreview != null) {
