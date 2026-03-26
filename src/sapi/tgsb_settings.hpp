@@ -22,7 +22,7 @@ struct wrapper_settings {
     // Normalized (lowercase, '-' separator) language tags that should be hidden.
     std::unordered_set<std::wstring> excluded_lang_tags;
 
-    // Sample rate (Hz). 0 = use default (16000).
+    // Sample rate (Hz). 0 = use default (22050).
     int sample_rate = 0;
 
     // Pause mode: 0 = off, 1 = short, 2 = long.
@@ -53,6 +53,11 @@ struct wrapper_settings {
     int frameExJitter = -1;       // 0 = off
     int frameExShimmer = -1;      // 0 = off
     int frameExSharpness = -1;    // 50 = neutral
+
+    // Rate controls.
+    bool rateBoostEnabled = false;    // DSP time-stretch 1.35x
+    bool overrideSystemRate = false;  // ignore SAPI rate, use globalRate
+    int globalRate = 50;              // 0-100 slider, maps to 0.3-4.0x
 };
 
 // Normalizes a language tag for comparisons (trim, '_' -> '-', lowercase).

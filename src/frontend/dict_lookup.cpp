@@ -53,7 +53,37 @@ static std::string stripVariationSelectors(const std::string& s) {
   return out;
 }
 
-std::string dictReplaceInText(const std::string& text, const PronDict& dict) {
+// Return the byte length of a Unicode punctuation codepoint at position i,
+// or 0 if the byte at i is not the start of one.  Covers ASCII punctuation
+// plus common multi-byte quotation marks and Spanish inverted punctuation.
+static size_t unicodePunctLen(const std::string& s, size_t i) {
+  auto b = static_cast<uint8_t>(s[i]);
+
+  // ASCII punctuation — single byte.
+  if (b < 0x80 && std::ispunct(b)) return 1;
+
+  // 2-byte: C2 xx
+  if (b == 0xC2 && i + 1 < s.size()) {
+    auto b1 = static_cast<uint8_t>(s[i + 1]);
+    if (b1 == 0xA1 || b1 == 0xAB || b1 == 0xBB || b1 == 0xBF)
+      return 2;  // ¡ « » ¿
+  }
+
+  // 3-byte: E2 80 xx
+  if (b == 0xE2 && i + 2 < s.size() && static_cast<uint8_t>(s[i + 1]) == 0x80) {
+    auto b2 = static_cast<uint8_t>(s[i + 2]);
+    // U+2018–U+201F: quotation marks (98–9F)
+    // U+2026: ellipsis (A6)
+    // U+2013–U+2014: en/em dash (93–94)
+    if ((b2 >= 0x93 && b2 <= 0x9F) || b2 == 0xA6)
+      return 3;
+  }
+
+  return 0;
+}
+
+std::string dictReplaceInText(const std::string& text, const PronDict& dict,
+    std::unordered_map<std::string, std::string>* ipaOverrides) {
   if (text.empty() || dict.entries.empty()) return text;
 
   std::string result;
@@ -76,16 +106,30 @@ std::string dictReplaceInText(const std::string& text, const PronDict& dict) {
       ++i;
     }
     std::string token = text.substr(wordStart, i - wordStart);
+    DLLOG("  token: \"%s\" (len=%zu)\n", token.c_str(), token.size());
 
     // Strip leading/trailing punctuation for lookup.
+    // Uses Unicode-aware check so curly quotes, inverted punctuation,
+    // en/em dashes, and ellipsis are stripped alongside ASCII punctuation.
     size_t lo = 0;
-    while (lo < token.size() &&
-           std::ispunct(static_cast<unsigned char>(token[lo])))
-      ++lo;
+    while (lo < token.size()) {
+      size_t plen = unicodePunctLen(token, lo);
+      if (!plen) break;
+      lo += plen;
+    }
     size_t hi = token.size();
-    while (hi > lo &&
-           std::ispunct(static_cast<unsigned char>(token[hi - 1])))
-      --hi;
+    while (hi > lo) {
+      // Scan backwards: find the start of the last UTF-8 character.
+      size_t back = hi - 1;
+      while (back > lo && (static_cast<uint8_t>(token[back]) & 0xC0) == 0x80)
+        --back;
+      size_t plen = unicodePunctLen(token, back);
+      if (!plen || back + plen != hi) break;
+      hi = back;
+    }
+
+    DLLOG("    lo=%zu hi=%zu core=\"%s\"\n", lo, hi,
+          std::string(token, lo, hi - lo).c_str());
 
     if (lo >= hi) {
       result += token;
@@ -110,9 +154,71 @@ std::string dictReplaceInText(const std::string& text, const PronDict& dict) {
       // Fallback to lowercase.
       it = dict.entries.find(lowerKey);
       if (it == dict.entries.end() || it->second.masked) {
-        result += token;
+        // Token not found as a whole.  If it contains hyphens, split into
+        // hyphen-separated parts and look up each part individually so that
+        // "this-pentagon-official" still matches a dict entry for "pentagon"
+        // even when the full hyphenated string has no entry.
+        std::string core(token, lo, hi - lo);
+        if (core.find('-') != std::string::npos) {
+          DLLOG("  hyphen-split fallback for \"%s\"\n", core.c_str());
+          std::string rebuilt;
+          rebuilt.reserve(core.size() + 16);
+          size_t pos = 0;
+          while (pos < core.size()) {
+            size_t dash = core.find('-', pos);
+            if (dash == std::string::npos) dash = core.size();
+            std::string part = core.substr(pos, dash - pos);
+            if (!part.empty()) {
+              std::string partLower;
+              partLower.reserve(part.size());
+              for (char c : part)
+                partLower.push_back(static_cast<char>(
+                    std::tolower(static_cast<unsigned char>(c))));
+              std::string partExact = stripVariationSelectors(part);
+              auto pit = dict.entries.find(partExact);
+              if (pit == dict.entries.end() || pit->second.masked)
+                pit = dict.entries.find(partLower);
+              if (pit != dict.entries.end() && !pit->second.masked) {
+                if (ipaOverrides && !pit->second.toIpa.empty()) {
+                  (*ipaOverrides)[partLower] = pit->second.toIpa;
+                  rebuilt += part;
+                } else {
+                  std::string rep;
+                  for (char c : pit->second.toText)
+                    rep += (c == '-') ? ' ' : c;
+                  DLLOG("    part \"%s\" -> \"%s\"\n", part.c_str(), rep.c_str());
+                  rebuilt += rep;
+                }
+              } else {
+                rebuilt += part;
+              }
+            }
+            if (dash < core.size()) {
+              rebuilt += '-';
+              pos = dash + 1;
+            } else {
+              pos = dash;
+            }
+          }
+          result += token.substr(0, lo);
+          result += rebuilt;
+          result += token.substr(hi);
+        } else {
+          result += token;
+        }
         continue;
       }
+    }
+
+    // If this entry has a toIpa override, don't replace the text — leave
+    // the original word so eSpeak phonemizes it naturally.  Record the
+    // override for downstream IPA splicing in runTextParser.
+    if (ipaOverrides && !it->second.toIpa.empty()) {
+      DLLOG("  dictIpaOverride: \"%s\" -> ipa \"%s\"\n",
+            lowerKey.c_str(), it->second.toIpa.c_str());
+      (*ipaOverrides)[lowerKey] = it->second.toIpa;
+      result += token;  // keep original word
+      continue;
     }
 
     // Convert hyphens to spaces in toText — users write them as pronunciation

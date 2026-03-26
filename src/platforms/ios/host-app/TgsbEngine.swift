@@ -1137,11 +1137,14 @@ class TgsbEngine: ObservableObject {
         dictionaryCategories = cats.sorted()
     }
 
-    func addDictEntry(fromText: String, toText: String, category: String = "") {
+    func addDictEntry(fromText: String, toText: String, category: String = "",
+                      fromIpa: String = "", toIpa: String = "") {
         guard let eng = engine, !fromText.isEmpty, !toText.isEmpty else { return }
         let tag = prefixedLangTag(dictSubType, dictLangTag)
         var dict: [String: Any] = ["toText": toText]
         if !category.isEmpty { dict["category"] = category }
+        if !fromIpa.isEmpty { dict["fromIpa"] = fromIpa }
+        if !toIpa.isEmpty { dict["toIpa"] = toIpa }
         if let data = try? JSONSerialization.data(withJSONObject: dict),
            let str = String(data: data, encoding: .utf8) {
             tgsb_set_data(eng, TGSB_DATA_DICTIONARY, tag, fromText, str)
@@ -1171,6 +1174,51 @@ class TgsbEngine: ObservableObject {
         tgsb_set_language(eng, dictLangTag, dictLangTag)
         reapplyDictOverrides(dictLangTag)
         loadDictionary(langTag: dictLangTag, subType: dictSubType)
+    }
+
+    func getPhonemeKeys() -> [(key: String, cls: String)] {
+        guard let eng = engine else { return [] }
+        let tag = dictLangTag.isEmpty ? "en-us" : dictLangTag
+        guard let ptr = tgsb_query_data(eng, TGSB_DATA_PHONEMES, tag, 0, 0) else { return [] }
+        let jsonStr = String(cString: ptr)
+        free(ptr)
+        guard let data = jsonStr.data(using: .utf8),
+              let arr = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else { return [] }
+        var seen = Set<String>()
+        var result: [(key: String, cls: String)] = []
+        for obj in arr {
+            guard let group = obj["group"] as? String, !group.isEmpty, !seen.contains(group) else { continue }
+            seen.insert(group)
+            result.append((key: group, cls: (obj["class"] as? String) ?? ""))
+        }
+        return result
+    }
+
+    func maskDictCategory(category: String, masked: Bool) {
+        guard let eng = engine else { return }
+        let tag = prefixedLangTag(dictSubType, dictLangTag)
+        let matching = dictionaryEntries.filter {
+            $0.category.caseInsensitiveCompare(category) == .orderedSame && $0.masked != masked
+        }
+        for entry in matching {
+            let dict: [String: Any] = ["masked": masked]
+            if let data = try? JSONSerialization.data(withJSONObject: dict),
+               let str = String(data: data, encoding: .utf8) {
+                tgsb_set_data(eng, TGSB_DATA_DICTIONARY, tag, entry.fromText, str)
+                saveDictOverride(dictLangTag, key: entry.fromText, value: str)
+            }
+        }
+        if !matching.isEmpty {
+            loadDictionary(langTag: dictLangTag, subType: dictSubType)
+        }
+    }
+
+    func textToIpa(_ text: String) -> String {
+        guard let eng = engine else { return "" }
+        guard let ptr = tgsb_text_to_ipa(eng, text) else { return "" }
+        let result = String(cString: ptr)
+        free(ptr)
+        return result
     }
 
     // ── Dictionary override persistence ────────────────────────────
@@ -1282,7 +1330,9 @@ class TgsbEngine: ObservableObject {
     }
 
     /// Preview a dictionary entry: speaks the replacement text.
-    func previewDictEntry(from: String, to: String) {
+    func previewDictEntry(from: String, to: String, toIpa: String = "") {
+        // Preview the replacement — speak the respelling text.
+        // TODO: IPA preview requires a queueIPA bridge function.
         speak(to)
     }
 

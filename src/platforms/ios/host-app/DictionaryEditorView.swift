@@ -15,12 +15,19 @@ import UniformTypeIdentifiers
 private func dictTypeLabel(_ type: String) -> String {
     switch type {
     case "pronounce": return "Pronunciation"
+    case "user":      return "Pronunciation (user)"
     case "compound":  return "Compound"
     case "stress":    return "Stress"
     case "character": return "Characters"
     default:          return type.prefix(1).uppercased() + type.dropFirst()
     }
 }
+
+/// The backend dict type. "user" is a client-side filter on "pronounce".
+private func backendDictType(_ type: String) -> String { type == "user" ? "pronounce" : type }
+
+/// True if the type uses the pronounce format (5-column TSV with IPA).
+private func isPronounceType(_ type: String) -> Bool { type == "pronounce" || type == "user" }
 
 // MARK: - Dictionary Editor
 
@@ -37,6 +44,7 @@ struct DictionaryEditorView: View {
     @State private var editingEntry: TgsbEngine.DictEntry? = nil
     @State private var showRemoveConfirm = false
     @State private var showExcludeSheet = false
+    @State private var showExcludeCategoriesSheet = false
     @State private var statusMessage: String?
 
     // Export state — single fileExporter to avoid SwiftUI dual-modifier conflict
@@ -44,9 +52,166 @@ struct DictionaryEditorView: View {
     @State private var exportUserOnly = false
     @State private var showImportPicker = false
 
+    /// Dict types with synthetic "user" injected after "pronounce".
+    private var displayTypes: [TgsbEngine.DictType] {
+        var result = engine.dictTypes
+        if let idx = result.firstIndex(where: { $0.type == "pronounce" }) {
+            result.insert(TgsbEngine.DictType(id: "user", type: "user", count: 0), at: result.index(after: idx))
+        }
+        return result
+    }
+
+    /// When "user" is selected, filter to user-only entries.
+    private var filteredEntries: [TgsbEngine.DictEntry] {
+        if selectedType == "user" {
+            return engine.dictionaryEntries.filter { $0.source == "user" }
+        }
+        return engine.dictionaryEntries
+    }
+
     private var typePickerLabel: String {
         if selectedType.isEmpty { return "Select type" }
-        return "\(dictTypeLabel(selectedType)) (\(engine.dictionaryTotalCount))"
+        return "\(dictTypeLabel(selectedType)) (\(filteredEntries.count))"
+    }
+
+    private var previewClosure: ((String, String, String) -> Void)? {
+        (isPronounceType(selectedType) || selectedType == "character")
+            ? { from, to, tIpa in engine.previewDictEntry(from: from, to: to, toIpa: tIpa) }
+            : nil
+    }
+    private var textToIpaClosure: ((String) -> String)? {
+        isPronounceType(selectedType) ? { text in engine.textToIpa(text) } : nil
+    }
+    private var phonemeKeysClosure: (() -> [(key: String, cls: String)])? {
+        isPronounceType(selectedType) ? { engine.getPhonemeKeys() } : nil
+    }
+    private var previewPhonemeClosure: ((String) -> Void)? {
+        isPronounceType(selectedType) ? { key in engine.previewPhoneme(key) } : nil
+    }
+
+    @ViewBuilder
+    private var entryListView: some View {
+        if langFilter.isEmpty || selectedType.isEmpty {
+            Spacer()
+            Text("Select a type and language to view dictionary entries.")
+                .foregroundColor(.secondary)
+                .padding()
+            Spacer()
+        } else if filteredEntries.isEmpty {
+            Spacer()
+            VStack(spacing: 8) {
+                if !activeSearch.isEmpty {
+                    Text("No matches for \"\(activeSearch)\"")
+                        .foregroundColor(.secondary)
+                } else {
+                    Text("No \(dictTypeLabel(selectedType).lowercased()) entries yet")
+                        .font(.headline)
+                        .foregroundColor(.secondary)
+                    Text("Want to be the first to add one? Tap the + (add) button above.")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+            }
+            .padding()
+            Spacer()
+        } else {
+            List {
+                ForEach(filteredEntries) { entry in
+                    DictEntryRow(
+                        entry: entry,
+                        onEdit: { editingEntry = entry },
+                        onMask: {
+                            engine.maskDictEntry(fromText: entry.fromText,
+                                                 masked: !entry.masked)
+                        },
+                        onDelete: {
+                            engine.deleteDictEntry(fromText: entry.fromText)
+                        },
+                        onPreview: (isPronounceType(selectedType) || selectedType == "character") ? {
+                            engine.previewDictEntry(from: entry.fromText, to: entry.toText, toIpa: entry.toIpa)
+                        } : nil
+                    )
+                }
+                if engine.dictionaryEntries.count < engine.dictionaryTotalCount
+                    && activeSearch.isEmpty {
+                    Button(action: {
+                        engine.loadDictionary(
+                            langTag: langFilter,
+                            subType: backendDictType(selectedType),
+                            offset: loadedCount,
+                            limit: 100,
+                            append: true
+                        )
+                        loadedCount += 100
+                    }) {
+                        HStack {
+                            Spacer()
+                            Text("Load more")
+                            Spacer()
+                        }
+                    }
+                    .accessibilityLabel("Load more entries, showing \(engine.dictionaryEntries.count) of \(engine.dictionaryTotalCount)")
+                }
+            }
+            .listStyle(.plain)
+        }
+    }
+
+    @ViewBuilder
+    private var moreOptionsMenu: some View {
+        if isPronounceType(selectedType) || selectedType == "character" {
+            Button(action: {
+                exportUserOnly = false
+                showExportPicker = true
+            }) {
+                Label("Export all", systemImage: "square.and.arrow.up")
+            }
+        }
+        Button(action: {
+            exportUserOnly = true
+            showExportPicker = true
+        }) {
+            Label("Export changed", systemImage: "square.and.arrow.up")
+        }
+        if isPronounceType(selectedType) || selectedType == "character" {
+            if let url = exportDictToTempFile(userOnly: false) {
+                ShareLink("Share all", item: url)
+            }
+        }
+        if let url = exportDictToTempFile(userOnly: true) {
+            ShareLink("Share changed", item: url)
+        }
+        Button(action: { showImportPicker = true }) {
+            Label("Import", systemImage: "square.and.arrow.down")
+        }
+        .disabled(selectedType != "pronounce" && selectedType != "character")
+        Divider()
+        Button(action: {
+            let mainKeys = Set(engine.dictionaryEntries.filter { $0.source == "main" }.map { $0.fromText.lowercased() })
+            let dupes = engine.dictionaryEntries.filter { $0.source == "user" && mainKeys.contains($0.fromText.lowercased()) }
+            if dupes.count > 500 {
+                statusMessage = "Too many duplicates (\(dupes.count)), remove manually"
+            } else if dupes.isEmpty {
+                statusMessage = "No duplicates found"
+            } else {
+                for d in dupes { engine.deleteDictEntry(fromText: d.fromText) }
+                statusMessage = "Removed \(dupes.count) duplicates"
+            }
+        }) {
+            Label("Remove duplicates", systemImage: "doc.on.doc")
+        }
+        Button(action: { showExcludeSheet = true }) {
+            Label("Exclude dictionaries", systemImage: "eye.slash")
+        }
+        if isPronounceType(selectedType) {
+            Button(action: { showExcludeCategoriesSheet = true }) {
+                Label("Exclude categories", systemImage: "tag.slash")
+            }
+        }
+        Button(role: .destructive, action: { showRemoveConfirm = true }) {
+            Label("Remove changed entries", systemImage: "trash")
+        }
     }
 
     var body: some View {
@@ -55,7 +220,7 @@ struct DictionaryEditorView: View {
             HStack(spacing: 8) {
                 // Type picker
                 Menu {
-                    ForEach(engine.dictTypes) { dt in
+                    ForEach(displayTypes) { dt in
                         let label = dictTypeLabel(dt.type) + " (\(dt.count))"
                         Button(label) { selectedType = dt.type }
                     }
@@ -72,7 +237,7 @@ struct DictionaryEditorView: View {
                         desc += "Select type"
                     } else {
                         desc += dictTypeLabel(selectedType)
-                        desc += ", \(engine.dictionaryTotalCount) entries"
+                        desc += ", \(filteredEntries.count) entries"
                     }
                     return desc
                 }())
@@ -108,7 +273,7 @@ struct DictionaryEditorView: View {
 
             // Entry count + Add button + More options row
             HStack {
-                Text("Showing \(engine.dictionaryEntries.count) of \(engine.dictionaryTotalCount) entries")
+                Text("Showing \(filteredEntries.count) of \(selectedType == "user" ? filteredEntries.count : engine.dictionaryTotalCount) entries")
                     .font(.caption)
                     .foregroundColor(.secondary)
 
@@ -123,69 +288,7 @@ struct DictionaryEditorView: View {
 
                 // More options menu
                 Menu {
-                    // Export all (pronunciation + character)
-                    if selectedType == "pronounce" || selectedType == "character" {
-                        Button(action: {
-                            exportUserOnly = false
-                            showExportPicker = true
-                        }) {
-                            Label("Export all", systemImage: "square.and.arrow.up")
-                        }
-                    }
-
-                    // Export changed (all types)
-                    Button(action: {
-                        exportUserOnly = true
-                        showExportPicker = true
-                    }) {
-                        Label("Export changed", systemImage: "square.and.arrow.up")
-                    }
-
-                    // Share all (pronunciation + character)
-                    if selectedType == "pronounce" || selectedType == "character" {
-                        if let url = exportDictToTempFile(userOnly: false) {
-                            ShareLink("Share all", item: url)
-                        }
-                    }
-
-                    // Share changed (all types)
-                    if let url = exportDictToTempFile(userOnly: true) {
-                        ShareLink("Share changed", item: url)
-                    }
-
-                    // Import (pronunciation + character)
-                    Button(action: { showImportPicker = true }) {
-                        Label("Import", systemImage: "square.and.arrow.down")
-                    }
-                    .disabled(selectedType != "pronounce" && selectedType != "character")
-
-                    Divider()
-
-                    // Remove duplicates
-                    Button(action: {
-                        let mainKeys = Set(engine.dictionaryEntries.filter { $0.source == "main" }.map { $0.fromText.lowercased() })
-                        let duplicates = engine.dictionaryEntries.filter { $0.source == "user" && mainKeys.contains($0.fromText.lowercased()) }
-                        if duplicates.count > 500 {
-                            statusMessage = "Too many duplicates (\(duplicates.count)), remove manually"
-                        } else if duplicates.isEmpty {
-                            statusMessage = "No duplicates found"
-                        } else {
-                            for d in duplicates { engine.deleteDictEntry(fromText: d.fromText) }
-                            statusMessage = "Removed \(duplicates.count) duplicates"
-                        }
-                    }) {
-                        Label("Remove duplicates", systemImage: "doc.on.doc")
-                    }
-
-                    // Exclude dictionaries
-                    Button(action: { showExcludeSheet = true }) {
-                        Label("Exclude dictionaries", systemImage: "eye.slash")
-                    }
-
-                    // Remove changed entries
-                    Button(role: .destructive, action: { showRemoveConfirm = true }) {
-                        Label("Remove changed entries", systemImage: "trash")
-                    }
+                    moreOptionsMenu
                 } label: {
                     Image(systemName: "ellipsis.circle")
                         .font(.body)
@@ -201,73 +304,7 @@ struct DictionaryEditorView: View {
             .padding(.vertical, 4)
 
             // Entry list
-            if langFilter.isEmpty || selectedType.isEmpty {
-                Spacer()
-                Text("Select a type and language to view dictionary entries.")
-                    .foregroundColor(.secondary)
-                    .padding()
-                Spacer()
-            } else if engine.dictionaryEntries.isEmpty {
-                Spacer()
-                VStack(spacing: 8) {
-                    if !activeSearch.isEmpty {
-                        Text("No matches for \"\(activeSearch)\"")
-                            .foregroundColor(.secondary)
-                    } else {
-                        Text("No \(dictTypeLabel(selectedType).lowercased()) entries yet")
-                            .font(.headline)
-                            .foregroundColor(.secondary)
-                        Text("Want to be the first to add one? Tap the + (add) button above.")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                            .multilineTextAlignment(.center)
-                    }
-                }
-                .padding()
-                Spacer()
-            } else {
-                List {
-                    ForEach(engine.dictionaryEntries) { entry in
-                        DictEntryRow(
-                            entry: entry,
-                            onEdit: { editingEntry = entry },
-                            onMask: {
-                                engine.maskDictEntry(fromText: entry.fromText,
-                                                     masked: !entry.masked)
-                            },
-                            onDelete: {
-                                engine.deleteDictEntry(fromText: entry.fromText)
-                            },
-                            onPreview: (selectedType == "pronounce" || selectedType == "character") ? {
-                                engine.previewDictEntry(from: entry.fromText, to: entry.toText)
-                            } : nil
-                        )
-                    }
-
-                    // Load more button
-                    if engine.dictionaryEntries.count < engine.dictionaryTotalCount
-                        && activeSearch.isEmpty {
-                        Button(action: {
-                            engine.loadDictionary(
-                                langTag: langFilter,
-                                subType: selectedType,
-                                offset: loadedCount,
-                                limit: 100,
-                                append: true
-                            )
-                            loadedCount += 100
-                        }) {
-                            HStack {
-                                Spacer()
-                                Text("Load more")
-                                Spacer()
-                            }
-                        }
-                        .accessibilityLabel("Load more entries, showing \(engine.dictionaryEntries.count) of \(engine.dictionaryTotalCount)")
-                    }
-                }
-                .listStyle(.plain)
-            }
+            entryListView
         }
         .onAppear {
             if !engineStarted {
@@ -276,6 +313,11 @@ struct DictionaryEditorView: View {
             if engineStarted {
                 engine.loadEditorLanguages()
                 engine.loadDictTypes()
+            }
+            // Default type if not yet set (handles tab switching recreation).
+            if selectedType.isEmpty && !displayTypes.isEmpty {
+                let pronounce = displayTypes.first(where: { $0.type == "pronounce" })
+                selectedType = pronounce?.type ?? (displayTypes.first?.type ?? "")
             }
             // Default language from system locale if not yet set.
             if langFilter.isEmpty && !engine.editorLanguages.isEmpty {
@@ -321,12 +363,14 @@ struct DictionaryEditorView: View {
             DictEntrySheet(
                 title: "Add Entry",
                 dictType: selectedType,
-                onSave: { from, to, cat in
-                    engine.addDictEntry(fromText: from, toText: to, category: cat)
+                onSave: { from, to, cat, fIpa, tIpa in
+                    engine.addDictEntry(fromText: from, toText: to, category: cat,
+                                        fromIpa: fIpa, toIpa: tIpa)
                 },
-                onPreview: (selectedType == "pronounce" || selectedType == "character") ? { from, to in
-                    engine.previewDictEntry(from: from, to: to)
-                } : nil
+                onPreview: previewClosure,
+                onTextToIpa: textToIpaClosure,
+                onGetPhonemeKeys: phonemeKeysClosure,
+                onPreviewPhoneme: previewPhonemeClosure
             )
         }
         .sheet(item: $editingEntry) { entry in
@@ -336,16 +380,20 @@ struct DictionaryEditorView: View {
                 initialFrom: entry.fromText,
                 initialTo: entry.toText,
                 initialCategory: entry.category,
+                initialFromIpa: entry.fromIpa,
+                initialToIpa: entry.toIpa,
                 isEdit: true,
-                onSave: { from, to, cat in
+                onSave: { from, to, cat, fIpa, tIpa in
                     if from != entry.fromText {
                         engine.deleteDictEntry(fromText: entry.fromText)
                     }
-                    engine.addDictEntry(fromText: from, toText: to, category: cat)
+                    engine.addDictEntry(fromText: from, toText: to, category: cat,
+                                        fromIpa: fIpa, toIpa: tIpa)
                 },
-                onPreview: (selectedType == "pronounce" || selectedType == "character") ? { from, to in
-                    engine.previewDictEntry(from: from, to: to)
-                } : nil
+                onPreview: previewClosure,
+                onTextToIpa: textToIpaClosure,
+                onGetPhonemeKeys: phonemeKeysClosure,
+                onPreviewPhoneme: previewPhonemeClosure
             )
         }
         .alert("Remove changed entries", isPresented: $showRemoveConfirm) {
@@ -366,6 +414,9 @@ struct DictionaryEditorView: View {
         }
         .sheet(isPresented: $showExcludeSheet) {
             ExcludeDictionariesSheet(engine: engine, langTag: langFilter)
+        }
+        .sheet(isPresented: $showExcludeCategoriesSheet) {
+            ExcludeCategoriesSheet(engine: engine, langTag: langFilter)
         }
         .fileExporter(
             isPresented: $showExportPicker,
@@ -407,7 +458,7 @@ struct DictionaryEditorView: View {
         engine.loadDictTypes(langTag: langFilter)
         engine.loadDictionary(
             langTag: langFilter,
-            subType: selectedType,
+            subType: backendDictType(selectedType),
             offset: 0,
             limit: 100,
             search: activeSearch
@@ -420,12 +471,12 @@ struct DictionaryEditorView: View {
             ? engine.dictionaryEntries.filter { $0.source == "user" }
             : engine.dictionaryEntries.filter { !$0.masked }
         if entries.isEmpty { return nil }
-        var tsv = ""
+        var tsv = "# from_text\tto_text\tfrom_ipa\tto_ipa\tcategory\n"
         for e in entries {
-            tsv += "\(e.fromText)\t\(e.toText)\n"
+            tsv += "\(e.fromText)\t\(e.toText)\t\(e.fromIpa)\t\(e.toIpa)\t\(e.category)\n"
         }
         let filename = userOnly
-            ? "\(selectedType)_\(langFilter)_changed.tsv"
+            ? "\(langFilter)-user.tsv"
             : "\(selectedType)_\(langFilter).tsv"
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent(filename)
@@ -513,12 +564,18 @@ private struct DictEntryRow: View {
             }
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(
-            "\(entry.fromText) maps to \(entry.toText), " +
-            "\(entry.source) dictionary" +
-            (entry.masked ? ", excluded" : "") +
-            (entry.category.isEmpty ? "" : ", \(entry.category)")
-        )
+        .accessibilityLabel({
+            let label: String
+            if !entry.toIpa.isEmpty {
+                label = "\(entry.fromText), pronunciation override"
+            } else {
+                label = "\(entry.fromText) maps to \(entry.toText)"
+            }
+            return label + ", \(entry.source) dictionary" +
+                (entry.masked ? ", excluded" : "") +
+                (entry.category.isEmpty ? "" : ", \(entry.category)")
+        }())
+        .accessibilityAction(.default) { onEdit() }
         .accessibilityAction(named: "Edit") { onEdit() }
         .accessibilityAddTraits(.isButton)
         .accessibilityHint("Double tap to edit")
@@ -533,26 +590,42 @@ private struct DictEntrySheet: View {
     @State var fromText: String = ""
     @State var toText: String = ""
     @State var category: String = ""
+    @State var fromIpa: String = ""
+    @State var toIpa: String = ""
     @State var caseSensitive: Bool = false
     var isEdit: Bool = false
-    let onSave: (String, String, String) -> Void
-    var onPreview: ((String, String) -> Void)? = nil
+    let onSave: (String, String, String, String, String) -> Void
+    var onPreview: ((String, String, String) -> Void)? = nil
+    var onTextToIpa: ((String) -> String)? = nil
+    var onGetPhonemeKeys: (() -> [(key: String, cls: String)])? = nil
+    var onPreviewPhoneme: ((String) -> Void)? = nil
     @Environment(\.dismiss) private var dismiss
+    @State private var showPhonemePicker = false
+    @State private var phonemePickerTarget = ""
 
     init(title: String, dictType: String, initialFrom: String = "",
          initialTo: String = "", initialCategory: String = "",
+         initialFromIpa: String = "", initialToIpa: String = "",
          isEdit: Bool = false,
-         onSave: @escaping (String, String, String) -> Void,
-         onPreview: ((String, String) -> Void)? = nil) {
+         onSave: @escaping (String, String, String, String, String) -> Void,
+         onPreview: ((String, String, String) -> Void)? = nil,
+         onTextToIpa: ((String) -> String)? = nil,
+         onGetPhonemeKeys: (() -> [(key: String, cls: String)])? = nil,
+         onPreviewPhoneme: ((String) -> Void)? = nil) {
         self.title = title
         self.dictType = dictType
         self._fromText = State(initialValue: initialFrom)
         self._toText = State(initialValue: initialTo)
         self._category = State(initialValue: initialCategory)
+        self._fromIpa = State(initialValue: initialFromIpa)
+        self._toIpa = State(initialValue: initialToIpa)
         self._caseSensitive = State(initialValue: initialFrom != initialFrom.lowercased())
         self.isEdit = isEdit
         self.onSave = onSave
         self.onPreview = onPreview
+        self.onTextToIpa = onTextToIpa
+        self.onGetPhonemeKeys = onGetPhonemeKeys
+        self.onPreviewPhoneme = onPreviewPhoneme
     }
 
     private var toLabel: String {
@@ -610,6 +683,52 @@ private struct DictEntrySheet: View {
                             .foregroundColor(.secondary)
                     }
                 }
+                if dictType == "pronounce" {
+                    Section("IPA (optional)") {
+                        TextField("From IPA", text: $fromIpa)
+                            .autocorrectionDisabled()
+                            #if os(iOS)
+                            .textInputAutocapitalization(.never)
+                            #endif
+                        if onGetPhonemeKeys != nil {
+                            Button("Insert phoneme into From IPA") {
+                                phonemePickerTarget = "fromIpa"
+                                showPhonemePicker = true
+                            }
+                        }
+                        TextField("To IPA (overrides respelling)", text: $toIpa)
+                            .autocorrectionDisabled()
+                            #if os(iOS)
+                            .textInputAutocapitalization(.never)
+                            #endif
+                        if onGetPhonemeKeys != nil {
+                            Button("Insert phoneme into To IPA") {
+                                phonemePickerTarget = "toIpa"
+                                showPhonemePicker = true
+                            }
+                        }
+                        if let onTextToIpa = onTextToIpa {
+                            Button("Fill IPA from eSpeak") {
+                                let from = fromText.trimmingCharacters(in: .whitespaces)
+                                let to = toText.trimmingCharacters(in: .whitespaces)
+                                if from.isEmpty && to.isEmpty { return }
+                                if !from.isEmpty && fromIpa.trimmingCharacters(in: .whitespaces).isEmpty {
+                                    fromIpa = onTextToIpa(from)
+                                }
+                                if !to.isEmpty && toIpa.trimmingCharacters(in: .whitespaces).isEmpty {
+                                    toIpa = onTextToIpa(to)
+                                }
+                            }
+                            .disabled(
+                                fromText.trimmingCharacters(in: .whitespaces).isEmpty &&
+                                toText.trimmingCharacters(in: .whitespaces).isEmpty
+                            )
+                        }
+                    }
+                    Section {
+                        Toggle("Match capitalization", isOn: $caseSensitive)
+                    }
+                }
                 if showCategory {
                     Section("Category (optional)") {
                         TextField("Category", text: $category)
@@ -617,11 +736,6 @@ private struct DictEntrySheet: View {
                             #if os(iOS)
                             .textInputAutocapitalization(.never)
                             #endif
-                    }
-                }
-                if dictType == "pronounce" {
-                    Section {
-                        Toggle("Match capitalization", isOn: $caseSensitive)
                     }
                 }
             }
@@ -639,7 +753,7 @@ private struct DictEntrySheet: View {
                             let word = fromText.trimmingCharacters(in: .whitespaces)
                             let replacement = toText.trimmingCharacters(in: .whitespaces)
                             if !word.isEmpty && !replacement.isEmpty {
-                                onPreview(word, replacement)
+                                onPreview(word, replacement, toIpa.trimmingCharacters(in: .whitespaces))
                             }
                         }
                         .disabled(
@@ -657,7 +771,9 @@ private struct DictEntrySheet: View {
                         onSave(
                             word,
                             toText.trimmingCharacters(in: .whitespaces),
-                            category.trimmingCharacters(in: .whitespaces)
+                            category.trimmingCharacters(in: .whitespaces),
+                            fromIpa.trimmingCharacters(in: .whitespaces),
+                            toIpa.trimmingCharacters(in: .whitespaces)
                         )
                         dismiss()
                     }
@@ -665,6 +781,63 @@ private struct DictEntrySheet: View {
                         fromText.trimmingCharacters(in: .whitespaces).isEmpty ||
                         toText.trimmingCharacters(in: .whitespaces).isEmpty
                     )
+                }
+            }
+        }
+#if os(iOS)
+        .presentationDetents([.medium])
+#endif
+        .sheet(isPresented: $showPhonemePicker) {
+            if let getKeys = onGetPhonemeKeys {
+                PhonemePickerSheet(
+                    keys: getKeys(),
+                    onSelect: { key in
+                        if phonemePickerTarget == "fromIpa" {
+                            fromIpa = fromIpa.isEmpty ? key : "\(fromIpa) \(key)"
+                        } else {
+                            toIpa = toIpa.isEmpty ? key : "\(toIpa) \(key)"
+                        }
+                        showPhonemePicker = false
+                    },
+                    onPreview: onPreviewPhoneme
+                )
+            }
+        }
+    }
+}
+
+// MARK: - Phoneme Picker Sheet
+
+private struct PhonemePickerSheet: View {
+    let keys: [(key: String, cls: String)]
+    let onSelect: (String) -> Void
+    var onPreview: ((String) -> Void)? = nil
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationView {
+            List {
+                if keys.isEmpty {
+                    Text("No phonemes available for the current language.")
+                        .foregroundColor(.secondary)
+                } else {
+                    ForEach(keys, id: \.key) { entry in
+                        Button(action: { onSelect(entry.key) }) {
+                            Text("\(entry.key) (\(entry.cls))")
+                        }
+                        .accessibilityAction(named: "Preview") {
+                            onPreview?(entry.key)
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Insert phoneme")
+#if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+#endif
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
                 }
             }
         }
@@ -719,6 +892,71 @@ private struct ExcludeDictionariesSheet: View {
         .onAppear {
             config = engine.loadDictConfig(langTag: langTag)
                 .sorted(by: { $0.type < $1.type })
+        }
+#if os(iOS)
+        .presentationDetents([.medium])
+#endif
+    }
+}
+
+// MARK: - Exclude Categories Sheet
+
+private struct ExcludeCategoriesSheet: View {
+    @ObservedObject var engine: TgsbEngine
+    let langTag: String
+    @Environment(\.dismiss) private var dismiss
+
+    private var categories: [String] {
+        let cats = Set(engine.dictionaryEntries
+            .filter { !$0.category.isEmpty }
+            .map { $0.category })
+        return cats.sorted()
+    }
+
+    private func isCategoryIncluded(_ cat: String) -> Bool {
+        engine.dictionaryEntries.contains {
+            $0.category.caseInsensitiveCompare(cat) == .orderedSame && !$0.masked
+        }
+    }
+
+    var body: some View {
+        NavigationView {
+            Form {
+                if categories.isEmpty {
+                    Section {
+                        Text("No categories found in the current dictionary.")
+                            .foregroundColor(.secondary)
+                    }
+                } else {
+                    Section {
+                        Text("Uncheck a category to exclude all its entries.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    Section {
+                        ForEach(categories, id: \.self) { cat in
+                            let count = engine.dictionaryEntries.count {
+                                $0.category.caseInsensitiveCompare(cat) == .orderedSame
+                            }
+                            Toggle("\(cat) (\(count))", isOn: Binding(
+                                get: { isCategoryIncluded(cat) },
+                                set: { newVal in
+                                    engine.maskDictCategory(category: cat, masked: !newVal)
+                                }
+                            ))
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Exclude categories")
+#if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+#endif
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
         }
 #if os(iOS)
         .presentationDetents([.medium])

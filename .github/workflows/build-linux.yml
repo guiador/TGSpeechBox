@@ -4,6 +4,16 @@ on:
   push:
     tags:
       - 'v-*'
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Release tag to name artifacts and attach to (e.g. v-300rc2)'
+        required: true
+        type: string
+
+# Use the tag name from push, or the manual input from workflow_dispatch.
+env:
+  RELEASE_TAG: ${{ github.event.inputs.release_tag || github.ref_name }}
 
 jobs:
   build:
@@ -12,27 +22,28 @@ jobs:
         include:
           - arch: x86_64
             cross: ""
-            pkg: ""
+            pkg: "g++-12"
+            cxx: "g++-12"
           - arch: aarch64
             cross: "aarch64-linux-gnu-"
-            pkg: "g++-aarch64-linux-gnu"
+            pkg: "g++-12-aarch64-linux-gnu"
+            cxx: "aarch64-linux-gnu-g++-12"
 
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-22.04
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install cross-compiler
-        if: matrix.pkg != ''
+      - name: Install GCC 12
         run: |
           sudo apt-get update
           sudo apt-get install -y ${{ matrix.pkg }}
 
       - name: Build shared libraries + tgsbRender
-        run: make -f Makefile.linux CROSS_COMPILE=${{ matrix.cross }}
+        run: make -f Makefile.linux CROSS_COMPILE=${{ matrix.cross }} CXX="${{ matrix.cxx }}"
 
       - name: Build static tgsbRender
-        run: make -f Makefile.linux CROSS_COMPILE=${{ matrix.cross }} STATIC=1
+        run: make -f Makefile.linux CROSS_COMPILE=${{ matrix.cross }} CXX="${{ matrix.cxx }}" STATIC=1
 
       - name: Strip binaries
         run: |
@@ -42,7 +53,7 @@ jobs:
 
       - name: Assemble release folder
         run: |
-          DIST="tgspeechbox-linux-${{ matrix.arch }}-${{ github.ref_name }}"
+          DIST="tgspeechbox-linux-${{ matrix.arch }}-${{ env.RELEASE_TAG }}"
           mkdir -p "$DIST/bin" "$DIST/lib" "$DIST/share/tgspeechbox"
 
           # Binaries
@@ -72,8 +83,8 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: tgspeechbox-linux-${{ matrix.arch }}-${{ github.ref_name }}
-          path: tgspeechbox-linux-${{ matrix.arch }}-${{ github.ref_name }}.tar.gz
+          name: tgspeechbox-linux-${{ matrix.arch }}-${{ env.RELEASE_TAG }}
+          path: tgspeechbox-linux-${{ matrix.arch }}-${{ env.RELEASE_TAG }}.tar.gz
 
   release:
     needs: build
@@ -88,12 +99,13 @@ jobs:
       - name: Create or update release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ env.RELEASE_TAG }}
           files: |
-            tgspeechbox-linux-x86_64-${{ github.ref_name }}/tgspeechbox-linux-x86_64-${{ github.ref_name }}.tar.gz
-            tgspeechbox-linux-aarch64-${{ github.ref_name }}/tgspeechbox-linux-aarch64-${{ github.ref_name }}.tar.gz
+            tgspeechbox-linux-x86_64-${{ env.RELEASE_TAG }}/tgspeechbox-linux-x86_64-${{ env.RELEASE_TAG }}.tar.gz
+            tgspeechbox-linux-aarch64-${{ env.RELEASE_TAG }}/tgspeechbox-linux-aarch64-${{ env.RELEASE_TAG }}.tar.gz
           draft: true
           generate_release_notes: false
           body: |
-            Linux builds (x86_64 + aarch64) auto-generated from tag ${{ github.ref_name }}.
+            Linux builds (x86_64 + aarch64) auto-generated from tag ${{ env.RELEASE_TAG }}.
 
             Extract and run `./install.sh` to install, or use the `tgsp` wrapper directly.

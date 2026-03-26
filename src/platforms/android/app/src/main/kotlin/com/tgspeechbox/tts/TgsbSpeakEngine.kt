@@ -109,6 +109,7 @@ class TgsbSpeakEngine(private val context: Context) {
     private external fun nativeQueryData(handle: Long, domain: Int, langTag: String, offset: Int, limit: Int): String?
     private external fun nativeSetData(handle: Long, domain: Int, langTag: String, key: String, value: String): Int
     private external fun nativeExportData(handle: Long, domain: Int, langTag: String, overridesJson: String): String?
+    private external fun nativeTextToIpa(handle: Long, text: String): String
 
     // ── Lifecycle ────────────────────────────────────────────────────
 
@@ -352,6 +353,11 @@ class TgsbSpeakEngine(private val context: Context) {
         return nativeExportData(nativeHandle, domain, langTag, overridesJson)
     }
 
+    fun textToIpa(text: String): String {
+        if (nativeHandle == 0L) return ""
+        return nativeTextToIpa(nativeHandle, text)
+    }
+
     fun stop() {
         stopRequested = true
         if (nativeHandle != 0L) nativeStop(nativeHandle)
@@ -430,7 +436,7 @@ class TgsbSpeakEngine(private val context: Context) {
     // ── Asset extraction (same logic as TgsbTtsService) ─────────────
 
     private fun extractAssets() {
-        val assetVersion = 15
+        val assetVersion = 19
         val marker = File(context.filesDir, ".assets_v$assetVersion")
         if (marker.exists()) return
 

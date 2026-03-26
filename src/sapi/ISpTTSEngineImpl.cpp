@@ -24,7 +24,7 @@ namespace sapi {
 namespace {
 
 constexpr WORD k_audio_channels = 1;
-constexpr DWORD k_default_audio_sample_rate = 16000;
+constexpr DWORD k_default_audio_sample_rate = 22050;
 constexpr WORD k_audio_bits_per_sample = 16;
 
 constexpr double k_default_inflection = 0.55;
@@ -655,6 +655,21 @@ STDMETHODIMP ISpTTSEngineImpl::Speak(DWORD /*dwSpeakFlags*/,
         if (rateAdj == 0) rateAdj = siteRateAdj;
         rateAdj = std::clamp(rateAdj, -10L, 10L);
         params.speed = std::clamp(std::pow(2.0, static_cast<double>(rateAdj) / 5.0), 0.25, 4.0);
+
+        // Rate controls from settings: override system rate and/or rate boost.
+        {
+            const auto& stg = tgsb::get_settings_cached(rt_->base_dir());
+            if (stg.overrideSystemRate) {
+                // Slider 0-100 maps to 0.3-4.0x
+                double t = std::clamp(stg.globalRate, 0, 100) / 100.0;
+                params.speed = 0.3 + t * (4.0 - 0.3);
+            }
+            if (stg.rateBoostEnabled) {
+                rt_->set_time_stretch(1.35);
+            } else {
+                rt_->set_time_stretch(1.0);
+            }
+        }
 
         const double pitch_slider = std::clamp(
             50.0 + 5.0 * static_cast<double>(batch.has_state ? batch.first_state.PitchAdj.MiddleAdj : 0),

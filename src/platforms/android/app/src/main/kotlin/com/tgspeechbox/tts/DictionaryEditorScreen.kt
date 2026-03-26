@@ -15,6 +15,7 @@ import android.content.Intent
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
@@ -28,6 +29,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -37,6 +40,8 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.foundation.clickable
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import java.util.Locale
@@ -45,22 +50,45 @@ import java.util.Locale
 private fun dictTypeLabel(type: String): String = when (type) {
     "compound" -> "Compound"
     "pronounce" -> "Pronunciation"
+    "user" -> "Pronunciation (user)"
     "stress" -> "Stress"
     "character" -> "Characters"
     else -> type.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.ROOT) else it.toString() }
 }
+
+/** The backend type to query for a given UI type. "user" is a client-side filter on "pronounce". */
+private fun backendDictType(type: String): String = if (type == "user") "pronounce" else type
+
+/** True if the type uses the pronounce dict format (5-column TSV with IPA). */
+private fun isPronounceType(type: String): Boolean = type == "pronounce" || type == "user"
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun DictionaryListScreen(viewModel: TgsbViewModel) {
     val context = LocalContext.current
 
-    val types by viewModel.dictTypes.collectAsState()
-    val entries by viewModel.dictionaryEntries.collectAsState()
+    val rawTypes by viewModel.dictTypes.collectAsState()
+    val rawEntries by viewModel.dictionaryEntries.collectAsState()
     val totalCount by viewModel.dictionaryTotalCount.collectAsState()
     val langs by viewModel.editorLanguages.collectAsState()
 
+    // Inject synthetic "user" type after "pronounce" if pronounce exists.
+    val types = remember(rawTypes) {
+        val result = rawTypes.toMutableList()
+        val pronounceIdx = result.indexOfFirst { it.type == "pronounce" }
+        if (pronounceIdx >= 0) {
+            val userCount = 0  // count updates when entries load
+            result.add(pronounceIdx + 1, TgsbViewModel.DictType("user", userCount))
+        }
+        result
+    }
+
     var selectedType by rememberSaveable { mutableStateOf("") }
+    val isUserType = selectedType == "user"
+    // When "user" is selected, filter pronounce entries to user-only.
+    val entries = remember(rawEntries, isUserType) {
+        if (isUserType) rawEntries.filter { it.source == "user" } else rawEntries
+    }
     var langFilter by rememberSaveable { mutableStateOf("") }
     var loadedCount by remember { mutableIntStateOf(0) }
     var showAddDialog by remember { mutableStateOf(false) }
@@ -75,6 +103,7 @@ fun DictionaryListScreen(viewModel: TgsbViewModel) {
     var showMoreMenu by remember { mutableStateOf(false) }
     var showRemoveConfirm by remember { mutableStateOf(false) }
     var showExcludeDialog by remember { mutableStateOf(false) }
+    var showExcludeCategoriesDialog by remember { mutableStateOf(false) }
     var pendingExportUserOnly by remember { mutableStateOf(true) }
 
     // Export launcher (file picker → save TSV)
@@ -89,7 +118,8 @@ fun DictionaryListScreen(viewModel: TgsbViewModel) {
                     entries.filter { !it.masked }
                 }
                 val tsv = buildString {
-                    for (e in exportEntries) append("${e.fromText}\t${e.toText}\n")
+                    append("# from_text\tto_text\tfrom_ipa\tto_ipa\tcategory\n")
+                    for (e in exportEntries) append("${e.fromText}\t${e.toText}\t${e.fromIpa}\t${e.toIpa}\t${e.category}\n")
                 }
                 context.contentResolver.openOutputStream(uri)?.use {
                     it.write(tsv.toByteArray())
@@ -168,7 +198,7 @@ fun DictionaryListScreen(viewModel: TgsbViewModel) {
     LaunchedEffect(selectedType, langFilter, activeSearch) {
         if (selectedType.isNotEmpty() && langFilter.isNotEmpty()) {
             viewModel.reapplyDictOverrides(langFilter)
-            viewModel.loadDictionary(langFilter, selectedType, offset = 0, limit = 100, search = activeSearch)
+            viewModel.loadDictionary(langFilter, backendDictType(selectedType), offset = 0, limit = 100, search = activeSearch)
             loadedCount = 100
         }
     }
@@ -203,13 +233,13 @@ fun DictionaryListScreen(viewModel: TgsbViewModel) {
                         contentDescription = buildString {
                             append("Type: ")
                             append(if (selectedType.isEmpty()) "Select type" else dictTypeLabel(selectedType))
-                            if (selectedType.isNotEmpty()) append(", $totalCount entries")
+                            if (selectedType.isNotEmpty()) append(", ${entries.size} entries")
                             append(", dropdown button")
                         }
                     }
                 ) {
                     val label = if (selectedType.isEmpty()) "Select type"
-                    else "${dictTypeLabel(selectedType)} ($totalCount)"
+                    else "${dictTypeLabel(selectedType)} (${entries.size})"
                     Text(label)
                 }
                 DropdownMenu(expanded = typeExpanded, onDismissRequest = { typeExpanded = false }) {
@@ -270,8 +300,9 @@ fun DictionaryListScreen(viewModel: TgsbViewModel) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             val showingCount = entries.size
+            val displayTotal = if (isUserType) showingCount else totalCount
             Text(
-                "Showing $showingCount of $totalCount entries",
+                "Showing $showingCount of $displayTotal entries",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -302,7 +333,7 @@ fun DictionaryListScreen(viewModel: TgsbViewModel) {
                     onDismissRequest = { showMoreMenu = false }
                 ) {
                     // Export all (file picker — pronunciation + character)
-                    if (selectedType == "pronounce" || selectedType == "character") {
+                    if (isPronounceType(selectedType) || selectedType == "character") {
                         DropdownMenuItem(
                             text = { Text("Export all") },
                             onClick = {
@@ -318,11 +349,11 @@ fun DictionaryListScreen(viewModel: TgsbViewModel) {
                         onClick = {
                             showMoreMenu = false
                             pendingExportUserOnly = true
-                            exportLauncher.launch("${selectedType}_${langFilter}_changed.tsv")
+                            exportLauncher.launch("${langFilter}-user.tsv")
                         }
                     )
                     // Share all (share sheet — pronunciation + character)
-                    if (selectedType == "pronounce" || selectedType == "character") {
+                    if (isPronounceType(selectedType) || selectedType == "character") {
                         DropdownMenuItem(
                             text = { Text("Share all") },
                             onClick = {
@@ -342,7 +373,7 @@ fun DictionaryListScreen(viewModel: TgsbViewModel) {
                     // Import (pronunciation + character only)
                     DropdownMenuItem(
                         text = { Text("Import") },
-                        enabled = selectedType == "pronounce" || selectedType == "character",
+                        enabled = isPronounceType(selectedType) || selectedType == "character",
                         onClick = {
                             showMoreMenu = false
                             importLauncher.launch(arrayOf("*/*"))
@@ -381,6 +412,16 @@ fun DictionaryListScreen(viewModel: TgsbViewModel) {
                             showExcludeDialog = true
                         }
                     )
+                    // Exclude categories (pronunciation only)
+                    if (isPronounceType(selectedType)) {
+                        DropdownMenuItem(
+                            text = { Text("Exclude categories") },
+                            onClick = {
+                                showMoreMenu = false
+                                showExcludeCategoriesDialog = true
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -420,15 +461,19 @@ fun DictionaryListScreen(viewModel: TgsbViewModel) {
                                 )
                                 .semantics {
                                     contentDescription = buildString {
-                                        append("${entry.fromText} maps to ${entry.toText}")
+                                        if (entry.toIpa.isNotEmpty()) {
+                                            append("${entry.fromText}, pronunciation override")
+                                        } else {
+                                            append("${entry.fromText} maps to ${entry.toText}")
+                                        }
                                         append(", ${entry.source} dictionary")
                                         if (entry.masked) append(", masked")
                                         if (entry.category.isNotEmpty()) append(", ${entry.category}")
                                     }
                                     customActions = buildList {
-                                        if (selectedType == "pronounce" || selectedType == "character") {
+                                        if (isPronounceType(selectedType) || selectedType == "character") {
                                             add(CustomAccessibilityAction("Preview") {
-                                                viewModel.previewDictEntry(entry.fromText, entry.toText); true
+                                                viewModel.previewDictEntry(entry.fromText, entry.toText, entry.toIpa); true
                                             })
                                         }
                                         add(CustomAccessibilityAction("Edit") {
@@ -495,11 +540,11 @@ fun DictionaryListScreen(viewModel: TgsbViewModel) {
                             expanded = contextMenuEntry == entry.fromText,
                             onDismissRequest = { contextMenuEntry = null }
                         ) {
-                            if (selectedType == "pronounce" || selectedType == "character") {
+                            if (isPronounceType(selectedType) || selectedType == "character") {
                                 DropdownMenuItem(
                                     text = { Text("Preview") },
                                     onClick = {
-                                        viewModel.previewDictEntry(entry.fromText, entry.toText)
+                                        viewModel.previewDictEntry(entry.fromText, entry.toText, entry.toIpa)
                                         contextMenuEntry = null
                                     }
                                 )
@@ -546,7 +591,7 @@ fun DictionaryListScreen(viewModel: TgsbViewModel) {
                             OutlinedButton(
                                 onClick = {
                                     viewModel.loadDictionary(
-                                        langFilter, selectedType,
+                                        langFilter, backendDictType(selectedType),
                                         offset = loadedCount, limit = 100,
                                         append = true
                                     )
@@ -570,12 +615,21 @@ fun DictionaryListScreen(viewModel: TgsbViewModel) {
         DictAddDialog(
             dictType = selectedType,
             onDismiss = { showAddDialog = false },
-            onConfirm = { from, to, cat ->
-                viewModel.addDictEntry(from, to, cat)
+            onConfirm = { from, to, cat, fIpa, tIpa ->
+                viewModel.addDictEntry(from, to, cat, fIpa, tIpa)
                 showAddDialog = false
             },
-            onPreview = if (selectedType == "pronounce" || selectedType == "character") {
-                { from, to -> viewModel.previewDictEntry(from, to) }
+            onPreview = if (isPronounceType(selectedType) || selectedType == "character") {
+                { from, to, tIpa -> viewModel.previewDictEntry(from, to, tIpa) }
+            } else null,
+            onTextToIpa = if (isPronounceType(selectedType)) {
+                { text -> viewModel.textToIpa(text) }
+            } else null,
+            onGetPhonemeKeys = if (isPronounceType(selectedType)) {
+                { viewModel.getPhonemeKeys() }
+            } else null,
+            onPreviewPhoneme = if (isPronounceType(selectedType)) {
+                { key -> viewModel.previewPhoneme(key) }
             } else null
         )
     }
@@ -587,13 +641,22 @@ fun DictionaryListScreen(viewModel: TgsbViewModel) {
             dictType = selectedType,
             entry = entry,
             onDismiss = { editingEntry = null },
-            onConfirm = { from, to, cat ->
+            onConfirm = { from, to, cat, fIpa, tIpa ->
                 if (from != entry.fromText) viewModel.deleteDictEntry(entry.fromText)
-                viewModel.addDictEntry(from, to, cat)
+                viewModel.addDictEntry(from, to, cat, fIpa, tIpa)
                 editingEntry = null
             },
-            onPreview = if (selectedType == "pronounce" || selectedType == "character") {
-                { from, to -> viewModel.previewDictEntry(from, to) }
+            onPreview = if (isPronounceType(selectedType) || selectedType == "character") {
+                { from, to, tIpa -> viewModel.previewDictEntry(from, to, tIpa) }
+            } else null,
+            onTextToIpa = if (isPronounceType(selectedType)) {
+                { text -> viewModel.textToIpa(text) }
+            } else null,
+            onGetPhonemeKeys = if (isPronounceType(selectedType)) {
+                { viewModel.getPhonemeKeys() }
+            } else null,
+            onPreviewPhoneme = if (isPronounceType(selectedType)) {
+                { key -> viewModel.previewPhoneme(key) }
             } else null
         )
     }
@@ -604,6 +667,17 @@ fun DictionaryListScreen(viewModel: TgsbViewModel) {
             langTag = langFilter,
             viewModel = viewModel,
             onDismiss = { showExcludeDialog = false }
+        )
+    }
+
+    // Exclude categories dialog (pronunciation only)
+    if (showExcludeCategoriesDialog) {
+        ExcludeCategoriesDialog(
+            entries = entries,
+            onToggleCategory = { category, masked ->
+                viewModel.maskDictCategory(category, masked, entries)
+            },
+            onDismiss = { showExcludeCategoriesDialog = false }
         )
     }
 
@@ -679,13 +753,19 @@ private fun shareDictEntries(
 private fun DictAddDialog(
     dictType: String,
     onDismiss: () -> Unit,
-    onConfirm: (from: String, to: String, category: String) -> Unit,
-    onPreview: ((from: String, to: String) -> Unit)? = null
+    onConfirm: (from: String, to: String, category: String, fromIpa: String, toIpa: String) -> Unit,
+    onPreview: ((from: String, to: String, toIpa: String) -> Unit)? = null,
+    onTextToIpa: ((String) -> String)? = null,
+    onGetPhonemeKeys: (() -> List<Pair<String, String>>)? = null,
+    onPreviewPhoneme: ((String) -> Unit)? = null
 ) {
     var fromText by rememberSaveable { mutableStateOf("") }
     var toText by rememberSaveable { mutableStateOf("") }
     var category by rememberSaveable { mutableStateOf("") }
+    var fromIpa by rememberSaveable { mutableStateOf("") }
+    var toIpa by rememberSaveable { mutableStateOf("") }
     var caseSensitive by rememberSaveable { mutableStateOf(false) }
+    var phonemePickerTarget by remember { mutableStateOf("") }
 
     // On save: lowercase the word if case-sensitive is off (default).
     val finalFromText = {
@@ -727,7 +807,10 @@ private fun DictAddDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 OutlinedTextField(
                     value = fromText,
                     onValueChange = { v ->
@@ -773,38 +856,102 @@ private fun DictAddDialog(
                     )
                 }
                 if (dictType == "pronounce") {
+                    OutlinedTextField(
+                        value = fromIpa,
+                        onValueChange = { fromIpa = it },
+                        label = { Text("From IPA (optional)") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(
+                            capitalization = KeyboardCapitalization.None,
+                            autoCorrect = false
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    if (onGetPhonemeKeys != null) {
+                        TextButton(onClick = { phonemePickerTarget = "fromIpa" }) {
+                            Text("Insert phoneme into From IPA")
+                        }
+                    }
+                    OutlinedTextField(
+                        value = toIpa,
+                        onValueChange = { toIpa = it },
+                        label = { Text("To IPA (optional, overrides respelling)") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(
+                            capitalization = KeyboardCapitalization.None,
+                            autoCorrect = false
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    if (onGetPhonemeKeys != null) {
+                        TextButton(onClick = { phonemePickerTarget = "toIpa" }) {
+                            Text("Insert phoneme into To IPA")
+                        }
+                    }
+                    if (onTextToIpa != null) {
+                        TextButton(
+                            onClick = {
+                                if (fromText.isBlank() && toText.isBlank()) return@TextButton
+                                if (fromText.isNotBlank() && fromIpa.isBlank())
+                                    fromIpa = onTextToIpa(fromText.trim())
+                                if (toText.isNotBlank() && toIpa.isBlank())
+                                    toIpa = onTextToIpa(toText.trim())
+                            },
+                            enabled = fromText.isNotBlank() || toText.isNotBlank()
+                        ) { Text("Fill IPA from eSpeak") }
+                    }
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .toggleable(
-                                value = caseSensitive,
-                                onValueChange = { caseSensitive = it },
-                                role = androidx.compose.ui.semantics.Role.Switch
-                            ),
+                            .clearAndSetSemantics {
+                                contentDescription = "Match capitalization"
+                                stateDescription = if (caseSensitive) "on" else "off"
+                            }
+                            .clickable { caseSensitive = !caseSensitive },
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text("Match capitalization", modifier = Modifier.weight(1f))
                         Switch(checked = caseSensitive, onCheckedChange = null)
                     }
                 }
-                if (onPreview != null) {
-                    TextButton(
-                        onClick = { onPreview(finalFromText(), toText.trim()) },
-                        enabled = fromText.isNotBlank() && toText.isNotBlank()
-                    ) { Text("Preview") }
-                }
+                // Preview moved to button row to avoid accessibility ordering issues
             }
         },
         confirmButton = {
-            TextButton(
-                onClick = { onConfirm(finalFromText(), toText.trim(), category.trim()) },
-                enabled = fromText.isNotBlank() && toText.isNotBlank()
-            ) { Text("Save") }
+            Row {
+                if (onPreview != null) {
+                    TextButton(
+                        onClick = { onPreview(finalFromText(), toText.trim(), toIpa.trim()) },
+                        enabled = fromText.isNotBlank() && toText.isNotBlank()
+                    ) { Text("Preview") }
+                }
+                TextButton(
+                    onClick = { onConfirm(finalFromText(), toText.trim(), category.trim(), fromIpa.trim(), toIpa.trim()) },
+                    enabled = fromText.isNotBlank() && toText.isNotBlank()
+                ) { Text("Save") }
+            }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Cancel") }
         }
     )
+
+    if (phonemePickerTarget.isNotEmpty() && onGetPhonemeKeys != null) {
+        PhonemePickerDialog(
+            keys = onGetPhonemeKeys(),
+            onSelect = { key ->
+                val spaced = if (phonemePickerTarget == "fromIpa") {
+                    if (fromIpa.isEmpty()) key else "$fromIpa $key"
+                } else {
+                    if (toIpa.isEmpty()) key else "$toIpa $key"
+                }
+                if (phonemePickerTarget == "fromIpa") fromIpa = spaced else toIpa = spaced
+                phonemePickerTarget = ""
+            },
+            onPreview = onPreviewPhoneme,
+            onDismiss = { phonemePickerTarget = "" }
+        )
+    }
 }
 
 @Composable
@@ -812,12 +959,18 @@ private fun DictEditDialog(
     dictType: String,
     entry: TgsbViewModel.DictEntry,
     onDismiss: () -> Unit,
-    onConfirm: (from: String, to: String, category: String) -> Unit,
-    onPreview: ((from: String, to: String) -> Unit)? = null
+    onConfirm: (from: String, to: String, category: String, fromIpa: String, toIpa: String) -> Unit,
+    onPreview: ((from: String, to: String, toIpa: String) -> Unit)? = null,
+    onTextToIpa: ((String) -> String)? = null,
+    onGetPhonemeKeys: (() -> List<Pair<String, String>>)? = null,
+    onPreviewPhoneme: ((String) -> Unit)? = null
 ) {
     var fromText by rememberSaveable { mutableStateOf(entry.fromText) }
     var toText by rememberSaveable { mutableStateOf(entry.toText) }
     var category by rememberSaveable { mutableStateOf(entry.category) }
+    var fromIpa by rememberSaveable { mutableStateOf(entry.fromIpa) }
+    var toIpa by rememberSaveable { mutableStateOf(entry.toIpa) }
+    var phonemePickerTarget by remember { mutableStateOf("") }
     // Default case-sensitive ON if the existing entry has uppercase chars.
     var caseSensitive by rememberSaveable {
         mutableStateOf(entry.fromText != entry.fromText.lowercase())
@@ -852,7 +1005,10 @@ private fun DictEditDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 OutlinedTextField(
                     value = fromText,
                     onValueChange = { fromText = it },
@@ -889,42 +1045,106 @@ private fun DictEditDialog(
                     )
                 }
                 if (dictType == "pronounce") {
+                    OutlinedTextField(
+                        value = fromIpa,
+                        onValueChange = { fromIpa = it },
+                        label = { Text("From IPA (optional)") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(
+                            capitalization = KeyboardCapitalization.None,
+                            autoCorrect = false
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    if (onGetPhonemeKeys != null) {
+                        TextButton(onClick = { phonemePickerTarget = "fromIpa" }) {
+                            Text("Insert phoneme into From IPA")
+                        }
+                    }
+                    OutlinedTextField(
+                        value = toIpa,
+                        onValueChange = { toIpa = it },
+                        label = { Text("To IPA (optional, overrides respelling)") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(
+                            capitalization = KeyboardCapitalization.None,
+                            autoCorrect = false
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    if (onGetPhonemeKeys != null) {
+                        TextButton(onClick = { phonemePickerTarget = "toIpa" }) {
+                            Text("Insert phoneme into To IPA")
+                        }
+                    }
+                    if (onTextToIpa != null) {
+                        TextButton(
+                            onClick = {
+                                if (fromText.isBlank() && toText.isBlank()) return@TextButton
+                                if (fromText.isNotBlank() && fromIpa.isBlank())
+                                    fromIpa = onTextToIpa(fromText.trim())
+                                if (toText.isNotBlank() && toIpa.isBlank())
+                                    toIpa = onTextToIpa(toText.trim())
+                            },
+                            enabled = fromText.isNotBlank() || toText.isNotBlank()
+                        ) { Text("Fill IPA from eSpeak") }
+                    }
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .toggleable(
-                                value = caseSensitive,
-                                onValueChange = { caseSensitive = it },
-                                role = androidx.compose.ui.semantics.Role.Switch
-                            ),
+                            .clearAndSetSemantics {
+                                contentDescription = "Match capitalization"
+                                stateDescription = if (caseSensitive) "on" else "off"
+                            }
+                            .clickable { caseSensitive = !caseSensitive },
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text("Match capitalization", modifier = Modifier.weight(1f))
                         Switch(checked = caseSensitive, onCheckedChange = null)
                     }
                 }
-                if (onPreview != null) {
-                    TextButton(
-                        onClick = { onPreview(fromText.trim(), toText.trim()) },
-                        enabled = fromText.isNotBlank() && toText.isNotBlank()
-                    ) { Text("Preview") }
-                }
+                // Preview moved to button row to avoid accessibility ordering issues
             }
         },
         confirmButton = {
-            TextButton(
-                onClick = {
-                    val word = if (!caseSensitive && dictType == "pronounce")
-                        fromText.trim().lowercase() else fromText.trim()
-                    onConfirm(word, toText.trim(), category.trim())
-                },
-                enabled = fromText.isNotBlank() && toText.isNotBlank()
-            ) { Text("Save") }
+            Row {
+                if (onPreview != null) {
+                    TextButton(
+                        onClick = { onPreview(fromText.trim(), toText.trim(), toIpa.trim()) },
+                        enabled = fromText.isNotBlank() && toText.isNotBlank()
+                    ) { Text("Preview") }
+                }
+                TextButton(
+                    onClick = {
+                        val word = if (!caseSensitive && dictType == "pronounce")
+                            fromText.trim().lowercase() else fromText.trim()
+                        onConfirm(word, toText.trim(), category.trim(), fromIpa.trim(), toIpa.trim())
+                    },
+                    enabled = fromText.isNotBlank() && toText.isNotBlank()
+                ) { Text("Save") }
+            }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Cancel") }
         }
     )
+
+    if (phonemePickerTarget.isNotEmpty() && onGetPhonemeKeys != null) {
+        PhonemePickerDialog(
+            keys = onGetPhonemeKeys(),
+            onSelect = { key ->
+                val spaced = if (phonemePickerTarget == "fromIpa") {
+                    if (fromIpa.isEmpty()) key else "$fromIpa $key"
+                } else {
+                    if (toIpa.isEmpty()) key else "$toIpa $key"
+                }
+                if (phonemePickerTarget == "fromIpa") fromIpa = spaced else toIpa = spaced
+                phonemePickerTarget = ""
+            },
+            onPreview = onPreviewPhoneme,
+            onDismiss = { phonemePickerTarget = "" }
+        )
+    }
 }
 
 @Composable
@@ -961,13 +1181,19 @@ private fun ExcludeDictionariesDialog(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 2.dp)
+                            .semantics(mergeDescendants = true) {}
+                            .toggleable(
+                                value = enabled,
+                                onValueChange = { checked ->
+                                    config[type] = checked
+                                    viewModel.setDictTypeEnabled(langTag, type, checked)
+                                },
+                                role = androidx.compose.ui.semantics.Role.Checkbox
+                            )
                     ) {
                         Checkbox(
                             checked = enabled,
-                            onCheckedChange = { checked ->
-                                config[type] = checked
-                                viewModel.setDictTypeEnabled(langTag, type, checked)
-                            }
+                            onCheckedChange = null
                         )
                         Text(
                             text = dictTypeLabel(type),
@@ -980,6 +1206,130 @@ private fun ExcludeDictionariesDialog(
         },
         confirmButton = {
             TextButton(onClick = onDismiss) { Text("Done") }
+        }
+    )
+}
+
+@Composable
+private fun ExcludeCategoriesDialog(
+    entries: List<TgsbViewModel.DictEntry>,
+    onToggleCategory: (category: String, masked: Boolean) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val categories = remember(entries) {
+        entries.filter { it.category.isNotEmpty() }
+            .map { it.category }
+            .distinct()
+            .sorted()
+    }
+    // Checked = included (has unmasked entries), unchecked = excluded.
+    val checked = remember(categories) {
+        mutableStateMapOf<String, Boolean>().apply {
+            for (cat in categories) {
+                put(cat, entries.any {
+                    it.category.equals(cat, ignoreCase = true) && !it.masked
+                })
+            }
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Exclude categories") },
+        text = {
+            if (categories.isEmpty()) {
+                Text("No categories found in the current dictionary.")
+            } else {
+                Column {
+                    Text(
+                        "Uncheck a category to exclude all its entries.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                    for (cat in categories) {
+                        val isChecked = checked[cat] ?: true
+                        val count = entries.count {
+                            it.category.equals(cat, ignoreCase = true)
+                        }
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 2.dp)
+                                .semantics(mergeDescendants = true) {}
+                                .toggleable(
+                                    value = isChecked,
+                                    onValueChange = { newVal ->
+                                        checked[cat] = newVal
+                                        onToggleCategory(cat, !newVal)
+                                    },
+                                    role = androidx.compose.ui.semantics.Role.Checkbox
+                                )
+                        ) {
+                            Checkbox(checked = isChecked, onCheckedChange = null)
+                            Text(
+                                text = "$cat ($count)",
+                                style = MaterialTheme.typography.bodyLarge,
+                                modifier = Modifier.padding(start = 8.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("Done") }
+        }
+    )
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun PhonemePickerDialog(
+    keys: List<Pair<String, String>>,
+    onSelect: (String) -> Unit,
+    onPreview: ((String) -> Unit)? = null,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Insert phoneme") },
+        text = {
+            if (keys.isEmpty()) {
+                Text("No phonemes available for the current language.")
+            } else {
+                LazyColumn(modifier = Modifier.heightIn(max = 300.dp)) {
+                    items(keys) { (key, cls) ->
+                        TextButton(
+                            onClick = { onSelect(key) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .combinedClickable(
+                                    onClick = { onSelect(key) },
+                                    onLongClick = { onPreview?.invoke(key) }
+                                )
+                                .semantics {
+                                    if (onPreview != null) {
+                                        customActions = listOf(
+                                            CustomAccessibilityAction("Preview") {
+                                                onPreview(key); true
+                                            }
+                                        )
+                                    }
+                                }
+                        ) {
+                            Text(
+                                text = "$key ($cls)",
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
         }
     )
 }

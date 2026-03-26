@@ -59,12 +59,12 @@ static bool prefixMatchCI(const std::string& text, const std::string& prefix) {
 
 // Display name for dict type combo.
 static const char* typeDisplayNames[] = {
-  "Pronunciation", "Stress", "Compound", "Character"
+  "Pronunciation", "Stress", "Compound", "Character", "User"
 };
 static const char* typeInternalNames[] = {
-  "pronounce", "stress", "compound", "character"
+  "pronounce", "stress", "compound", "character", "user"
 };
-static constexpr int kNumTypes = 4;
+static constexpr int kNumTypes = 5;
 
 // Get wstring from edit control.
 static std::wstring getDlgItemText(HWND hDlg, int id) {
@@ -100,7 +100,7 @@ std::wstring dictTsvPath(const std::wstring& packDir, const std::string& langTag
   fs::path base = fs::path(packDir) / "dict";
   std::string tag = langTag;
   // Normalize tag: en-us → en-us (keep hyphens).
-  if (dictType == "pronounce") {
+  if (dictType == "pronounce" || dictType == "user") {
     return (base / (tag + "-dict.tsv")).wstring();
   } else if (dictType == "stress") {
     return (base / (tag + "-stress.tsv")).wstring();
@@ -108,6 +108,8 @@ std::wstring dictTsvPath(const std::wstring& packDir, const std::string& langTag
     return (base / (tag + "-compounds.tsv")).wstring();
   } else if (dictType == "character") {
     return (base / (tag + "-letters.tsv")).wstring();
+  } else if (dictType == "user") {
+    return (base / (tag + "-user.tsv")).wstring();
   }
   return (base / (tag + "-dict.tsv")).wstring();
 }
@@ -170,7 +172,7 @@ bool loadDictTsv(const std::wstring& path, const std::string& dictType,
     if (cols.empty()) continue;
 
     DictEntryData e;
-    if (dictType == "pronounce") {
+    if (dictType == "pronounce" || dictType == "user") {
       e.fromText = cols.size() > 0 ? cols[0] : "";
       e.toText   = cols.size() > 1 ? cols[1] : "";
       e.fromIpa  = cols.size() > 2 ? cols[2] : "";
@@ -224,7 +226,7 @@ bool saveDictTsv(const std::wstring& path, const std::string& dictType,
   fprintf(f, "# TGSpeechBox dictionary\n");
 
   for (const auto& e : entries) {
-    if (dictType == "pronounce") {
+    if (dictType == "pronounce" || dictType == "user") {
       // Write all columns, trim trailing empty ones.
       if (!e.category.empty()) {
         fprintf(f, "%s\t%s\t%s\t%s\t%s\n",
@@ -273,7 +275,7 @@ static void setupListColumns(HWND hList, const std::string& dictType) {
     ListView_InsertColumn(hList, idx, &col);
   };
 
-  if (dictType == "pronounce") {
+  if (dictType == "pronounce" || dictType == "user") {
     addCol(L"From",     120, 0);
     addCol(L"To",       120, 1);
     addCol(L"From IPA", 100, 2);
@@ -487,7 +489,7 @@ static INT_PTR CALLBACK DictEntryDlgProc(HWND hDlg, UINT msg, WPARAM wParam, LPA
       SetWindowTextW(hDlg, st->isEdit ? L"Edit Dictionary Entry" : L"Add Dictionary Entry");
 
       // Adjust visibility and labels based on dict type.
-      bool isPronounce = (st->dictType == "pronounce");
+      bool isPronounce = (st->dictType == "pronounce" || st->dictType == "user");
 
       // Hide IPA buttons and fields for non-pronounce types.
       auto showCtrl = [&](int id, bool show) {
@@ -496,18 +498,24 @@ static INT_PTR CALLBACK DictEntryDlgProc(HWND hDlg, UINT msg, WPARAM wParam, LPA
       };
 
       showCtrl(IDC_DENTRY_FROM_IPA_BTN, isPronounce);
+      showCtrl(IDC_DENTRY_FROM_IPA_PICK, isPronounce);
       showCtrl(IDC_DENTRY_FROM_IPA, isPronounce);
       showCtrl(IDC_DENTRY_LBL_FROM_IPA, isPronounce);
       showCtrl(IDC_DENTRY_TO_IPA_BTN, isPronounce);
+      showCtrl(IDC_DENTRY_TO_IPA_PICK, isPronounce);
       showCtrl(IDC_DENTRY_TO_IPA, isPronounce);
       showCtrl(IDC_DENTRY_LBL_TO_IPA, isPronounce);
       showCtrl(IDC_DENTRY_CATEGORY, isPronounce);
       showCtrl(IDC_DENTRY_LBL_CATEGORY, isPronounce);
 
-      // Disable IPA buttons if convertToIpa callback is null.
+      // Disable IPA buttons if callbacks are null.
       if (!st->convertToIpa) {
         EnableWindow(GetDlgItem(hDlg, IDC_DENTRY_FROM_IPA_BTN), FALSE);
         EnableWindow(GetDlgItem(hDlg, IDC_DENTRY_TO_IPA_BTN), FALSE);
+      }
+      if (!st->getPhonemeKeys) {
+        EnableWindow(GetDlgItem(hDlg, IDC_DENTRY_FROM_IPA_PICK), FALSE);
+        EnableWindow(GetDlgItem(hDlg, IDC_DENTRY_TO_IPA_PICK), FALSE);
       }
 
       // Relabel for specific types.
@@ -571,12 +579,133 @@ static INT_PTR CALLBACK DictEntryDlgProc(HWND hDlg, UINT msg, WPARAM wParam, LPA
         return TRUE;
       }
 
+      // Insert phoneme picker for From IPA or To IPA.
+      if (id == IDC_DENTRY_FROM_IPA_PICK || id == IDC_DENTRY_TO_IPA_PICK) {
+        if (st->getPhonemeKeys) {
+          auto keys = st->getPhonemeKeys();
+          if (keys.empty()) {
+            msgBox(hDlg, L"No phonemes available for the current language.",
+                   L"Insert Phoneme", MB_ICONINFORMATION);
+          } else {
+            // Build a list of display strings for the picker.
+            std::vector<std::wstring> items;
+            items.reserve(keys.size());
+            for (const auto& pk : keys) {
+              items.push_back(utf8ToWide(pk.key + " (" + pk.cls + ")"));
+            }
+            // Show a simple list picker using a message-loop-driven dialog.
+            // We create it dynamically with a LISTBOX.
+            int sel = -1;
+            struct PickCtx {
+              std::vector<std::wstring>* items;
+              int* sel;
+              std::vector<PhonemeKeyInfo>* keys;
+              std::function<void(const std::string&)>* previewPhoneme;
+            };
+            PickCtx ctx = { &items, &sel, &keys, &st->previewPhoneme };
+            DialogBoxIndirectParamW(
+              st->convertToIpa ? GetModuleHandleW(nullptr) : nullptr,
+              // Build dialog template in memory.
+              [&]() -> DLGTEMPLATE* {
+                // In-memory dialog template: list box + OK + Cancel.
+                static BYTE buf[4096];
+                memset(buf, 0, sizeof(buf));
+                auto* dlg = reinterpret_cast<DLGTEMPLATE*>(buf);
+                dlg->style = DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU;
+                dlg->cdit = 0;
+                dlg->cx = 180; dlg->cy = 200;
+                // We won't use a template — just create controls in WM_INITDIALOG.
+                return dlg;
+              }(),
+              hDlg,
+              [](HWND hPick, UINT msg, WPARAM wp, LPARAM lp) -> INT_PTR {
+                auto* pc = reinterpret_cast<PickCtx*>(GetWindowLongPtrW(hPick, GWLP_USERDATA));
+                switch (msg) {
+                  case WM_INITDIALOG: {
+                    pc = reinterpret_cast<PickCtx*>(lp);
+                    SetWindowLongPtrW(hPick, GWLP_USERDATA, (LONG_PTR)pc);
+                    SetWindowTextW(hPick, L"Insert Phoneme");
+                    // Create listbox.
+                    HWND lb = CreateWindowExW(0, L"LISTBOX", nullptr,
+                        WS_CHILD | WS_VISIBLE | WS_BORDER | WS_VSCROLL | WS_TABSTOP | LBS_NOTIFY,
+                        7, 7, 260, 250, hPick, (HMENU)4000, nullptr, nullptr);
+                    SendMessageW(lb, WM_SETFONT,
+                        (WPARAM)SendMessageW(hPick, WM_GETFONT, 0, 0), TRUE);
+                    for (const auto& s : *pc->items)
+                      SendMessageW(lb, LB_ADDSTRING, 0, (LPARAM)s.c_str());
+                    // Auto-select first phoneme so Tab→Preview works immediately.
+                    if (!pc->items->empty())
+                      SendMessageW(lb, LB_SETCURSEL, 0, 0);
+                    // Preview + OK + Cancel buttons.
+                    auto makeBtn = [&](const wchar_t* text, int id, int x, int w = 60) {
+                      HWND b = CreateWindowExW(0, L"BUTTON", text,
+                          WS_CHILD | WS_VISIBLE | WS_TABSTOP | (id == IDOK ? BS_DEFPUSHBUTTON : BS_PUSHBUTTON),
+                          x, 262, w, 22, hPick, (HMENU)(intptr_t)id, nullptr, nullptr);
+                      SendMessageW(b, WM_SETFONT,
+                          (WPARAM)SendMessageW(hPick, WM_GETFONT, 0, 0), TRUE);
+                    };
+                    // 4001 = Preview button (Alt+P)
+                    if (pc->previewPhoneme && *pc->previewPhoneme)
+                      makeBtn(L"&Preview", 4001, 7, 65);
+                    makeBtn(L"OK", IDOK, 144);
+                    makeBtn(L"Cancel", IDCANCEL, 210);
+                    // Resize dialog to fit.
+                    RECT r = {0, 0, 280, 295};
+                    AdjustWindowRectEx(&r, GetWindowLongW(hPick, GWL_STYLE), FALSE,
+                                       GetWindowLongW(hPick, GWL_EXSTYLE));
+                    SetWindowPos(hPick, nullptr, 0, 0, r.right - r.left, r.bottom - r.top,
+                                 SWP_NOMOVE | SWP_NOZORDER);
+                    // Center on parent.
+                    RECT pr; GetWindowRect(GetParent(hPick), &pr);
+                    int cx = (pr.left + pr.right) / 2 - (r.right - r.left) / 2;
+                    int cy = (pr.top + pr.bottom) / 2 - (r.bottom - r.top) / 2;
+                    SetWindowPos(hPick, nullptr, cx, cy, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
+                    SetFocus(lb);
+                    return FALSE;
+                  }
+                  case WM_COMMAND:
+                    if (LOWORD(wp) == IDOK || (LOWORD(wp) == 4000 && HIWORD(wp) == LBN_DBLCLK)) {
+                      HWND lb = GetDlgItem(hPick, 4000);
+                      int idx = (int)SendMessageW(lb, LB_GETCURSEL, 0, 0);
+                      if (idx >= 0) { *pc->sel = idx; EndDialog(hPick, IDOK); }
+                      return TRUE;
+                    }
+                    if (LOWORD(wp) == IDCANCEL) { EndDialog(hPick, IDCANCEL); return TRUE; }
+                    // Preview button (Alt+P).
+                    if (LOWORD(wp) == 4001) {
+                      if (pc->previewPhoneme && *pc->previewPhoneme) {
+                        HWND lb = GetDlgItem(hPick, 4000);
+                        int idx = (int)SendMessageW(lb, LB_GETCURSEL, 0, 0);
+                        if (idx >= 0 && idx < (int)pc->keys->size())
+                          (*pc->previewPhoneme)((*pc->keys)[idx].key);
+                      }
+                      return TRUE;
+                    }
+                    break;
+                }
+                return FALSE;
+              },
+              (LPARAM)&ctx
+            );
+            if (sel >= 0 && sel < (int)keys.size()) {
+              int ipaCtrl = (id == IDC_DENTRY_FROM_IPA_PICK)
+                  ? IDC_DENTRY_FROM_IPA : IDC_DENTRY_TO_IPA;
+              std::string current = wideToUtf8(getDlgItemText(hDlg, ipaCtrl));
+              if (!current.empty()) current += ' ';
+              current += keys[sel].key;
+              SetDlgItemTextW(hDlg, ipaCtrl, utf8ToWide(current).c_str());
+            }
+          }
+        }
+        return TRUE;
+      }
+
       if (id == IDOK) {
         // Read all fields.
         st->entry.fromText = wideToUtf8(getDlgItemText(hDlg, IDC_DENTRY_FROM));
         st->entry.toText = wideToUtf8(getDlgItemText(hDlg, IDC_DENTRY_TO));
 
-        if (st->dictType == "pronounce") {
+        if (st->dictType == "pronounce" || st->dictType == "user") {
           st->entry.fromIpa = wideToUtf8(getDlgItemText(hDlg, IDC_DENTRY_FROM_IPA));
           st->entry.toIpa = wideToUtf8(getDlgItemText(hDlg, IDC_DENTRY_TO_IPA));
           st->entry.category = wideToUtf8(getDlgItemText(hDlg, IDC_DENTRY_CATEGORY));
@@ -717,6 +846,8 @@ static INT_PTR CALLBACK DictEditorDlgProc(HWND hDlg, UINT msg, WPARAM wParam, LP
         DictEntryDialogState des;
         des.dictType = st->currentType;
         des.convertToIpa = st->convertToIpa;
+        des.getPhonemeKeys = st->getPhonemeKeys;
+        des.previewPhoneme = st->previewPhoneme;
         des.isEdit = false;
 
         DialogBoxParamW(st->hInst, MAKEINTRESOURCEW(IDD_DICT_ENTRY), hDlg,
@@ -743,6 +874,8 @@ static INT_PTR CALLBACK DictEditorDlgProc(HWND hDlg, UINT msg, WPARAM wParam, LP
         DictEntryDialogState des;
         des.dictType = st->currentType;
         des.convertToIpa = st->convertToIpa;
+        des.getPhonemeKeys = st->getPhonemeKeys;
+        des.previewPhoneme = st->previewPhoneme;
         des.isEdit = true;
         des.entry = st->entries[realIdx];
 

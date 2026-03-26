@@ -544,7 +544,8 @@ std::string runTextParser(
     const std::unordered_map<std::string, std::vector<int>>& stressDict,
     const std::unordered_map<std::string, std::vector<std::string>>& compoundMap,
     const std::vector<std::u32string>& legalOnsets,
-    const NumberExpansionRules& numberRules)
+    const NumberExpansionRules& numberRules,
+    const std::unordered_map<std::string, std::string>& ipaOverrides)
 {
   if (text.empty()) return ipa;
 
@@ -689,6 +690,60 @@ std::string runTextParser(
   }
 
   if (textWords.empty() || ipaChunks.empty()) return ipa;
+
+  // ── IPA override splicing ────────────────────────────────────────────
+  // Words whose dict entry had toIpa set were left untouched in the text
+  // so eSpeak could phonemize the surrounding context naturally.  Now
+  // replace eSpeak's IPA for those words with the dict-provided IPA.
+  //
+  // Walk text words and IPA chunks in parallel.  Text may have more
+  // words than IPA chunks because NVDA expands punctuation to spoken
+  // words (e.g. "quote", ".") that eSpeak doesn't phonemize.  Skip
+  // text words with no alpha content when advancing the IPA index.
+  bool hadIpaSplice = false;
+  if (!ipaOverrides.empty()) {
+    size_t ipaIdx = 0;
+    for (size_t i = 0; i < textWords.size(); ++i) {
+      std::string key = asciiLower(stripPunct(textWords[i]));
+      if (key.empty()) continue;  // punctuation-only word, no IPA chunk
+      if (ipaIdx >= ipaChunks.size()) break;
+      auto it = ipaOverrides.find(key);
+      if (it != ipaOverrides.end()) {
+        TPLOG("  ipaSplice: [%s] eSpeak=\"%s\" -> override=\"%s\"\n",
+              key.c_str(), ipaChunks[ipaIdx].c_str(), it->second.c_str());
+        // Convert spaces to U+001F (phoneme boundary) so the IPA
+        // tokenizer treats them as key separators within a single word,
+        // not word boundaries.  This enables space-delimited phoneme
+        // keys like "k n iː v o_es l" in toIpa fields.
+        //
+        // Also protect underscores within phoneme keys: ipa_normalize
+        // strips all '_' → ' ' (eSpeak pause markers).  We encode '_'
+        // as U+F0001 (PUA-A) which survives normalization and gets
+        // decoded back to '_' in the tokenizer's \x1F handler.
+        std::string spliced;
+        spliced.reserve(it->second.size() * 2);
+        for (size_t si = 0; si < it->second.size(); ) {
+          unsigned char ch = static_cast<unsigned char>(it->second[si]);
+          if (ch == ' ') {
+            spliced.push_back('\x1F');
+            ++si;
+          } else if (ch == '_') {
+            // U+E001 in UTF-8: EE 80 81 (BMP PUA, survives normalization)
+            spliced.push_back(static_cast<char>(0xEE));
+            spliced.push_back(static_cast<char>(0x80));
+            spliced.push_back(static_cast<char>(0x81));
+            ++si;
+          } else {
+            spliced.push_back(static_cast<char>(ch));
+            ++si;
+          }
+        }
+        ipaChunks[ipaIdx] = std::move(spliced);
+        hadIpaSplice = true;
+      }
+      ++ipaIdx;
+    }
+  }
 
   // If there's no stress dict (e.g. en-gb), compound merge was still useful
   // but stress correction can't run.  Reassemble and return.
@@ -951,7 +1006,7 @@ std::string runTextParser(
     }
   }
 
-  if (!anyChange) return ipa;
+  if (!anyChange && !hadIpaSplice) return ipa;
 
   // Reassemble.  Split multi-stress chunks for IPA engine word boundaries.
   splitMultiStressChunks(ipaChunks);
@@ -973,7 +1028,8 @@ std::string prepareTextForEspeak(
     const std::unordered_set<std::string>& disabledDictTypes,
     const std::string& langTag,
     bool yearSplitting,
-    const std::string& ohDigit)
+    const std::string& ohDigit,
+    std::unordered_map<std::string, std::string>* ipaOverrides)
 {
   if (text.empty()) return text;
 
@@ -982,9 +1038,32 @@ std::string prepareTextForEspeak(
 
   std::string result = text;
 
+  // -1. Normalize bracket punctuation: ensure spaces around ( ) [ ].
+  // Screen readers expand these to spoken words ("left paren", "right bracket")
+  // but may leave the original character glued to adjacent text (e.g. NVDA sends
+  // "left paren(Knievel" for "(Knievel)"), breaking dict lookup and word-IPA
+  // alignment.  Splitting here lets the tokenizer see each word separately.
+  {
+    std::string norm;
+    norm.reserve(result.size() + 16);
+    for (size_t i = 0; i < result.size(); ++i) {
+      char c = result[i];
+      if (c == '(' || c == ')' || c == '[' || c == ']') {
+        if (!norm.empty() && norm.back() != ' ') norm += ' ';
+        norm += c;
+        if (i + 1 < result.size() && result[i + 1] != ' ') norm += ' ';
+      } else {
+        norm += c;
+      }
+    }
+    result = std::move(norm);
+  }
+
   // 0. Pronunciation dictionary replacement (highest priority).
+  // Words with toIpa set are left in place; their overrides are collected
+  // in ipaOverrides for downstream splicing in runTextParser.
   if (!pronDict.entries.empty() && disabledDictTypes.count("pronounce") == 0) {
-    result = dictReplaceInText(result, pronDict);
+    result = dictReplaceInText(result, pronDict, ipaOverrides);
   }
 
   // 1. Compound splitting.

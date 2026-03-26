@@ -250,6 +250,29 @@ def _getPanelClass():
             )
             self.saveVoiceProfileButton.Bind(wx.EVT_BUTTON, self._onSaveVoiceProfileClick)
 
+            # --- Save As (export copy to user-chosen location) ---
+            self.exportPhonemeFileButton = sHelper.addItem(
+                wx.Button(self, label=_("Save Voice Profile Sliders to YAML As..."))
+            )
+            self.exportPhonemeFileButton.Bind(wx.EVT_BUTTON, self._onExportPhonemeFileClick)
+
+            # --- Import Voice Profile Sliders button ---
+            self.importPhonemeFileButton = sHelper.addItem(
+                wx.Button(self, label=_("Import Voice Profile Sliders..."))
+            )
+            self.importPhonemeFileButton.Bind(wx.EVT_BUTTON, self._onImportPhonemeFileClick)
+
+            # --- User Dictionary Export/Import ---
+            self.exportUserDictButton = sHelper.addItem(
+                wx.Button(self, label=_("Export User Dictionary..."))
+            )
+            self.exportUserDictButton.Bind(wx.EVT_BUTTON, self._onExportUserDictClick)
+
+            self.importUserDictButton = sHelper.addItem(
+                wx.Button(self, label=_("Import User Dictionary..."))
+            )
+            self.importUserDictButton.Bind(wx.EVT_BUTTON, self._onImportUserDictClick)
+
             # --- Setting key/value editor ---
             sHelper.addItem(wx.StaticText(self, label=_("Edit setting:")))
 
@@ -1376,6 +1399,299 @@ def _getPanelClass():
                     self,
                 )
 
+            evt.Skip()
+
+        def _onExportPhonemeFileClick(self, evt):
+            """Export phonemes.yaml to a user-chosen location via Save As dialog."""
+            import os
+            import shutil
+            import wx
+
+            # Find the phonemes.yaml inside the pack directory
+            try:
+                import synthDriverHandler
+                synth = synthDriverHandler.getSynth()
+                frontend = getattr(synth, "_frontend", None) if synth else None
+                packDir = getattr(frontend, "_packDir", None) if frontend else None
+            except Exception:
+                packDir = None
+
+            if not packDir:
+                wx.MessageBox(
+                    _("Cannot determine pack directory."),
+                    _("Export Error"),
+                    wx.OK | wx.ICON_ERROR,
+                    self,
+                )
+                evt.Skip()
+                return
+
+            srcPath = os.path.join(packDir, "packs", "phonemes.yaml")
+            if not os.path.isfile(srcPath):
+                srcPath = os.path.join(packDir, "phonemes.yaml")
+            if not os.path.isfile(srcPath):
+                wx.MessageBox(
+                    _("phonemes.yaml not found in pack directory."),
+                    _("Export Error"),
+                    wx.OK | wx.ICON_ERROR,
+                    self,
+                )
+                evt.Skip()
+                return
+
+            dlg = wx.FileDialog(
+                self,
+                _("Save Voice Profile Sliders to YAML As"),
+                defaultDir=os.path.expanduser("~"),
+                defaultFile="phonemes.yaml",
+                wildcard="YAML files (*.yaml)|*.yaml|All files (*.*)|*.*",
+                style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT,
+            )
+            if dlg.ShowModal() == wx.ID_OK:
+                destPath = dlg.GetPath()
+                try:
+                    shutil.copy2(srcPath, destPath)
+                    wx.MessageBox(
+                        _("Saved to:\n{}").format(destPath),
+                        _("Save Complete"),
+                        wx.OK | wx.ICON_INFORMATION,
+                        self,
+                    )
+                except Exception as e:
+                    wx.MessageBox(
+                        _("Failed to export: {}").format(str(e)),
+                        _("Export Error"),
+                        wx.OK | wx.ICON_ERROR,
+                        self,
+                    )
+            dlg.Destroy()
+            evt.Skip()
+
+        def _onImportPhonemeFileClick(self, evt):
+            """Import a phonemes.yaml from a user-chosen location, replacing the current one."""
+            import os
+            import shutil
+            import wx
+
+            # Find the destination phonemes.yaml inside the pack directory
+            try:
+                import synthDriverHandler
+                synth = synthDriverHandler.getSynth()
+                frontend = getattr(synth, "_frontend", None) if synth else None
+                packDir = getattr(frontend, "_packDir", None) if frontend else None
+            except Exception:
+                packDir = None
+
+            if not packDir:
+                wx.MessageBox(
+                    _("Cannot determine pack directory."),
+                    _("Import Error"),
+                    wx.OK | wx.ICON_ERROR,
+                    self,
+                )
+                evt.Skip()
+                return
+
+            destPath = os.path.join(packDir, "packs", "phonemes.yaml")
+            if not os.path.isdir(os.path.dirname(destPath)):
+                destPath = os.path.join(packDir, "phonemes.yaml")
+
+            dlg = wx.FileDialog(
+                self,
+                _("Import Voice Profile Sliders"),
+                defaultDir=os.path.expanduser("~"),
+                defaultFile="phonemes.yaml",
+                wildcard="YAML files (*.yaml)|*.yaml|All files (*.*)|*.*",
+                style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST,
+            )
+            if dlg.ShowModal() == wx.ID_OK:
+                srcPath = dlg.GetPath()
+                result = wx.MessageBox(
+                    _("Replace the current phonemes.yaml with:\n{}\n\n"
+                      "Your current voice profile settings will be overwritten.\n"
+                      "The voice will reload automatically.").format(srcPath),
+                    _("Confirm Import"),
+                    wx.YES_NO | wx.ICON_QUESTION,
+                    self,
+                )
+                if result == wx.YES:
+                    try:
+                        shutil.copy2(srcPath, destPath)
+                        wx.MessageBox(
+                            _("Imported successfully. Reloading voice..."),
+                            _("Import Complete"),
+                            wx.OK | wx.ICON_INFORMATION,
+                            self,
+                        )
+                        # Reload the pack so the imported settings take effect
+                        try:
+                            langTag = getattr(synth, "_language", "en-us")
+                            frontend.setLanguage(langTag)
+                            curVoice = getattr(synth, "_curVoice", "")
+                            if curVoice.startswith("profile:"):
+                                profileName = curVoice[len("profile:"):]
+                                frontend.setVoiceProfile(profileName)
+                                synth._applyVoicingTone(profileName)
+                        except Exception:
+                            pass
+                    except Exception as e:
+                        wx.MessageBox(
+                            _("Failed to import: {}").format(str(e)),
+                            _("Import Error"),
+                            wx.OK | wx.ICON_ERROR,
+                            self,
+                        )
+            dlg.Destroy()
+            evt.Skip()
+
+        def _getUserDictPath(self):
+            """Return the path to the user dictionary TSV for the current language."""
+            import os
+            try:
+                import synthDriverHandler
+                synth = synthDriverHandler.getSynth()
+                # Use _resolvedLang (actual language) — _language may be "auto"
+                langTag = getattr(synth, "_resolvedLang", None) \
+                    or getattr(synth, "_language", "en-us") or "en-us"
+                if langTag == "auto":
+                    langTag = "en-us"
+            except Exception:
+                langTag = "en-us"
+            return os.path.join(self._packsDir, "dict", langTag + "-user.tsv")
+
+        def _onExportUserDictClick(self, evt):
+            """Export the user dictionary TSV to a user-chosen location."""
+            import os
+            import shutil
+            import wx
+
+            srcPath = self._getUserDictPath()
+            if not os.path.isfile(srcPath):
+                wx.MessageBox(
+                    _("No user dictionary found at:\n{}").format(srcPath),
+                    _("Export Error"),
+                    wx.OK | wx.ICON_WARNING,
+                    self,
+                )
+                evt.Skip()
+                return
+
+            dlg = wx.FileDialog(
+                self,
+                _("Export User Dictionary"),
+                defaultDir=os.path.expanduser("~"),
+                defaultFile=os.path.basename(srcPath),
+                wildcard="TSV files (*.tsv)|*.tsv|All files (*.*)|*.*",
+                style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT,
+            )
+            if dlg.ShowModal() == wx.ID_OK:
+                try:
+                    shutil.copy2(srcPath, dlg.GetPath())
+                    wx.MessageBox(
+                        _("User dictionary exported to:\n{}").format(dlg.GetPath()),
+                        _("Export Complete"),
+                        wx.OK | wx.ICON_INFORMATION,
+                        self,
+                    )
+                except Exception as e:
+                    wx.MessageBox(
+                        _("Failed to export: {}").format(str(e)),
+                        _("Export Error"),
+                        wx.OK | wx.ICON_ERROR,
+                        self,
+                    )
+            dlg.Destroy()
+            evt.Skip()
+
+        def _onImportUserDictClick(self, evt):
+            """Import a user dictionary TSV from a user-chosen location."""
+            import os
+            import shutil
+            import wx
+
+            destPath = self._getUserDictPath()
+
+            dlg = wx.FileDialog(
+                self,
+                _("Import User Dictionary"),
+                defaultDir=os.path.expanduser("~"),
+                defaultFile=os.path.basename(destPath),
+                wildcard="TSV files (*.tsv)|*.tsv|All files (*.*)|*.*",
+                style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST,
+            )
+            if dlg.ShowModal() == wx.ID_OK:
+                srcPath = dlg.GetPath()
+
+                # Validate that the file looks like a 5-column user dict,
+                # not a stress dict (2 cols) or compound dict (2 cols).
+                try:
+                    with open(srcPath, "r", encoding="utf-8") as f:
+                        for line in f:
+                            line = line.rstrip("\n\r")
+                            if not line or line.startswith("#"):
+                                continue
+                            ncols = len(line.split("\t"))
+                            if ncols < 3:
+                                wx.MessageBox(
+                                    _("This file does not appear to be a user pronunciation dictionary.\n\n"
+                                      "Expected 5 tab-separated columns (from_text, to_text, from_ipa, to_ipa, category) "
+                                      "but the first data row has {} column(s).\n\n"
+                                      "Make sure you are importing a user dictionary TSV, "
+                                      "not a stress or compound dictionary.").format(ncols),
+                                    _("Import Error"),
+                                    wx.OK | wx.ICON_WARNING,
+                                    self,
+                                )
+                                dlg.Destroy()
+                                evt.Skip()
+                                return
+                            break  # first data row checked
+                except Exception as e:
+                    wx.MessageBox(
+                        _("Failed to read file: {}").format(str(e)),
+                        _("Import Error"),
+                        wx.OK | wx.ICON_ERROR,
+                        self,
+                    )
+                    dlg.Destroy()
+                    evt.Skip()
+                    return
+
+                result = wx.MessageBox(
+                    _("Replace the current user dictionary with:\n{}\n\n"
+                      "Existing user entries will be overwritten.\n"
+                      "The dictionary will reload automatically.").format(srcPath),
+                    _("Confirm Import"),
+                    wx.YES_NO | wx.ICON_QUESTION,
+                    self,
+                )
+                if result == wx.YES:
+                    try:
+                        os.makedirs(os.path.dirname(destPath), exist_ok=True)
+                        shutil.copy2(srcPath, destPath)
+                        wx.MessageBox(
+                            _("Imported successfully. Reloading..."),
+                            _("Import Complete"),
+                            wx.OK | wx.ICON_INFORMATION,
+                            self,
+                        )
+                        # Reload the language to pick up new dict entries.
+                        # Go through synth._set_language so "auto" is resolved
+                        # and voice profile / eSpeak config are preserved.
+                        try:
+                            import synthDriverHandler
+                            synth = synthDriverHandler.getSynth()
+                            synth._set_language(synth._language)
+                        except Exception:
+                            pass
+                    except Exception as e:
+                        wx.MessageBox(
+                            _("Failed to import: {}").format(str(e)),
+                            _("Import Error"),
+                            wx.OK | wx.ICON_ERROR,
+                            self,
+                        )
+            dlg.Destroy()
             evt.Skip()
 
         def _getLanguageChoices(self):

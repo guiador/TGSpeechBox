@@ -211,9 +211,21 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
         engine.speak(text, effectiveSpeed, pitchHz.value.toDouble())
     }
 
-    /** Preview a dictionary entry: speaks the replacement text. */
-    fun previewDictEntry(fromText: String, toText: String) {
-        speakText(toText)
+    /** Preview a dictionary entry: uses IPA directly if available, else speaks replacement text. */
+    fun previewDictEntry(fromText: String, toText: String, toIpa: String = "") {
+        if (toIpa.isNotBlank()) {
+            val ld = languages[selectedLanguageIndex.value].langDef
+            engine.setLanguage(ld.espeakLang, ld.tgsbLang)
+            applyStoredOverrides(ld.tgsbLang)
+            engine.setVoice(voices[selectedVoiceIndex.value].id)
+            applyVoicingTone()
+            applyFrameExDefaults()
+            applyPitchSettings()
+            val effectiveSpeed = speedRate.value.toDouble() * (if (rateBoostEnabled.value) 2.0 else 1.0)
+            engine.previewPhoneme(toIpa, effectiveSpeed, pitchHz.value.toDouble())
+        } else {
+            speakText(toText)
+        }
     }
 
     fun stop() {
@@ -861,16 +873,53 @@ class TgsbViewModel(application: Application) : AndroidViewModel(application) {
         dictionaryCategories.value = cats.sorted()
     }
 
-    fun addDictEntry(fromText: String, toText: String, category: String = "") {
+    fun addDictEntry(
+        fromText: String, toText: String, category: String = "",
+        fromIpa: String = "", toIpa: String = ""
+    ) {
         if (fromText.isBlank() || toText.isBlank()) return
         val prefixed = prefixedLangTag(dictSubType, dictLangTag)
         val json = org.json.JSONObject().apply {
             put("toText", toText)
             if (category.isNotEmpty()) put("category", category)
+            if (fromIpa.isNotEmpty()) put("fromIpa", fromIpa)
+            if (toIpa.isNotEmpty()) put("toIpa", toIpa)
         }
         engine.setData(TgsbSpeakEngine.DATA_DICTIONARY, prefixed, fromText, json.toString())
         saveDictOverride(prefixed, fromText, json.toString())
         loadDictionary(dictLangTag, dictSubType)
+    }
+
+    fun maskDictCategory(category: String, masked: Boolean, entries: List<DictEntry>) {
+        val prefixed = prefixedLangTag(dictSubType, dictLangTag)
+        val matching = entries.filter {
+            it.category.equals(category, ignoreCase = true) && it.masked != masked
+        }
+        for (e in matching) {
+            val json = org.json.JSONObject().apply { put("masked", masked) }
+            engine.setData(TgsbSpeakEngine.DATA_DICTIONARY, prefixed, e.fromText, json.toString())
+            saveDictOverride(prefixed, e.fromText, json.toString())
+        }
+        if (matching.isNotEmpty()) loadDictionary(dictLangTag, dictSubType)
+    }
+
+    fun textToIpa(text: String): String = engine.textToIpa(text)
+
+    fun getPhonemeKeys(): List<Pair<String, String>> {
+        val json = engine.queryData(TgsbSpeakEngine.DATA_PHONEMES, dictLangTag) ?: return emptyList()
+        return try {
+            val arr = org.json.JSONArray(json)
+            val seen = linkedSetOf<String>()
+            val result = mutableListOf<Pair<String, String>>()
+            for (i in 0 until arr.length()) {
+                val obj = arr.getJSONObject(i)
+                val group = obj.optString("group", "")
+                if (group.isNotEmpty() && seen.add(group)) {
+                    result.add(group to obj.optString("class", ""))
+                }
+            }
+            result
+        } catch (_: Exception) { emptyList() }
     }
 
     fun maskDictEntry(fromText: String, masked: Boolean) {
