@@ -193,6 +193,8 @@ typedef struct {
     double userAspirationTiltDbPerOct;
     double userCascadeBwScale;
     double userTremorDepth;
+    double userChorusDepth;
+    double userChorusDetuneHz;
 
     /* Inflection (pitch range) — 0.0..1.0, default 0.5 */
     double inflection;
@@ -291,6 +293,13 @@ static void synthesizeClauses(TgsbEngine *engine,
                 bool nextDigit = *(p + 1) &&
                     (unsigned char)(*(p + 1) - '0') <= 9;
                 if (prevDigit && nextDigit) {
+                    p++;
+                    continue;
+                }
+                /* Ordinal dot: "3. Mai" (German/Swedish/Czech/Finnish) */
+                if (c == '.' && prevDigit && *(p+1) == ' ' && *(p+2) &&
+                    ((unsigned char)(*(p+2) - 'A') <= 25 ||
+                     (unsigned char)(*(p+2) - 'a') <= 25)) {
                     p++;
                     continue;
                 }
@@ -693,7 +702,8 @@ static void applyVoicingTone(TgsbEngine *engine,
     double speedQuotient, double aspirationTiltDbPerOct,
     double cascadeBwScale, double tremorDepth,
     double nasalBwScale = 1.0, double f4FreqScale = 1.0,
-    double nasalGainScale = 1.0)
+    double nasalGainScale = 1.0,
+    double chorusDepth = 0.0, double chorusDetuneHz = 2.0)
 {
     if (!engine || !engine->player) return;
 
@@ -706,6 +716,8 @@ static void applyVoicingTone(TgsbEngine *engine,
     engine->userAspirationTiltDbPerOct = aspirationTiltDbPerOct;
     engine->userCascadeBwScale = cascadeBwScale;
     engine->userTremorDepth = tremorDepth;
+    engine->userChorusDepth = chorusDepth;
+    engine->userChorusDetuneHz = chorusDetuneHz;
 
     speechPlayer_voicingTone_t tone = speechPlayer_getDefaultVoicingTone();
     const VoicePreset *vp = &kPresets[engine->voiceIndex];
@@ -723,6 +735,8 @@ static void applyVoicingTone(TgsbEngine *engine,
     tone.nasalBwScale = nasalBwScale;
     tone.f4FreqScale = f4FreqScale;
     tone.nasalGainScale = nasalGainScale;
+    tone.chorusDepth = chorusDepth;
+    tone.chorusDetuneHz = chorusDetuneHz;
 
     speechPlayer_setVoicingTone(engine->player, &tone);
 }
@@ -742,9 +756,10 @@ Java_com_tgspeechbox_tts_TgsbTtsService_nativeSetVoicingTone(
     JNIEnv *env, jobject thiz, jlong handle,
     jdouble a, jdouble b, jdouble c, jdouble d,
     jdouble e, jdouble f, jdouble g, jdouble h,
-    jdouble nasalBw, jdouble f4Freq, jdouble nasalGain
+    jdouble nasalBw, jdouble f4Freq, jdouble nasalGain,
+    jdouble chorusDepth, jdouble chorusDetuneHz
 ) {
-    applyVoicingTone((TgsbEngine *)(intptr_t)handle, a,b,c,d,e,f,g,h, nasalBw, f4Freq, nasalGain);
+    applyVoicingTone((TgsbEngine *)(intptr_t)handle, a,b,c,d,e,f,g,h, nasalBw, f4Freq, nasalGain, chorusDepth, chorusDetuneHz);
 }
 
 JNIEXPORT void JNICALL
@@ -815,7 +830,10 @@ Java_com_tgspeechbox_tts_TgsbTtsService_nativeSetSampleRate(
             engine->userSpeedQuotient,
             engine->userAspirationTiltDbPerOct,
             engine->userCascadeBwScale,
-            engine->userTremorDepth);
+            engine->userTremorDepth,
+            1.0, 1.0, 1.0,
+            engine->userChorusDepth,
+            engine->userChorusDetuneHz);
     } else {
         speechPlayer_voicingTone_t tone = speechPlayer_getDefaultVoicingTone();
         const VoicePreset *vp = &kPresets[engine->voiceIndex];
@@ -1030,9 +1048,10 @@ Java_com_tgspeechbox_tts_TgsbSpeakEngine_nativeSetVoicingTone(
     JNIEnv *env, jobject thiz, jlong handle,
     jdouble a, jdouble b, jdouble c, jdouble d,
     jdouble e, jdouble f, jdouble g, jdouble h,
-    jdouble nasalBw, jdouble f4Freq, jdouble nasalGain
+    jdouble nasalBw, jdouble f4Freq, jdouble nasalGain,
+    jdouble chorusDepth, jdouble chorusDetuneHz
 ) {
-    applyVoicingTone((TgsbEngine *)(intptr_t)handle, a,b,c,d,e,f,g,h, nasalBw, f4Freq, nasalGain);
+    applyVoicingTone((TgsbEngine *)(intptr_t)handle, a,b,c,d,e,f,g,h, nasalBw, f4Freq, nasalGain, chorusDepth, chorusDetuneHz);
 }
 
 JNIEXPORT void JNICALL

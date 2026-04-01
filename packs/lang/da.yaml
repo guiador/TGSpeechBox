@@ -5,6 +5,10 @@ settings:
   primaryStressDiv: 1.25
   secondaryStressDiv: 1.07
 
+  # Nasal+stop clusters (punkt, kamp) — protect stop from being swallowed at speed
+  stopClosureNasalToStopGapMs: 10
+  stopClosureNasalToStopFadeMs: 2
+
   # Moderate vowel length for Danish
   lengthenedScale: 1.20
 
@@ -53,6 +57,17 @@ settings:
   trajectoryLimit:
     enabled: false
     applyAcrossWordBoundary: false
+
+  thousandsSeparatorCommaToSpace: true
+
+  dictSuffixes:
+    - "erne"  # definite plural (common)
+    - "ene"   # definite plural
+    - "er"    # plural indefinite
+    - "en"    # definite common
+    - "et"    # definite neuter
+    - "s"     # genitive
+
 normalization:
   preReplacements:
     # Danish stød: eSpeak outputs both ASCII '?' and IPA 'ʔ' inconsistently.

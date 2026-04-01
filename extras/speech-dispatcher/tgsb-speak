@@ -1,16 +1,30 @@
 #!/bin/sh
-# tgsb-speak — clause-aware wrapper for the eSpeak → tgsbRender → aplay pipeline.
+# tgsb-speak — Speech Dispatcher wrapper for TGSpeechBox.
 #
-# Splits input text at sentence boundaries (quote-aware) so each clause
-# gets its own --clause type for correct intonation contours.
+# Uses tgsbRender's --espeak mode to phonemize and render in a single process
+# (no espeak CLI subprocess, no pipe chain = no shimmer).
+# Falls back to the pipe chain if --espeak mode fails (e.g. libespeak-ng.so
+# not found, or running on a system without espeak-ng installed).
 #
 # Usage (from tgsb-generic.conf):
 #   tgsb-speak "$DATA" $LANGUAGE $VOICE $RATE $PITCH $VOLUME
 #
-# Requires: espeak-ng, tgsbRender, aplay in PATH.
+# Requires: tgsbRender and (for fallback) espeak-ng in PATH.
 # Install tgsbRender to /usr/local/bin or adjust PATH.
 
 set -e
+
+# Parse --stdout flag first, then shift it out of positional args.
+STDOUT_MODE=0
+_args=""
+for _a in "$@"; do
+  if [ "$_a" = "--stdout" ]; then
+    STDOUT_MODE=1
+  else
+    _args="$_args \"$_a\""
+  fi
+done
+eval set -- $_args
 
 TEXT="$1"
 LANG="${2:-en}"
@@ -18,15 +32,44 @@ VOICE="${3:-default}"
 RATE="${4:-0}"
 PITCH="${5:-50}"
 VOLUME="${6:-1.0}"
-PACKDIR="${TGSB_PACKDIR:-/usr/share/tgspeechbox}"
-SAMPLERATE="${TGSB_SAMPLERATE:-16000}"
+# Auto-detect pack directory: /usr/local/share (default install) or /usr/share
+if [ -n "$TGSB_PACKDIR" ]; then
+  PACKDIR="$TGSB_PACKDIR"
+elif [ -d "/usr/local/share/tgspeechbox/packs" ]; then
+  PACKDIR="/usr/local/share/tgspeechbox"
+else
+  PACKDIR="/usr/share/tgspeechbox"
+fi
+SAMPLERATE="${TGSB_SAMPLERATE:-22050}"
 RATE_BOOST="${TGSB_RATE_BOOST:-0}"   # set to 1 to enable rate boost
 
-# Pre-eSpeak text normalization: dict replacements, compound splitting, etc.
-# This runs the frontend's prepareText on the raw text before eSpeak sees it.
-PREPARED=$(printf '%s' "$TEXT" | tgsbRender --prepare-text --packdir "$PACKDIR" --lang "$LANG" 2>/dev/null) || true
-if [ -n "$PREPARED" ]; then
-  TEXT="$PREPARED"
+# ── Audio session environment ──────────────────────────────────────────
+# When not in --stdout mode, sd_generic's subprocess may lack audio
+# session variables. Try to inherit the desktop user's environment.
+if [ "$STDOUT_MODE" = 0 ]; then
+  if [ -z "$XDG_RUNTIME_DIR" ]; then
+    _uid="${UID:-$(id -u 2>/dev/null || echo 1000)}"
+    if [ -d "/run/user/$_uid" ]; then
+      export XDG_RUNTIME_DIR="/run/user/$_uid"
+    fi
+  fi
+  if [ -z "$PULSE_SERVER" ] && [ -n "$XDG_RUNTIME_DIR" ]; then
+    if [ -e "$XDG_RUNTIME_DIR/pipewire-0" ]; then
+      export PULSE_SERVER="unix:$XDG_RUNTIME_DIR/pulse/native"
+    elif [ -e "$XDG_RUNTIME_DIR/pulse/native" ]; then
+      export PULSE_SERVER="unix:$XDG_RUNTIME_DIR/pulse/native"
+    fi
+  fi
+
+  # Direct playback: prefer paplay (PulseAudio/PipeWire native), fall back to aplay (ALSA)
+  if command -v paplay >/dev/null 2>&1; then
+    PLAY_CMD="paplay --raw --rate=$SAMPLERATE --channels=1 --format=s16le"
+  elif command -v aplay >/dev/null 2>&1; then
+    PLAY_CMD="aplay -q -r $SAMPLERATE -f S16_LE -t raw -"
+  else
+    echo "Error: neither paplay nor aplay found in PATH" >&2
+    exit 1
+  fi
 fi
 
 # Build rate-boost flag
@@ -35,62 +78,50 @@ if [ "$RATE_BOOST" = "1" ]; then
   BOOST_FLAG="--rate-boost"
 fi
 
-# Split text at sentence boundaries, keeping closing quotes with
-# their sentence.  Each line of output is one clause.
-split_clauses() {
-  python3 -c '
-import sys, re
-
-text = sys.argv[1] if len(sys.argv) > 1 else ""
-if not text.strip():
-    sys.exit(0)
-
-# Split at sentence-ending punctuation, allowing closing quotes/brackets
-# to stay attached to the sentence they belong to.
-# Pattern: punctuation + optional closing chars + whitespace
-parts = re.split(r"(?<=[.?!])[)\]\"\x27\u2019\u201D]*\s+", text.strip())
-
-for part in parts:
-    part = part.strip()
-    if part:
-        print(part)
-' "$1"
+# ── Primary: in-process espeak mode (single binary, no pipes) ─────────
+# Note: --espeak mode runs prepareText internally, so we skip the separate
+# --prepare-text pre-pass to avoid spawning tgsbRender twice per utterance.
+# tgsbRender --espeak calls libespeak-ng.so directly via dlopen.
+# This eliminates the espeak CLI → pipe → tgsbRender chain that caused
+# audio shimmer/discontinuities through Speech Dispatcher.
+render_espeak() {
+  tgsbRender --espeak \
+    --packdir "$PACKDIR" \
+    --lang "$LANG" \
+    --voice "$VOICE" \
+    --text "$TEXT" \
+    --rate "$RATE" \
+    --pitch "$PITCH" \
+    --volume "$VOLUME" \
+    --samplerate "$SAMPLERATE" \
+    $BOOST_FLAG 2>/dev/null
 }
 
-# Detect clause type from a text string (quote-aware backward scan).
-detect_clause() {
-  python3 -c '
-import sys, re
+# ── Fallback: pipe chain (for systems where dlopen fails) ────────────
+render_pipe() {
+  # Pre-normalize text (only needed for pipe path; --espeak does this internally)
+  _PT=$(printf '%s' "$TEXT" | tgsbRender --prepare-text --packdir "$PACKDIR" --lang "$LANG" 2>/dev/null) || true
+  [ -n "$_PT" ] && TEXT="$_PT"
 
-text = sys.argv[1] if len(sys.argv) > 1 else ""
-# Strip trailing whitespace and closing quotes/brackets
-text = text.rstrip()
-text = text.rstrip(")\"]'\''\\u2019\\u201D")
-if text and text[-1] in ".?!,":
-    print(text[-1])
-else:
-    print(".")
-' "$1"
-}
-
-# Process each clause through the pipeline.
-split_clauses "$TEXT" | while IFS= read -r clause; do
-  [ -z "$clause" ] && continue
-
-  ctype=$(detect_clause "$clause")
-
-  printf '%s' "$clause" \
+  printf '%s' "$TEXT" \
     | espeak-ng -q -v "$LANG" --ipa=1 --stdin \
     | tgsbRender \
         --packdir "$PACKDIR" \
         --lang "$LANG" \
         --voice "$VOICE" \
-        --text "$clause" \
-        --clause "$ctype" \
+        --text "$TEXT" \
         --rate "$RATE" \
         --pitch "$PITCH" \
         --volume "$VOLUME" \
         --samplerate "$SAMPLERATE" \
-        $BOOST_FLAG \
-    | aplay -q -r "$SAMPLERATE" -f S16_LE -t raw -
-done
+        $BOOST_FLAG 2>/dev/null
+}
+
+# Try --espeak first; fall back to pipe chain on failure.
+{
+  render_espeak || render_pipe
+} | if [ "$STDOUT_MODE" = 1 ]; then
+  cat
+else
+  $PLAY_CMD
+fi

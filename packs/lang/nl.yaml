@@ -31,6 +31,8 @@ settings:
   stopClosureVowelFadeMs: 7
   stopClosureClusterGapMs: 16
   stopClosureClusterFadeMs: 5
+  stopClosureNasalToStopGapMs: 10
+  stopClosureNasalToStopFadeMs: 2
 
   # Smooth transitions
   boundarySmoothingEnabled: true
@@ -47,6 +49,16 @@ settings:
 
   # Enable microprosody
   microprosodyEnabled: true
+
+  thousandsSeparatorCommaToSpace: true
+
+  dictSuffixes:
+    - "tje"   # diminutive
+    - "je"    # diminutive
+    - "'s"    # genitive
+    - "en"    # plural
+    - "er"    # comparative
+    - "s"     # plural/genitive
 
 normalization:
   preReplacements:

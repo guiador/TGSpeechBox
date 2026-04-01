@@ -4,6 +4,10 @@ settings:
   primaryStressDiv: 1.25
   secondaryStressDiv: 1.07
 
+  # Nasal+stop clusters (punct, camp) — protect stop from being swallowed at speed
+  stopClosureNasalToStopGapMs: 10
+  stopClosureNasalToStopFadeMs: 2
+
   # Trill modulation (rolled R). Applied only when the phoneme has _isTrill: true.
   trillModulationMs: 50
   trillModulationFadeMs: 2
@@ -14,6 +18,19 @@ settings:
   singleWordFinalFadeMs: 18
   singleWordClauseTypeOverride: "."
   singleWordClauseTypeOverrideCommaOnly: true
+
+  thousandsSeparatorCommaToSpace: true
+
+  dictSuffixes:
+    - "ului"  # genitive/dative definite masculine
+    - "lor"   # genitive/dative plural
+    - "lui"   # masculine genitive/dative
+    - "ul"    # masculine definite
+    - "ei"    # feminine genitive/dative
+    - "le"    # neuter definite
+    - "a"     # feminine definite
+    - "i"     # plural
+    - "e"     # plural
 
 normalization:
   # eSpeak (classic) Romanian IPA frequently uses plain two-character sequences

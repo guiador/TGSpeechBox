@@ -209,7 +209,7 @@ void __cdecl runtime::frontend_frame_ex_cb(void* userData, const nvspFrontend_Fr
     memcpy(&frame, frameOrNull, sizeof(frame));
     rt.apply_preset_and_volume(&frame, *ctx->params);
 
-    // nvspFrontend_FrameEx and speechPlayer_frameEx_t are layout-compatible (both 23 doubles).
+    // nvspFrontend_FrameEx and speechPlayer_frameEx_t are layout-compatible (both 27 doubles).
     const unsigned int frameExSize = frameExOrNull ? static_cast<unsigned int>(sizeof(speechPlayer_frameEx_t)) : 0;
     speechPlayer_queueFrameEx(rt.speech_player_, &frame, reinterpret_cast<const speechPlayer_frameEx_t*>(frameExOrNull), frameExSize, minSamples, fadeSamples, userIndex, false);
 }
@@ -697,6 +697,13 @@ void runtime::apply_voicing_tone_if_available()
         else
             dsp_tone.f4FreqScale = 1.0 - ((hs - 50.0) / 50.0) * 0.15;
         dsp_tone.f4FreqScale = clamp(dsp_tone.f4FreqScale, 0.7, 1.5);
+    }
+    if (s.chorusDepth >= 0) {
+        dsp_tone.chorusDepth = clamp(s.chorusDepth / 100.0, 0.0, 1.0);
+    }
+    if (s.chorusDetune >= 0) {
+        dsp_tone.chorusDetuneHz = 0.5 + (s.chorusDetune / 100.0) * 4.5;
+        dsp_tone.chorusDetuneHz = clamp(dsp_tone.chorusDetuneHz, 0.5, 5.0);
     }
 
     speechPlayer_setVoicingTone(speech_player_, &dsp_tone);

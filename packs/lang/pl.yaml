@@ -13,6 +13,10 @@ settings:
   primaryStressDiv: 1.25
   secondaryStressDiv: 1.07
 
+  # Nasal+stop clusters (punkt, bank) — protect stop from being swallowed at speed
+  stopClosureNasalToStopGapMs: 10
+  stopClosureNasalToStopFadeMs: 2
+
   # Trill modulation (rolled R). Applied only when the phoneme has _isTrill: true.
   trillModulationMs: 50
   trillModulationFadeMs: 2
@@ -92,6 +96,22 @@ settings:
     floorSpeedScale: 0.0
     clusterProportionGuard: true
     clusterMaxRatioShift: 0.4
+
+  thousandsSeparatorCommaToSpace: true
+
+  dictSuffixes:
+    - "ach"   # locative plural
+    - "ami"   # instrumental plural
+    - "ów"    # genitive plural
+    - "om"    # dative plural
+    - "owi"   # dative singular
+    - "em"    # instrumental singular
+    - "ie"    # locative singular
+    - "y"     # various cases
+    - "a"     # genitive singular
+    - "u"     # dative/locative
+    - "i"     # plural/genitive
+    - "e"     # locative/vocative
 
 normalization:
   preReplacements:

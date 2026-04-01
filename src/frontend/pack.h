@@ -166,6 +166,18 @@ struct PhonemeDef {
   // Default 1.0 (no change). Consumed by ipa_engine timing, not frame_emit.
   double durationScale = 1.0;
   bool hasDurationScale = false;
+
+  // Higher cascade formants F7/F8 (DSP v8, Rabiner 1968 defaults).
+  // These are vocal-tract-length properties, not vowel-dependent.
+  // Per-phoneme override via YAML keys cf7/cb7/cf8/cb8.
+  bool hasCf7 = false;
+  double cf7 = 6500.0;
+  bool hasCb7 = false;
+  double cb7 = 720.0;
+  bool hasCf8 = false;
+  double cf8 = 7500.0;
+  bool hasCb8 = false;
+  double cb8 = 1250.0;
 };
 
 // In YAML we keep replacements in UTF-8; we convert to UTF-32 during load.
@@ -526,6 +538,7 @@ struct LanguagePack {
   // If true, allow inserting short closure gaps before stops even after nasals.
   // This helps keep stops audible in nasal+stop clusters (e.g. Hungarian "pont" -> n+t).
   // Default false to avoid "clicks" in languages where this sounds unnatural.
+  // Consider using stopClosureNasalToStopGapMs instead for finer control.
   bool stopClosureAfterNasalsEnabled = false;
 
   // Stop closure timing (ms at speed=1.0; divided by current speed).
@@ -535,6 +548,14 @@ struct LanguagePack {
   double stopClosureVowelFadeMs = 10.0;
   double stopClosureClusterGapMs = 22.0;
   double stopClosureClusterFadeMs = 4.0;
+
+  // Dedicated nasal→stop closure gap (ms at speed=1.0; divided by current speed).
+  // When > 0, inserts a short closure gap before stops that follow nasals,
+  // regardless of stopClosureAfterNasalsEnabled. This protects clusters like
+  // /mp/ (suurempi), /nt/ (parenthèse), /nk/ (pankki) from being swallowed
+  // at speed. Shorter than the general cluster gap to avoid clicks.
+  double stopClosureNasalToStopGapMs = 0.0;
+  double stopClosureNasalToStopFadeMs = 2.0;
 
   // Optional: if >0, override cluster gap timing specifically at word boundaries
   // (when the stop/affricate is at word start).
@@ -849,6 +870,17 @@ double lengthContrastPreGeminateVowelScale = 0.85;
   // so "1995" → "19 95" (eSpeak says "nineteen ninety-five").
   // Off by default — users opt in via setSettings.
   bool yearSplittingEnabled = false;
+
+  // Thousands-separator commas → spaces: "1,213" → "1 213".
+  // Needed for languages where comma = decimal separator (Hungarian, etc.)
+  // so eSpeak reads the number as thousands, not decimal.
+  // Off by default — English numberExpansion already handles commas.
+  bool thousandsSeparatorCommaToSpace = false;
+
+  // Dictionary suffix stripping — per-language list of suffixes to try
+  // removing during dict lookup so inflected forms ("launching") inherit
+  // their stem entry ("launch").  Pre-sorted longest-first at load time.
+  std::vector<std::string> dictSuffixes;
 
   // Special coarticulation rules (language-specific Hz deltas).
   bool specialCoarticulationEnabled = false;

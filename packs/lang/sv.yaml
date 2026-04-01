@@ -34,6 +34,8 @@ settings:
   stopClosureVowelFadeMs: 6
   stopClosureClusterGapMs: 18
   stopClosureClusterFadeMs: 5
+  stopClosureNasalToStopGapMs: 10
+  stopClosureNasalToStopFadeMs: 2
 
   # Smooth transitions for retroflex consonants
   boundarySmoothingEnabled: true
@@ -51,6 +53,20 @@ settings:
   microprosodyEnabled: true
   microprosodyVoicedF0LowerEnabled: true
   microprosodyVoicedF0LowerHz: -6
+
+  thousandsSeparatorCommaToSpace: true
+
+  dictSuffixes:
+    - "orna"  # definite plural (3rd declension)
+    - "erna"  # definite plural (5th declension)
+    - "arna"  # definite plural (2nd declension)
+    - "na"    # definite plural
+    - "ar"    # plural indefinite
+    - "er"    # plural indefinite
+    - "or"    # plural indefinite
+    - "en"    # definite common
+    - "et"    # definite neuter
+    - "s"     # genitive
 
 normalization:
   preReplacements:

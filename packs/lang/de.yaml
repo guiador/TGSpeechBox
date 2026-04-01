@@ -31,6 +31,8 @@ settings:
   stopClosureVowelFadeMs: 6
   stopClosureClusterGapMs: 18
   stopClosureClusterFadeMs: 5
+  stopClosureNasalToStopGapMs: 10
+  stopClosureNasalToStopFadeMs: 2
 
   # German glottal stop before vowel-initial words (Knacklaut)
   # This is what makes German sound "choppy" to English ears
@@ -127,6 +129,20 @@ settings:
   microprosodyEnabled: true
   microprosodyVoicedF0LowerEnabled: true
   microprosodyVoicedF0LowerHz: -5
+
+  thousandsSeparatorCommaToSpace: true
+
+  dictSuffixes:
+    - "chen"  # diminutive
+    - "lein"  # diminutive
+    - "ern"   # dative plural
+    - "es"    # genitive
+    - "en"    # plural/various
+    - "er"    # plural/comparative
+    - "em"    # dative
+    - "e"     # plural/dative
+    - "n"     # dative plural
+    - "s"     # genitive
 
 normalization:
   preReplacements:

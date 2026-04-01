@@ -4,12 +4,34 @@ settings:
   primaryStressDiv: 1.25
   secondaryStressDiv: 1.07
 
+  # Nasal+stop clusters (banka, student) — protect stop from being swallowed at speed
+  stopClosureNasalToStopGapMs: 10
+  stopClosureNasalToStopFadeMs: 2
+
   # Trill modulation (rolled R). Applied only when the phoneme has _isTrill: true.
   trillModulationMs: 50
   trillModulationFadeMs: 2
 
   # Czech vowel length (short vs long) is phonemic.
   lengthenedScale: 1.4
+
+  thousandsSeparatorCommaToSpace: true
+
+  dictSuffixes:
+    - "ách"   # locative plural
+    - "ami"   # instrumental plural
+    - "ové"   # animate plural
+    - "ech"   # locative plural
+    - "ům"    # dative plural
+    - "ům"    # dative plural
+    - "ovi"   # dative singular
+    - "em"    # instrumental
+    - "ů"     # genitive plural
+    - "y"     # accusative/plural
+    - "e"     # locative/vocative
+    - "i"     # plural/locative
+    - "a"     # genitive
+    - "u"     # dative/locative
 
 normalization:
   replacements:
@@ -41,3 +63,16 @@ normalization:
     # Common approximations.
     - from: "ʝ"
       to: "j"
+
+    # === CZECH VOWEL TUNING ===
+    # Czech has 5 short + 5 long vowels. Base phonemes too centralized.
+    - from: i
+      to: i_hu
+    - from: u
+      to: u_fi
+    - from: o
+      to: o_fi
+    - from: e
+      to: e_fi
+    - from: a
+      to: a_open

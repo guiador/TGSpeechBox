@@ -30,6 +30,8 @@ settings:
   # Word-boundary clusters need small gaps to stay intelligible
   stopClosureWordBoundaryClusterGapMs: 16
   stopClosureWordBoundaryClusterFadeMs: 3
+  stopClosureNasalToStopGapMs: 10
+  stopClosureNasalToStopFadeMs: 2
 
   # === TRILLS ===
   # Russian has both /r/ and /rʲ/ (palatalized trill)
@@ -43,6 +45,21 @@ settings:
   singleWordTuningEnabled: true
   singleWordFinalHoldMs: 40
   singleWordFinalFadeMs: 16
+
+  thousandsSeparatorCommaToSpace: true
+
+  dictSuffixes:
+    - "ами"   # instrumental plural
+    - "ами"   # instrumental plural
+    - "ов"    # genitive plural
+    - "ах"    # prepositional plural
+    - "ам"    # dative plural
+    - "ом"    # instrumental singular
+    - "ы"     # nominative plural
+    - "а"     # genitive singular
+    - "у"     # dative/prepositional
+    - "е"     # prepositional singular
+    - "и"     # plural/genitive
 
 normalization:
   preReplacements:

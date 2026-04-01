@@ -10,6 +10,22 @@ settings:
   # Make it a bit more audible than the global default.
   lengthenedScale: 1.15
 
+  # Nasal+stop clusters — protect stop from being swallowed at speed
+  stopClosureNasalToStopGapMs: 10
+  stopClosureNasalToStopFadeMs: 2
+
+  thousandsSeparatorCommaToSpace: true
+
+  dictSuffixes:
+    - "ima"   # dative/instrumental/locative plural
+    - "ama"   # dative plural (feminine)
+    - "om"    # instrumental singular
+    - "em"    # instrumental singular
+    - "a"     # genitive singular
+    - "u"     # dative/locative singular
+    - "e"     # accusative/vocative
+    - "i"     # locative/dative/plural
+
 normalization:
   replacements:
     # Map IPA palatalization marker ʲ to internal key (U+E001) to avoid engine bug.
@@ -22,4 +38,17 @@ normalization:
 
     # Some eSpeak voices may output "æ" in contexts where Croatian should use plain "a".
     - from: "æ"
-      to: "a"
+      to: a_open
+
+    # === CROATIAN VOWEL TUNING ===
+    # Croatian has 5 pure vowels. Base phonemes too centralized.
+    - from: i
+      to: i_hu
+    - from: u
+      to: u_fi
+    - from: o
+      to: o_fi
+    - from: e
+      to: e_fi
+    - from: a
+      to: a_open

@@ -70,7 +70,8 @@ class SynthDriver(
         DriverSetting("legacyPitchMode", _("Pitch mode"), availableInSettingsRing=True),
         _SynthDriverBase.InflectionSetting(),
         _SynthDriverBase.VolumeSetting(),
-        BooleanDriverSetting("yearSplitting", _("Year splitting (4-digit numbers as digit pairs)"), defaultVal=True),
+        BooleanDriverSetting("yearSplitting", _("Year splitting (4-digit numbers as digit pairs)"), defaultVal=False),
+        BooleanDriverSetting("thousandsSeparatorCommaToSpace", _("Thousands separator comma to space"), defaultVal=False),
         NumericDriverSetting("voiceTilt", _("Voice tilt (brightness)"), defaultVal=50),
         NumericDriverSetting("noiseGlottalMod", _("Noise glottal modulation"), defaultVal=0),
         NumericDriverSetting("pitchSyncF1", _("Pitch-sync F1 delta"), defaultVal=50),
@@ -79,6 +80,8 @@ class SynthDriver(
         NumericDriverSetting("aspirationTilt", _("Aspiration tilt (breath color)"), defaultVal=50),
         NumericDriverSetting("cascadeBwScale", _("Formant sharpness (cascade bandwidth)"), defaultVal=50),
         NumericDriverSetting("voiceTremor", _("Voice tremor (shakiness)"), defaultVal=0),
+        NumericDriverSetting("chorusDepth", _("Chorus depth (vocal fold asymmetry)"), defaultVal=0),
+        NumericDriverSetting("chorusDetune", _("Chorus variation (requires depth)"), defaultVal=33),
         NumericDriverSetting("headSize", _("Head size (pharynx length)"), defaultVal=50),
         # FrameEx voice quality params (DSP v5+) - for creaky voice, breathiness, etc.
         NumericDriverSetting("frameExCreakiness", _("Creakiness (laryngealization)"), defaultVal=0),
@@ -922,6 +925,10 @@ class SynthDriver(
     _set_cascadeBwScale = VoicingToneMixin._set_cascadeBwScale
     _get_voiceTremor = VoicingToneMixin._get_voiceTremor
     _set_voiceTremor = VoicingToneMixin._set_voiceTremor
+    _get_chorusDepth = VoicingToneMixin._get_chorusDepth
+    _set_chorusDepth = VoicingToneMixin._set_chorusDepth
+    _get_chorusDetune = VoicingToneMixin._get_chorusDetune
+    _set_chorusDetune = VoicingToneMixin._set_chorusDetune
     _get_headSize = VoicingToneMixin._get_headSize
     _set_headSize = VoicingToneMixin._set_headSize
     _get_frameExCreakiness = VoicingToneMixin._get_frameExCreakiness

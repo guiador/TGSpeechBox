@@ -1021,6 +1021,8 @@ static std::vector<std::string> knownLanguageSettingKeys() {
     "stopClosureAfterNasalsEnabled",
     "stopClosureClusterFadeMs",
     "stopClosureClusterGapMs",
+    "stopClosureNasalToStopFadeMs",
+    "stopClosureNasalToStopGapMs",
     "stopClosureClusterGapsEnabled",
     "stopClosureMode",
     "stopClosureVowelFadeMs",
@@ -1053,6 +1055,7 @@ static std::vector<std::string> knownLanguageSettingKeys() {
     "wordFinalSchwaMinDurationMs",
     "wordFinalSchwaReductionEnabled",
     "wordFinalSchwaScale",
+    "thousandsSeparatorCommaToSpace",
     "yearSplittingEnabled",
   };
 }

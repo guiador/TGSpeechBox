@@ -851,6 +851,16 @@ std::string runTextParser(
           size_t skip = 1;
           const size_t excess = ipaChunks.size() - textWords.size();
 
+          // Empty-key text words (punctuation like "(", ")") — eSpeak
+          // produces no IPA for them. Don't consume any IPA chunks.
+          const std::string twKey = asciiLower(stripPunct(textWords[tw]));
+          if (twKey.empty()) {
+            skip = 0;
+            TPLOG("    no-dict skip=0 (empty-key punctuation) -> ipaIdx=%zu\n", ipaIdx);
+            ipaIdx += skip;
+            continue;
+          }
+
           // Is this text word purely numeric?  Numbers expand to multiple
           // IPA words ("100" → "one hundred" = 2 chunks), so we prefer
           // consuming MORE chunks to avoid misaligning subsequent words.
@@ -872,8 +882,13 @@ std::string runTextParser(
 
               const size_t probeNuclei = probeIt->second.size();
               // Text words between current (tw) and the anchor each consume
-              // at least 1 IPA chunk.
-              const size_t textGap = probe - tw - 1;
+              // at least 1 IPA chunk — but skip empty-key words (punctuation
+              // like "(" / ")") since eSpeak produces no IPA for them.
+              size_t textGap = 0;
+              for (size_t g = tw + 1; g < probe; ++g) {
+                const std::string gKey = asciiLower(stripPunct(textWords[g]));
+                if (!gKey.empty()) ++textGap;
+              }
 
               for (size_t s = 1; s <= excess + 1; ++s) {
                 const size_t candidateIdx = ipaIdx + s + textGap;
@@ -1028,7 +1043,9 @@ std::string prepareTextForEspeak(
     const std::unordered_set<std::string>& disabledDictTypes,
     const std::string& langTag,
     bool yearSplitting,
+    bool thousandsSeparatorCommaToSpace,
     const std::string& ohDigit,
+    const std::vector<std::string>& dictSuffixes,
     std::unordered_map<std::string, std::string>* ipaOverrides)
 {
   if (text.empty()) return text;
@@ -1059,11 +1076,61 @@ std::string prepareTextForEspeak(
     result = std::move(norm);
   }
 
+  // -0.5. Split hyphens between alphanumeric+letter tokens.
+  // "M5-series" → "M5 series", "F-16" → "F 16", "COVID-19" → "COVID 19".
+  // eSpeak treats hyphenated compounds as single prosodic units, which can
+  // cause resyllabification of unrelated words in the same utterance.
+  {
+    std::string dehyph;
+    dehyph.reserve(result.size());
+    for (size_t i = 0; i < result.size(); ++i) {
+      if (result[i] == '-' && i > 0 && i + 1 < result.size()) {
+        bool leftAlnum = std::isalnum(static_cast<unsigned char>(result[i - 1]));
+        bool rightAlpha = std::isalpha(static_cast<unsigned char>(result[i + 1]))
+                       || std::isdigit(static_cast<unsigned char>(result[i + 1]));
+        if (leftAlnum && rightAlpha) {
+          dehyph += ' ';
+          continue;
+        }
+      }
+      dehyph += result[i];
+    }
+    result = std::move(dehyph);
+  }
+
+  // -0.25. Thousands-separator commas: "44,100" → "44 100" or "44100".
+  // Pattern: digit + comma + exactly 3 digits + (non-digit or end).
+  // Keeps decimal commas like "3,14" (only 2 digits after comma).
+  // For European locales (thousandsSeparatorCommaToSpace): → spaces,
+  // because eSpeak recognizes space-separated digit groups as thousands.
+  // For all other locales: strip commas entirely so eSpeak sees "44100"
+  // and handles it natively (e.g. "forty-four thousand one hundred").
+  {
+    std::string cleaned;
+    cleaned.reserve(result.size());
+    for (size_t ci = 0; ci < result.size(); ++ci) {
+      if (result[ci] == ',' && ci > 0 &&
+          std::isdigit(static_cast<unsigned char>(result[ci - 1])) &&
+          ci + 3 < result.size() &&
+          std::isdigit(static_cast<unsigned char>(result[ci + 1])) &&
+          std::isdigit(static_cast<unsigned char>(result[ci + 2])) &&
+          std::isdigit(static_cast<unsigned char>(result[ci + 3])) &&
+          (ci + 4 >= result.size() ||
+           !std::isdigit(static_cast<unsigned char>(result[ci + 4])))) {
+        if (thousandsSeparatorCommaToSpace) cleaned += ' ';
+        // else: strip comma entirely
+        continue;
+      }
+      cleaned += result[ci];
+    }
+    result = std::move(cleaned);
+  }
+
   // 0. Pronunciation dictionary replacement (highest priority).
   // Words with toIpa set are left in place; their overrides are collected
   // in ipaOverrides for downstream splicing in runTextParser.
   if (!pronDict.entries.empty() && disabledDictTypes.count("pronounce") == 0) {
-    result = dictReplaceInText(result, pronDict, ipaOverrides);
+    result = dictReplaceInText(result, pronDict, dictSuffixes, ipaOverrides);
   }
 
   // 1. Compound splitting.

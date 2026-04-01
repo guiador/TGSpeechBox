@@ -67,6 +67,12 @@ private:
     // Speed quotient: glottal pulse asymmetry (V3 voicingTone)
     double speedQuotient;
 
+    // Dual-oscillator chorus (V5 voicingTone): second phase accumulator
+    // at slightly detuned pitch for vocal fold asymmetry simulation.
+    double chorusDepth;       // 0.0 = off, 1.0 = full 50/50 blend
+    double chorusDetuneHz;    // pitch offset of second oscillator (Hz)
+    double chorusPhase;       // second oscillator phase accumulator (0..1)
+
     // Spectral tilt (Bipolar) for voiced signal
     double tiltTargetTlDb;
     double tiltTlDb;
@@ -110,6 +116,18 @@ private:
     // Scale by sqrt(sr/22050) to maintain consistent spectral density through
     // the resonator bank.
     double noiseAmplitudeScale;
+
+    // 2x source oversampling: computes glottal pulse at twice the output rate
+    // for cleaner harmonics (less aliasing from sharp LF closure).
+    // Active when sampleRate < 44100. The oversampled computation uses
+    // sharpness/blend settings appropriate for 2x the output rate.
+    bool sourceOversampleActive;
+    double osBaseSharpness;      // baseSharpness at 2x sample rate
+    double osLfBlendBase;        // lfBlend base at 2x sample rate
+    double osLfCap;              // lfCap at 2x sample rate
+    double outputBaseSharpness;  // baseSharpness at output sample rate
+    double outputLfBlendBase;    // lfBlend base at output sample rate
+    double outputLfCap;          // lfCap at output sample rate
 
     static double clampDouble(double v, double lo, double hi) {
         if (v < lo) return lo;
@@ -225,6 +243,64 @@ return clampDouble(a, 0.0, 0.9999);
         return exp(-PITWO * fc / (double)sampleRate);
     }
 
+    // Compute raw glottal flow at a given cycle phase position.
+    // Encapsulates the cosine/LF hybrid waveform and blend logic.
+    // Parameters baseSharp, lfBlendB, lfCapV select the sharpness tier
+    // (output rate or oversampled rate).
+    double flowAtPhase(double cyclePos, double effectiveOQ, double peakPos,
+                       double pitchHz, double frameExSharpness,
+                       double baseSharp, double lfBlendB, double lfCapV) const {
+        if (cyclePos < effectiveOQ) return 0.0;  // Closed phase
+
+        double openLen = 1.0 - effectiveOQ;
+        if (openLen < 0.0001) openLen = 0.0001;
+
+        double dt = (pitchHz > 0.0) ? pitchHz / (double)sampleRate : 0.0;
+        double denom = openLen - dt;
+        if (denom < 0.0001) denom = 0.0001;
+        double phase = (cyclePos - effectiveOQ) / denom;
+        if (phase < 0.0) phase = 0.0;
+        if (phase > 1.0) phase = 1.0;
+
+        // Symmetric cosine flow (original SpeechPlayer)
+        double flowCosine;
+        if (phase < peakPos) {
+            flowCosine = 0.5 * (1.0 - cos(phase * M_PI / peakPos));
+        } else {
+            flowCosine = 0.5 * (1.0 + cos((phase - peakPos) * M_PI / (1.0 - peakPos)));
+        }
+
+        // LF-inspired asymmetric flow
+        double flowLF;
+        if (phase < peakPos) {
+            double t = phase / peakPos;
+            double openPower = 2.0 + (speedQuotient - 2.0) * 0.5;
+            if (openPower < 1.0) openPower = 1.0;
+            if (openPower > 4.0) openPower = 4.0;
+            flowLF = pow(t, openPower) * (3.0 - 2.0 * t);
+        } else {
+            double t = (phase - peakPos) / (1.0 - peakPos);
+            double bs = baseSharp;
+            if (frameExSharpness > 0.0) {
+                bs *= frameExSharpness;
+                if (bs < 1.0) bs = 1.0;
+                if (bs > 15.0) bs = 15.0;
+            }
+            double sqFactor = 0.4 + (speedQuotient - 0.5) * (0.6 / 1.5);
+            if (sqFactor < 0.3) sqFactor = 0.3;
+            if (sqFactor > 2.0) sqFactor = 2.0;
+            flowLF = pow(1.0 - t, bs * sqFactor);
+        }
+
+        // Cosine/LF blend with frameExSharpness modulation
+        double lfBlend = lfBlendB;
+        const double sharpMul = (frameExSharpness > 0.0) ? frameExSharpness : 1.0;
+        const double lfScale = pow(clampDouble(sharpMul, 0.25, 3.0), 0.25);
+        lfBlend = clampDouble(lfBlend * lfScale, 0.0, lfCapV);
+
+        return (1.0 - lfBlend) * flowCosine + lfBlend * flowLF;
+    }
+
     // Aspiration/frication tilt: LP/HP crossfade for noise color
     // Negative = darker, Positive = brighter
     // Uses smoothing to prevent clicks on parameter changes
@@ -337,7 +413,11 @@ public:
         // Prevents harmonic energy near Nyquist from exciting resonators
         // into BLT-warped ringing (trapezoidal SVF has same warping as BLT).
         // At 44100+ Hz the warping is negligible, so we bypass entirely.
-        if (sampleRate < 44100) {
+        // Disable voiced anti-alias LP at 22050+ Hz.  The cascade
+        // Nyquist fade already protects resonators from BLT warping,
+        // and at sharpness 3.0 the harmonic energy near Nyquist is low.
+        // At the old 6500 Hz cutoff, F7/F8 inputs lost 3-5 dB.
+        if (sampleRate < 22050) {
             voicedAntiAliasActive = true;
             double aaFc;
             if (sampleRate <= 11025) {
@@ -366,12 +446,70 @@ public:
         // instead of sqrt's 1.41× (41%) which over-thickened stop bursts.
         noiseAmplitudeScale = pow((double)sampleRate / 22050.0, 0.25);
 
+        // 2x source oversampling: precompute sharpness/blend at both output
+        // and oversampled (2x) rates.  The oversampled path uses sharper LF
+        // closure because it has the bandwidth to represent the harmonics;
+        // the decimation LP then removes energy above the output Nyquist.
+        {
+            // Output-rate settings (also used when oversampling is off).
+            // Values reduced from pre-F7/F8 defaults because the higher
+            // cascade formants now resonate sharp closure harmonics that
+            // previously fell into a spectral gap.  Slider 50 (multiplier
+            // 1.0) should sound like old slider ~30 at 44100.
+            if (sampleRate >= 44100)      outputBaseSharpness = 6.0;
+            else if (sampleRate >= 32000) outputBaseSharpness = 4.5;
+            else if (sampleRate >= 22050) outputBaseSharpness = 3.0;
+            else if (sampleRate >= 16000) outputBaseSharpness = 1.5;
+            else                          outputBaseSharpness = 1.3;
+
+            if (sampleRate <= 11025)      { outputLfBlendBase = 0.30; outputLfCap = 0.35; }
+            else if (sampleRate >= 16000) { outputLfBlendBase = 1.0;  outputLfCap = 1.0;  }
+            else {
+                outputLfBlendBase = 0.30 + 0.70 * (double)(sampleRate - 11025) / (16000.0 - 11025.0);
+                outputLfCap = 0.85;
+            }
+
+            // Oversampled (2x) settings — slightly below output ladder
+            // to compensate for half-band decimation filter leakage.
+            // 22050→44100 OS would otherwise match native 44100 sharpness,
+            // but the simple average doesn't fully suppress aliased harmonics.
+            // Disable 2x oversampling at 22050+ Hz.  The half-band
+            // decimation (0.5 average) creates -3 dB at Nyquist/2 (~5.5 kHz),
+            // starving cascade F7/F8 of harmonic input and producing a
+            // "behind a wall" quality.  At sharpness 3.0 the aliased energy
+            // from harmonics folding at 11025 Hz is negligible.
+            if (sampleRate < 22050) {
+                sourceOversampleActive = true;
+                int esr = 2 * sampleRate;
+                if (esr >= 44100)      osBaseSharpness = 4.5;
+                else if (esr >= 32000) osBaseSharpness = 3.5;
+                else if (esr >= 22050) osBaseSharpness = 3.5;
+                else if (esr >= 16000) osBaseSharpness = 1.5;
+                else                    osBaseSharpness = 1.3;
+
+                if (esr <= 11025)      { osLfBlendBase = 0.30; osLfCap = 0.35; }
+                else if (esr >= 16000) { osLfBlendBase = 1.0;  osLfCap = 1.0;  }
+                else {
+                    osLfBlendBase = 0.30 + 0.70 * (double)(esr - 11025) / (16000.0 - 11025.0);
+                    osLfCap = 0.85;
+                }
+            } else {
+                sourceOversampleActive = false;
+                osBaseSharpness  = outputBaseSharpness;
+                osLfBlendBase    = outputLfBlendBase;
+                osLfCap          = outputLfCap;
+            }
+        }
+
         speechPlayer_voicingTone_t defaults = SPEECHPLAYER_VOICINGTONE_DEFAULTS;
         voicingPeakPos = defaults.voicingPeakPos;
         voicedPreEmphA = defaults.voicedPreEmphA;
         voicedPreEmphMix = defaults.voicedPreEmphMix;
         noiseGlottalModDepth = clampDouble(defaults.noiseGlottalModDepth, 0.0, 1.0);
         speedQuotient = clampDouble(defaults.speedQuotient, 0.5, 4.0);
+        chorusDepth = clampDouble(defaults.chorusDepth, 0.0, 1.0);
+        chorusDetuneHz = clampDouble(defaults.chorusDetuneHz, 0.5, 5.0);
+        chorusPhase = 0.0;
         setTiltDbPerOct(defaults.voicedTiltDbPerOct);
         setAspirationTiltDbPerOct(defaults.aspirationTiltDbPerOct);
 
@@ -405,6 +543,7 @@ public:
         jitterMul = 1.0;
         shimmerMul = 1.0;
         glottisOpen=false;
+        chorusPhase = 0.0;
         aspLpState = 0.0;
         fricLpState = 0.0;
         voicedAntiAliasLp1.reset();
@@ -456,6 +595,14 @@ public:
     double getTremorDepth() const {
         return tremorDepth;
     }
+
+    void setChorusParams(double depth, double detuneHz) {
+        chorusDepth = clampDouble(depth, 0.0, 1.0);
+        chorusDetuneHz = clampDouble(detuneHz, 0.5, 5.0);
+    }
+
+    double getChorusDepth() const { return chorusDepth; }
+    double getChorusDetuneHz() const { return chorusDetuneHz; }
 
     double getLastNoiseMod() const { return lastNoiseMod; }
 
@@ -657,11 +804,24 @@ public:
         }
         lastNoiseMod = noiseMod;
 
-        // Aspiration noise: use WHITE noise (flat spectrum) so tilt filter can shape it
-        // Base gain 0.1, breathiness lifts it up to 0.25
-        // noiseAmplitudeScale compensates for spectral density at different sample rates
+        // Aspiration noise: blend white and brownish depending on sample rate.
+        // At lower SRs the voiced signal has fewer harmonics (lower sharpness),
+        // making white aspiration noise disproportionately prominent through
+        // the cascade formants.  Brownish noise (-6 dB/oct rolloff from IIR
+        // feedback) naturally reduces high-frequency cascade excitation.
+        //   44100+ Hz: pure white (voiced signal is bright enough)
+        //   22050 Hz:  70/30 white/brown blend
+        //   16000 Hz:  50/50 blend
+        //   11025 Hz:  30/70 blend
+        double aspWhiteFrac;
+        if (sampleRate >= 44100)      aspWhiteFrac = 1.0;
+        else if (sampleRate >= 22050) aspWhiteFrac = 0.70;
+        else if (sampleRate >= 16000) aspWhiteFrac = 0.50;
+        else                          aspWhiteFrac = 0.30;
+        double aspNoise = aspWhiteFrac * aspirationGen.white()
+                        + (1.0 - aspWhiteFrac) * aspirationGen.getNext();
         double aspBase = 0.10 + (0.15 * breathiness);
-        double aspiration = aspirationGen.white() * aspBase * noiseAmplitudeScale * noiseMod;
+        double aspiration = aspNoise * aspBase * noiseAmplitudeScale * noiseMod;
         
         // Apply tilt filter to aspiration (color the noise)
         aspiration = applyAspirationTilt(aspiration);
@@ -703,6 +863,9 @@ public:
         glottisOpen = (pitchHz > 0.0) && (cyclePos >= effectiveOQ);
 
         double flow = 0.0;
+        // peakPos declared here (not inside glottisOpen) so the chorus
+        // oscillator can also use it after the main flow block.
+        double peakPos = voicingPeakPos;
         if(glottisOpen) {
             double openLen = 1.0 - effectiveOQ;
             if (openLen < 0.0001) openLen = 0.0001;
@@ -734,16 +897,8 @@ public:
                 // Scale 0.6: maps LF range into ~±0.20 around voicingPeakPos
                 sqPeakDelta = rawDelta * 0.6;
             }
-            double peakPos = voicingPeakPos + sqPeakDelta
-                           + (0.02 * breathiness) - (0.05 * creakiness);
-
-            double dt = 0.0;
-            if (pitchHz > 0.0) dt = pitchHz / (double)sampleRate;
-            double denom = openLen - dt;
-            if (denom < 0.0001) denom = 0.0001;
-            double phase = (cyclePos - effectiveOQ) / denom;
-            if (phase < 0.0) phase = 0.0;
-            if (phase > 1.0) phase = 1.0;
+            peakPos = voicingPeakPos + sqPeakDelta
+                    + (0.02 * breathiness) - (0.05 * creakiness);
 
             const double minCloseSamples = 2.0;
             if (pitchHz > 0.0) {
@@ -755,113 +910,62 @@ public:
                 if (peakPos < 0.50) peakPos = 0.50;
             }
 
-            // Hybrid glottal source based on sample rate:
-            // - At 11025 Hz: Blend favoring symmetric cosine (fuller, less aliasing)
-            // - At 16000+ Hz: Full LF-inspired asymmetric waveform (more harmonics)
-            // - Between: Smooth blend for gradual transition
-            // 
-            // The blend preserves fricative clarity (from LF edge) while
-            // reducing aliasing artifacts (from cosine smoothness).
+            // 2x source oversampling: evaluate the glottal waveform at two phase
+            // points per output sample using sharper closure (oversampled-rate
+            // sharpness), then average for anti-alias decimation.  This lets the
+            // LF model produce richer harmonics without aliasing at 22050/16000/11025.
+            if (sourceOversampleActive && pitchHz > 0.0) {
+                double phaseInc = pitchHz / (double)sampleRate;
+                double midCyclePos = cyclePos - phaseInc * 0.5;
+                if (midCyclePos < 0.0) midCyclePos += 1.0;
 
-            // Compute symmetric cosine flow (original SpeechPlayer)
-            double flowCosine;
-            if (phase < peakPos) {
-                flowCosine = 0.5 * (1.0 - cos(phase * M_PI / peakPos));
+                double flowMid = flowAtPhase(midCyclePos, effectiveOQ, peakPos,
+                                             pitchHz, frameExSharpness,
+                                             osBaseSharpness, osLfBlendBase, osLfCap);
+                double flowCur = flowAtPhase(cyclePos, effectiveOQ, peakPos,
+                                             pitchHz, frameExSharpness,
+                                             osBaseSharpness, osLfBlendBase, osLfCap);
+                // Half-band decimation: null at original Nyquist
+                flow = 0.5 * (flowMid + flowCur);
             } else {
-                flowCosine = 0.5 * (1.0 + cos((phase - peakPos) * M_PI / (1.0 - peakPos)));
+                flow = flowAtPhase(cyclePos, effectiveOQ, peakPos,
+                                   pitchHz, frameExSharpness,
+                                   outputBaseSharpness, outputLfBlendBase, outputLfCap);
+            }
+        }
+
+        // Dual-oscillator chorus: blend a second phase accumulator at
+        // slightly detuned pitch for natural vocal fold asymmetry.
+        // The detune is tiny (1-3 Hz), creating subtle cycle-to-cycle
+        // variation that thickens the voice without doubling it.
+        if (chorusDepth > 0.001 && pitchHz > 0.0) {
+            double chorusPitchHz = pitchHz + chorusDetuneHz;
+            chorusPhase = fmod(chorusPhase + chorusPitchHz / (double)sampleRate, 1.0);
+
+            double chorusFlow;
+            if (sourceOversampleActive) {
+                double cInc = chorusPitchHz / (double)sampleRate;
+                double cMid = chorusPhase - cInc * 0.5;
+                if (cMid < 0.0) cMid += 1.0;
+                double cFlowMid = flowAtPhase(cMid, effectiveOQ, peakPos,
+                                              pitchHz, frameExSharpness,
+                                              osBaseSharpness, osLfBlendBase, osLfCap);
+                double cFlowCur = flowAtPhase(chorusPhase, effectiveOQ, peakPos,
+                                              pitchHz, frameExSharpness,
+                                              osBaseSharpness, osLfBlendBase, osLfCap);
+                chorusFlow = 0.5 * (cFlowMid + cFlowCur);
+            } else {
+                chorusFlow = flowAtPhase(chorusPhase, effectiveOQ, peakPos,
+                                         pitchHz, frameExSharpness,
+                                         outputBaseSharpness, outputLfBlendBase, outputLfCap);
             }
 
-            // Compute LF-inspired flow (asymmetric, more harmonics)
-            // Speed quotient now acts in three ways:
-            //   1. Peak position shift (above) — the dominant LF model effect
-            //   2. Opening curve steepness (below) — secondary reinforcement
-            //   3. Closing sharpness modulation (below) — secondary reinforcement
-            double flowLF;
-            if (phase < peakPos) {
-                // Opening phase: polynomial rise
-                // speedQuotient affects the curve steepness
-                double t = phase / peakPos;
-                // Higher SQ = faster opening (steeper curve)
-                // Lower SQ = slower opening (gentler curve)
-                double openPower = 2.0 + (speedQuotient - 2.0) * 0.5;  // Range ~1.25 to ~3.0
-                if (openPower < 1.0) openPower = 1.0;
-                if (openPower > 4.0) openPower = 4.0;
-                double tPow = pow(t, openPower);
-                flowLF = tPow * (3.0 - 2.0 * t);  // Modified smoothstep
-            } else {
-                // Closing phase: sharper fall with "return phase" character
-                double t = (phase - peakPos) / (1.0 - peakPos);
-                
-                // Sample-rate-dependent base sharpness:
-                // Higher sample rates need sharper closure for fuller harmonics.
-                double baseSharpness;
-                if (sampleRate >= 44100) {
-                    baseSharpness = 10.0;
-                } else if (sampleRate >= 32000) {
-                    baseSharpness = 8.0;
-                } else if (sampleRate >= 22050) {
-                    baseSharpness = 4.0;
-                } else if (sampleRate >= 16000) {
-                    baseSharpness = 3.0;
-                } else {
-                    baseSharpness = 2.5;
-                }
-                
-                // FrameEx sharpness is a MULTIPLIER (0.5 to 2.0), not absolute.
-                // This keeps the slider SR-agnostic: "1.0" always means "default for this SR".
-                // A value of 0 means "use default" (no FrameEx override).
-                if (frameExSharpness > 0.0) {
-                    baseSharpness *= frameExSharpness;
-                    // Clamp to safe range: too low = no closure, too high = just harsh
-                    baseSharpness = clampDouble(baseSharpness, 1.0, 15.0);
-                }
-                
-                // Speed quotient modulates the closing sharpness:
-                //   SQ=0.5: sharpness * 0.4 (very gentle, breathy)
-                //   SQ=2.0: sharpness * 1.0 (default)
-                //   SQ=4.0: sharpness * 1.6 (very sharp, pressed)
-                double sqFactor = 0.4 + (speedQuotient - 0.5) * (0.6 / 1.5);  // Linear map
-                if (sqFactor < 0.3) sqFactor = 0.3;
-                if (sqFactor > 2.0) sqFactor = 2.0;
-                double sharpness = baseSharpness * sqFactor;
-                flowLF = pow(1.0 - t, sharpness);
-            }
-
-            // Blend based on sample rate:
-            // - 11025 Hz: 70% cosine, 30% LF (enough edge for fricatives)
-            // - 14000 Hz: 50/50 blend
-            // - 16000+ Hz: 100% LF
-            double lfBlend;
-            if (sampleRate <= 11025) {
-                lfBlend = 0.30;  // 30% LF at low rates - keeps some edge for consonants
-            } else if (sampleRate >= 16000) {
-                lfBlend = 1.0;   // 100% LF at high rates
-            } else {
-                // Linear interpolation between 11025 and 16000
-                lfBlend = 0.30 + 0.70 * (double)(sampleRate - 11025) / (16000.0 - 11025.0);
-            }
-
-
-            // Scale LF mixing with user-facing glottal sharpness (frameExSharpness) while keeping
-            // the neutral/default behavior unchanged.
-            //
-            // - frameExSharpness == 0.0: use the sample-rate default LF blend (backward compatible)
-            // - frameExSharpness  < 1.0: smoother (less LF)
-            // - frameExSharpness  > 1.0: sharper (more LF), capped per sample rate to avoid aliasy crunch
-            const double lfBlendBase = lfBlend;
-
-            const double sharpMul = (frameExSharpness > 0.0) ? frameExSharpness : 1.0;
-            const double sharpClamped = clampDouble(sharpMul, 0.25, 3.0);
-            const double lfScale = pow(sharpClamped, 0.25); // gentle curve: 0.5->~0.84, 2.0->~1.19
-
-            double lfCap = 1.0;
-            if (sampleRate <= 11025) lfCap = 0.35;
-            else if (sampleRate < 16000) lfCap = 0.85;
-
-            lfBlend = clampDouble(lfBlendBase * lfScale, 0.0, lfCap);
-
-
-            flow = (1.0 - lfBlend) * flowCosine + lfBlend * flowLF;
+            // Blend: depth 0 = pure original, depth 1 = 50/50 mix
+            double blend = chorusDepth * 0.5;
+            flow = flow * (1.0 - blend) + chorusFlow * blend;
+        } else if (pitchHz <= 0.0) {
+            // Keep chorus oscillator synced when unvoiced
+            chorusPhase = 0.0;
         }
 
         const double flowScale = 1.6;

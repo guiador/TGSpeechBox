@@ -28,6 +28,8 @@ settings:
   # Word-boundary clusters
   stopClosureWordBoundaryClusterGapMs: 16
   stopClosureWordBoundaryClusterFadeMs: 3
+  stopClosureNasalToStopGapMs: 10
+  stopClosureNasalToStopFadeMs: 2
 
   # === GEMINATES ===
   # Ukrainian has geminates from consonant assimilation
@@ -47,6 +49,19 @@ settings:
   singleWordTuningEnabled: true
   singleWordFinalHoldMs: 40
   singleWordFinalFadeMs: 16
+
+  thousandsSeparatorCommaToSpace: true
+
+  dictSuffixes:
+    - "ами"   # instrumental plural
+    - "ів"    # genitive plural
+    - "ах"    # locative plural
+    - "ам"    # dative plural
+    - "ом"    # instrumental singular
+    - "і"     # locative/plural
+    - "а"     # genitive singular
+    - "у"     # dative/locative
+    - "и"     # plural
 
 normalization:
   preReplacements:

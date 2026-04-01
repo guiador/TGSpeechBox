@@ -106,10 +106,19 @@ typedef struct nvspFrontend_FrameEx {
      Equal-power prevents energy dips at source transitions (voiced→voiceless).
      Set by frame_emit when it detects a voicing source change. */
   double transAmplitudeMode;
+
+  /* Higher cascade formants F7/F8 (DSP v8).
+     Fills the spectral gap above F6 at sample rates >= 22050 Hz.
+     Defaults from Rabiner 1968, cited in QLatt (github.com/nicclase/qlatt).
+     Per-phoneme overridable via YAML keys cf7/cb7/cf8/cb8. */
+  double cf7;   /* F7 frequency (Hz).  Default 6500.0 */
+  double cb7;   /* F7 bandwidth (Hz).  Default 720.0  */
+  double cf8;   /* F8 frequency (Hz).  Default 7500.0 */
+  double cb8;   /* F8 bandwidth (Hz).  Default 1250.0 */
 } nvspFrontend_FrameEx;
 
 /* Number of fields in FrameEx struct (for size validation) */
-#define NVSP_FRONTEND_FRAMEEX_NUM_PARAMS 23
+#define NVSP_FRONTEND_FRAMEEX_NUM_PARAMS 27
 
 /*
   VoicingTone parameters for DSP-level voice quality (ABI v2+).
@@ -144,10 +153,14 @@ typedef struct nvspFrontend_VoicingTone {
   double nasalBwScale;          /* Nasal resonator bandwidth multiplier (1.0 = neutral) */
   double f4FreqScale;           /* F4 frequency multiplier for pharynx length (1.0 = neutral) */
   double nasalGainScale;        /* Nasal pole coupling amplitude multiplier (1.0 = neutral) */
+
+  /* V5 parameters — dual-oscillator chorus (vocal fold asymmetry) */
+  double chorusDepth;           /* Blend amount of second oscillator (0.0-1.0, default 0.0 = off) */
+  double chorusDetuneHz;        /* Pitch offset of second oscillator in Hz (0.5-5.0, default 2.0) */
 } nvspFrontend_VoicingTone;
 
 /* Number of fields in VoicingTone struct */
-#define NVSP_FRONTEND_VOICINGTONE_NUM_PARAMS 17
+#define NVSP_FRONTEND_VOICINGTONE_NUM_PARAMS 19
 
 /*
   VoiceProfileSliders - the 12 user-adjustable slider values (ABI v2+).

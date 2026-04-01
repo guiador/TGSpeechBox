@@ -7,7 +7,12 @@ set -e
 PREFIX="${1:-/usr/local}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-echo "Installing TGSpeechBox to $PREFIX..."
+echo ""
+echo "============================================"
+echo "  TGSpeechBox Installer"
+echo "============================================"
+echo ""
+echo "Installing to $PREFIX..."
 
 # Create directories
 mkdir -p "$PREFIX/bin"
@@ -41,15 +46,20 @@ if [ -f "$EXTRAS_SD/tgsb-speak" ]; then
     chmod +x "$PREFIX/bin/tgsb-speak"
 fi
 
+# Symlink into /usr/bin if installing to /usr/local — systemd services
+# (like speech-dispatcher via socket activation) often only have /usr/bin
+# in their PATH, not /usr/local/bin.
+if [ "$PREFIX" = "/usr/local" ] && [ -d /usr/bin ]; then
+    for cmd in tgsbRender tgsp tgsb-speak tgsb nvsp; do
+        if [ -f "$PREFIX/bin/$cmd" ] || [ -L "$PREFIX/bin/$cmd" ]; then
+            ln -sf "$PREFIX/bin/$cmd" "/usr/bin/$cmd"
+        fi
+    done
+    echo "  Symlinked binaries into /usr/bin (for systemd PATH compatibility)."
+fi
+
 echo ""
-echo "Installation complete!"
-echo ""
-echo "Quick test:"
-echo "  echo 'həˈloʊ wɜld' | $PREFIX/bin/tgsp --lang en-us | aplay -q -r 16000 -f S16_LE -t raw -"
-echo ""
-echo "Note: 'nvspRender', 'nvsp', and the old share path are symlinked"
-echo "      for backward compatibility. Existing Speech Dispatcher configs"
-echo "      will continue to work."
+echo "  Core files installed."
 
 # Optionally update library cache if installing to system location
 if [ "$PREFIX" = "/usr" ] || [ "$PREFIX" = "/usr/local" ]; then
@@ -58,10 +68,106 @@ if [ "$PREFIX" = "/usr" ] || [ "$PREFIX" = "/usr/local" ]; then
         # Clean up old config if present
         rm -f /etc/ld.so.conf.d/nvspeechplayer.conf
         /sbin/ldconfig
-        echo "Library cache updated."
+        echo "  Library cache updated."
     else
-        echo "Note: You may need to run 'sudo ldconfig' or add $PREFIX/lib to LD_LIBRARY_PATH"
+        echo ""
+        echo "  Note: You may need to run 'sudo ldconfig' or add $PREFIX/lib to LD_LIBRARY_PATH"
     fi
+fi
+
+# ============================================================================
+# Dependency check
+# ============================================================================
+
+echo ""
+echo "--------------------------------------------"
+echo "  Checking dependencies"
+echo "--------------------------------------------"
+echo ""
+
+dep_ok=true
+
+# espeak-ng (required)
+if command -v espeak-ng >/dev/null 2>&1; then
+    echo "  [OK] espeak-ng"
+else
+    echo "  [MISSING] espeak-ng — required for text-to-phoneme conversion"
+    echo "            Install: sudo apt install espeak-ng  (Debian/Ubuntu)"
+    echo "                     sudo dnf install espeak-ng  (Fedora)"
+    dep_ok=false
+fi
+
+# tgsbRender (just installed)
+if command -v tgsbRender >/dev/null 2>&1; then
+    echo "  [OK] tgsbRender"
+else
+    echo "  [WARNING] tgsbRender not found in PATH"
+    echo "            This shouldn't happen — check that $PREFIX/bin is in your PATH."
+    dep_ok=false
+fi
+
+# Audio output (paplay preferred, aplay as fallback)
+if command -v paplay >/dev/null 2>&1; then
+    echo "  [OK] paplay (PipeWire/PulseAudio audio — preferred)"
+elif command -v aplay >/dev/null 2>&1; then
+    echo "  [OK] aplay (ALSA audio)"
+else
+    echo "  [MISSING] No audio player found (need paplay or aplay)"
+    echo "            Install: sudo apt install pulseaudio-utils  (for paplay)"
+    echo "                     sudo apt install alsa-utils        (for aplay)"
+    dep_ok=false
+fi
+
+# python3 (optional — no longer required for tgsb-speak)
+if command -v python3 >/dev/null 2>&1; then
+    echo "  [OK] python3"
+fi
+
+echo ""
+if [ "$dep_ok" = true ]; then
+    echo "  All required dependencies found."
+else
+    echo "  Some dependencies are missing (see above)."
+    echo "  TGSpeechBox may not work until they are installed."
+fi
+
+# ============================================================================
+# Quick self-test
+# ============================================================================
+
+echo ""
+echo "--------------------------------------------"
+echo "  Running self-test"
+echo "--------------------------------------------"
+echo ""
+
+if command -v espeak-ng >/dev/null 2>&1 && command -v tgsbRender >/dev/null 2>&1; then
+    test_output=$(echo 'həˈloʊ' | tgsbRender --packdir "$PREFIX/share/tgspeechbox" --lang en-us 2>/dev/null | wc -c)
+    if [ "$test_output" -gt 1000 ] 2>/dev/null; then
+        echo "  [OK] tgsbRender produces audio ($test_output bytes)"
+    else
+        echo "  [FAIL] tgsbRender produced no audio or too little ($test_output bytes)"
+        echo "         This may indicate a glibc incompatibility or missing packs."
+        echo "         Try: ldd $PREFIX/bin/tgsbRender"
+    fi
+
+    # Test in-process espeak mode (preferred — no pipe chain)
+    test_espeak=$(tgsbRender --espeak --text 'hello' --packdir "$PREFIX/share/tgspeechbox" --lang en-us 2>/dev/null | wc -c)
+    if [ "$test_espeak" -gt 1000 ] 2>/dev/null; then
+        echo "  [OK] In-process espeak works (tgsbRender --espeak: $test_espeak bytes)"
+    else
+        echo "  [INFO] In-process espeak not available — using pipe fallback"
+        # Test pipe chain fallback
+        test_pipeline=$(echo 'hello' | espeak-ng -q -v en-us --ipa=1 --stdin 2>/dev/null | tgsbRender --packdir "$PREFIX/share/tgspeechbox" --lang en-us 2>/dev/null | wc -c)
+        if [ "$test_pipeline" -gt 1000 ] 2>/dev/null; then
+            echo "  [OK] Pipe fallback works (espeak-ng → tgsbRender: $test_pipeline bytes)"
+        else
+            echo "  [FAIL] Neither in-process nor pipe mode produced audio"
+            echo "         Check espeak-ng installation and language data."
+        fi
+    fi
+else
+    echo "  Skipped (missing espeak-ng or tgsbRender)."
 fi
 
 # ============================================================================
@@ -91,107 +197,179 @@ configure_speech_dispatcher() {
         sd_modules_dir="$sys_modules"
     else
         echo ""
-        echo "Could not find speechd.conf in:"
-        echo "  $user_conf"
-        echo "  $sys_conf"
+        echo "  Could not find speechd.conf in:"
+        echo "    $user_conf"
+        echo "    $sys_conf"
         echo ""
-        echo "If your speechd.conf is elsewhere, configure manually."
-        echo "See: $PREFIX/share/tgspeechbox/extras/speech-dispatcher/README.md"
+        echo "  If your speechd.conf is elsewhere, configure manually."
+        echo "  See: $PREFIX/share/tgspeechbox/extras/speech-dispatcher/README.md"
         return 1
     fi
 
     echo ""
-    echo "Found Speech Dispatcher config: $sd_conf_file"
-    echo "Modules directory: $sd_modules_dir"
+    echo "  Found config: $sd_conf_file"
+    echo "  Modules dir:  $sd_modules_dir"
 
-    # --- Install the generic module config ---
+    # --- Install module binary and config ---
     mkdir -p "$sd_modules_dir"
 
-    local src_conf="$PREFIX/share/tgspeechbox/extras/speech-dispatcher/tgsb-generic.conf"
-    local dst_conf="$sd_modules_dir/tgsb-generic.conf"
-
-    if [ ! -f "$src_conf" ]; then
-        echo "Error: tgsb-generic.conf not found at $src_conf"
-        return 1
+    # Prefer native module (sd_tgsb) over sd_generic if binary is available
+    local use_native=false
+    local sd_modules_bin="/usr/lib/speech-dispatcher-modules"
+    if [ -f "$SCRIPT_DIR/bin/sd_tgsb" ] && [ -d "$sd_modules_bin" ]; then
+        cp "$SCRIPT_DIR/bin/sd_tgsb" "$sd_modules_bin/sd_tgsb"
+        chmod +x "$sd_modules_bin/sd_tgsb"
+        echo "  Installed native module: $sd_modules_bin/sd_tgsb"
+        use_native=true
     fi
 
-    cp "$src_conf" "$dst_conf"
-    echo "Installed: $dst_conf"
+    # Install both config files (native + generic fallback)
+    local src_conf="$PREFIX/share/tgspeechbox/extras/speech-dispatcher/tgsb-generic.conf"
+    local src_native="$PREFIX/share/tgspeechbox/extras/speech-dispatcher/tgsb-native.conf"
+    if [ -f "$src_native" ]; then
+        cp "$src_native" "$sd_modules_dir/tgsb-native.conf"
+    fi
+    if [ -f "$src_conf" ]; then
+        cp "$src_conf" "$sd_modules_dir/tgsb-generic.conf"
+    fi
+    echo "  Installed module config: $sd_modules_dir/"
 
-    # --- Enable the module in speechd.conf ---
+    # Copy config template to per-user location (don't overwrite existing)
+    local _home="${SUDO_USER:+$(eval echo ~$SUDO_USER)}"
+    _home="${_home:-$HOME}"
+    if [ -n "$_home" ] && [ -f "$src_native" ]; then
+        local user_conf_dir="$_home/.config/tgspeechbox"
+        local user_conf="$user_conf_dir/sd_tgsb.conf"
+        if [ ! -f "$user_conf" ]; then
+            mkdir -p "$user_conf_dir"
+            cp "$src_native" "$user_conf"
+            # Fix ownership if running as sudo
+            if [ -n "$SUDO_USER" ]; then
+                chown -R "$SUDO_USER:$SUDO_USER" "$user_conf_dir"
+            fi
+            echo "  Per-user config template: $user_conf"
+            echo "  (Uncomment lines to customize — see comments in file)"
+        else
+            echo "  Per-user config exists: $user_conf (not overwritten)"
+        fi
+    fi
+
+    # --- Ensure espeak-ng module is enabled ---
+    # Many distros ship speechd.conf with all AddModule lines commented out.
+    # If espeak-ng is commented out, uncomment it so users always have a
+    # working fallback synthesizer.
+    if grep -q '^#.*AddModule "espeak-ng".*"sd_espeak-ng"' "$sd_conf_file" 2>/dev/null; then
+        if ! grep -q '^AddModule "espeak-ng".*"sd_espeak-ng"' "$sd_conf_file" 2>/dev/null; then
+            # Uncomment the first commented espeak-ng line
+            sed -i '0,/^#.*AddModule "espeak-ng".*"sd_espeak-ng"/{s/^#\s*//}' "$sd_conf_file"
+            echo "  Enabled espeak-ng module (was commented out)."
+        fi
+    fi
+
+    # If there's still no espeak-ng AddModule at all, add one
+    if ! grep -q '^AddModule "espeak-ng"' "$sd_conf_file" 2>/dev/null; then
+        if command -v sd_espeak-ng >/dev/null 2>&1 || [ -f "$sd_modules_dir/espeak-ng.conf" ] || [ -f "/usr/lib/speech-dispatcher-modules/sd_espeak-ng" ]; then
+            sed -i '/# --- TGSpeechBox/i AddModule "espeak-ng" "sd_espeak-ng" "espeak-ng.conf"' "$sd_conf_file" 2>/dev/null || \
+                echo 'AddModule "espeak-ng" "sd_espeak-ng" "espeak-ng.conf"' >> "$sd_conf_file"
+            echo "  Added espeak-ng module (was missing)."
+        fi
+    fi
+
+    # --- Enable the TGSpeechBox module ---
 
     # Check if tgsb module is already configured
-    if grep -q 'AddModule "tgsb"' "$sd_conf_file" 2>/dev/null; then
-        echo "TGSpeechBox module already present in $sd_conf_file"
+    if grep -q '^AddModule "tgsb"' "$sd_conf_file" 2>/dev/null; then
+        # Update existing entry to use native module if available
+        if [ "$use_native" = true ]; then
+            sed -i 's|^AddModule "tgsb" "sd_generic" "tgsb-generic.conf"|AddModule "tgsb" "sd_tgsb" "tgsb-native.conf"|' "$sd_conf_file"
+            echo "  TGSpeechBox module upgraded to native."
+        else
+            echo "  TGSpeechBox module already present."
+        fi
     else
-        # Add the module line after the last AddModule line, or at the end
-        # We use a marker comment so we can find our additions later
         {
             echo ""
             echo "# --- TGSpeechBox (added by install.sh) ---"
-            echo 'AddModule "tgsb" "sd_generic" "tgsb-generic.conf"'
+            if [ "$use_native" = true ]; then
+                echo 'AddModule "tgsb" "sd_tgsb" "tgsb-native.conf"'
+            else
+                echo 'AddModule "tgsb" "sd_generic" "tgsb-generic.conf"'
+            fi
         } >> "$sd_conf_file"
-        echo "Added TGSpeechBox module to $sd_conf_file"
+        echo "  Added TGSpeechBox module."
     fi
 
-    # Ask if they want it as default
+    # --- Ensure there is an active DefaultModule ---
+    # If no DefaultModule is set (all commented out), set espeak-ng as default
+    # so the user always has a working voice.
+    if ! grep -q '^DefaultModule' "$sd_conf_file" 2>/dev/null; then
+        echo 'DefaultModule espeak-ng' >> "$sd_conf_file"
+        echo "  Set espeak-ng as default (no default was configured)."
+    fi
+
+    # --- Ask if they want TGSpeechBox as default ---
     echo ""
-    read -r -p "Set TGSpeechBox as the default synthesizer? [y/N] " set_default
+    echo "  Your current default synthesizer:"
+    local current_default
+    current_default=$(grep '^DefaultModule' "$sd_conf_file" 2>/dev/null | tail -1 | awk '{print $2}')
+    echo "    $current_default"
+    echo ""
+    echo "  You can set TGSpeechBox as the default, or keep $current_default."
+    echo "  Either way, both will be available — you can switch in Orca's settings."
+    echo ""
+    read -r -p "  Set TGSpeechBox as the default synthesizer? [y/N] " set_default
     case "$set_default" in
         [yY]|[yY][eE][sS])
             # Set DefaultModule to tgsb (skip if already set)
             if grep -q '^DefaultModule tgsb$' "$sd_conf_file" 2>/dev/null; then
-                echo "DefaultModule already set to tgsb."
+                echo "  DefaultModule already set to tgsb."
             else
                 # Comment out any existing DefaultModule line and add ours
                 if grep -q '^DefaultModule' "$sd_conf_file" 2>/dev/null; then
                     sed -i 's/^DefaultModule/# DefaultModule/' "$sd_conf_file"
                 fi
                 echo 'DefaultModule tgsb' >> "$sd_conf_file"
-                echo "Set DefaultModule to tgsb."
+                echo "  Set DefaultModule to tgsb."
             fi
+            echo ""
+            echo "  Tip: If you ever need to switch back, run:"
+            echo "    sudo sed -i 's/^DefaultModule.*/DefaultModule espeak-ng/' $sd_conf_file"
+            echo "    killall speech-dispatcher"
             ;;
         *)
-            echo "Skipped. You can set it manually later:"
-            echo "  DefaultModule tgsb"
-            echo "in $sd_conf_file"
+            echo "  Kept $current_default as default."
+            echo "  You can select TGSpeechBox in Orca: Preferences → Speech → Speech Synthesizer."
             ;;
     esac
 
-    # --- Verify dependencies ---
+    # --- Final summary ---
     echo ""
-    echo "Checking pipeline dependencies..."
-    local missing=""
-    for cmd in espeak-ng tgsbRender aplay; do
-        if ! command -v "$cmd" >/dev/null 2>&1; then
-            missing="$missing $cmd"
-        fi
+    echo "--------------------------------------------"
+    echo "  Speech Dispatcher setup complete!"
+    echo "--------------------------------------------"
+    echo ""
+    echo "  Modules enabled:"
+    grep '^AddModule' "$sd_conf_file" | while read -r line; do
+        local name
+        name=$(echo "$line" | sed 's/AddModule "\([^"]*\)".*/\1/')
+        echo "    - $name"
     done
-
-    if [ -n "$missing" ]; then
-        echo "Warning: missing commands:$missing"
-        echo "The synthesis pipeline needs these in PATH."
-        if echo "$missing" | grep -q "espeak-ng"; then
-            echo "  Install espeak-ng: sudo apt install espeak-ng (Debian/Ubuntu)"
-            echo "                     sudo dnf install espeak-ng (Fedora)"
-        fi
-        if echo "$missing" | grep -q "aplay"; then
-            echo "  Install aplay: sudo apt install alsa-utils (Debian/Ubuntu)"
-            echo "                 sudo dnf install alsa-utils (Fedora)"
-        fi
-    else
-        echo "All dependencies found."
-    fi
-
     echo ""
-    echo "Speech Dispatcher configuration complete!"
+    echo "  Default: $(grep '^DefaultModule' "$sd_conf_file" | tail -1 | awk '{print $2}')"
     echo ""
-    echo "Restart Speech Dispatcher to apply:"
-    echo "  systemctl --user restart speech-dispatcher"
-    echo "  # or: killall speech-dispatcher"
+    echo "  To apply changes:"
+    echo "    killall speech-dispatcher"
     echo ""
-    echo "Test with:"
-    echo "  spd-say 'Hello from TGSpeechBox'"
+    echo "  To test:"
+    echo "    spd-say 'Hello from TGSpeechBox'"
+    echo ""
+    echo "  To switch synthesizer in Orca:"
+    echo "    Orca Preferences → Speech → Speech Synthesizer"
+    echo ""
+    echo "  If you ever lose your voice, run:"
+    echo "    sudo sed -i 's/^DefaultModule.*/DefaultModule espeak-ng/' $sd_conf_file"
+    echo "    killall speech-dispatcher"
+    echo ""
 
     return 0
 }
@@ -201,20 +379,43 @@ configure_speech_dispatcher() {
 # Only offer if speech-dispatcher appears to be installed
 if command -v spd-say >/dev/null 2>&1 || [ -f /etc/speech-dispatcher/speechd.conf ] || [ -f "$HOME/.config/speech-dispatcher/speechd.conf" ]; then
     echo ""
-    read -r -p "Would you like to configure Speech Dispatcher to use TGSpeechBox? [y/N] " do_sd
+    echo "--------------------------------------------"
+    echo "  Speech Dispatcher integration"
+    echo "--------------------------------------------"
+    echo ""
+    echo "  Speech Dispatcher detected on this system."
+    echo "  TGSpeechBox can register as a synthesizer so"
+    echo "  screen readers like Orca can use it."
+    echo ""
+    read -r -p "  Configure Speech Dispatcher? [Y/n] " do_sd
     case "$do_sd" in
-        [yY]|[yY][eE][sS])
-            configure_speech_dispatcher || true
+        [nN]|[nN][oO])
+            echo ""
+            echo "  Skipped Speech Dispatcher setup."
+            echo "  To configure manually later, see:"
+            echo "    $PREFIX/share/tgspeechbox/extras/speech-dispatcher/README.md"
             ;;
         *)
-            echo ""
-            echo "Skipped Speech Dispatcher setup."
-            echo "To configure manually later, see:"
-            echo "  $PREFIX/share/tgspeechbox/extras/speech-dispatcher/README.md"
+            configure_speech_dispatcher || true
             ;;
     esac
 else
     echo ""
-    echo "Speech Dispatcher not detected. To integrate later, see:"
-    echo "  $PREFIX/share/tgspeechbox/extras/speech-dispatcher/README.md"
+    echo "  Speech Dispatcher not detected."
+    echo "  To integrate later, see:"
+    echo "    $PREFIX/share/tgspeechbox/extras/speech-dispatcher/README.md"
 fi
+
+echo ""
+echo "============================================"
+echo "  Installation complete!"
+echo "============================================"
+echo ""
+echo "  Quick manual test:"
+echo "    echo 'hello world' | espeak-ng -q -v en-us --ipa=1 --stdin \\"
+echo "      | tgsbRender --packdir $PREFIX/share/tgspeechbox --lang en-us \\"
+echo "      | paplay --raw --rate=22050 --channels=1 --format=s16le"
+echo ""
+echo "  Backward-compat symlinks (nvspRender, nvsp) are installed"
+echo "  for existing Speech Dispatcher configs."
+echo ""

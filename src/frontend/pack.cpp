@@ -238,6 +238,23 @@ static bool loadPhonemes(const fs::path& packsRoot, PackSet& out, std::string& o
         double v; if (val.asNumber(v)) { def.hasDurationScale = true; def.durationScale = v; }
         continue;
       }
+      // Higher cascade formants F7/F8 (DSP v8, FrameEx fields)
+      if (fieldName == "cf7") {
+        double v; if (val.asNumber(v)) { def.hasCf7 = true; def.cf7 = v; }
+        continue;
+      }
+      if (fieldName == "cb7") {
+        double v; if (val.asNumber(v)) { def.hasCb7 = true; def.cb7 = v; }
+        continue;
+      }
+      if (fieldName == "cf8") {
+        double v; if (val.asNumber(v)) { def.hasCf8 = true; def.cf8 = v; }
+        continue;
+      }
+      if (fieldName == "cb8") {
+        double v; if (val.asNumber(v)) { def.hasCb8 = true; def.cb8 = v; }
+        continue;
+      }
 
       FieldId id;
       if (!parseFieldId(fieldName, id)) {
@@ -556,6 +573,8 @@ getNum("primaryStressDiv", lp.primaryStressDiv);
   getNum("stopClosureClusterFadeMs", lp.stopClosureClusterFadeMs);
   getNum("stopClosureWordBoundaryClusterGapMs", lp.stopClosureWordBoundaryClusterGapMs);
   getNum("stopClosureWordBoundaryClusterFadeMs", lp.stopClosureWordBoundaryClusterFadeMs);
+  getNum("stopClosureNasalToStopGapMs", lp.stopClosureNasalToStopGapMs);
+  getNum("stopClosureNasalToStopFadeMs", lp.stopClosureNasalToStopFadeMs);
 
   // Segment boundary timing (ms at speed=1.0; divided by current speed).
   getNum("segmentBoundaryGapMs", lp.segmentBoundaryGapMs);
@@ -643,6 +662,14 @@ getNum("primaryStressDiv", lp.primaryStressDiv);
 
   // Year splitting
   getBool("yearSplittingEnabled", lp.yearSplittingEnabled);
+
+  // Thousands-separator commas → spaces (per-language).
+  getBool("thousandsSeparatorCommaToSpace", lp.thousandsSeparatorCommaToSpace);
+
+  // Dictionary suffix stripping (per-language).
+  getStrListFrom(settings, "dictSuffixes", lp.dictSuffixes);
+  std::sort(lp.dictSuffixes.begin(), lp.dictSuffixes.end(),
+      [](const std::string& a, const std::string& b) { return a.size() > b.size(); });
 
   // Special coarticulation rules (language-specific Hz deltas)
   getBool("specialCoarticulationEnabled", lp.specialCoarticulationEnabled);

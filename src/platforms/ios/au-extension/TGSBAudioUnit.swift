@@ -131,11 +131,27 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
     }
 
     private func initializeBackend() {
-        guard let bundle = Bundle(for: TGSBAudioUnit.self).resourcePath else { return }
         let fm = FileManager.default
 
-        let espeakDataPath = bundle + "/espeak-ng-data"
-        let packDir = bundle + "/packs"
+        // Look for resources in the containing app's bundle first (shared),
+        // then fall back to the extension's own bundle (macOS or standalone).
+        let extBundle = Bundle(for: TGSBAudioUnit.self).resourcePath ?? ""
+        let hostBundle: String = {
+            // On iOS, .appex lives inside Host.app/PlugIns/ — go up two levels.
+            let appex = Bundle(for: TGSBAudioUnit.self).bundleURL
+            let host = appex.deletingLastPathComponent().deletingLastPathComponent()
+            return host.path
+        }()
+
+        let espeakDataPath: String
+        let packDir: String
+        if fm.fileExists(atPath: hostBundle + "/espeak-ng-data") {
+            espeakDataPath = hostBundle + "/espeak-ng-data"
+            packDir = hostBundle + "/packs"
+        } else {
+            espeakDataPath = extBundle + "/espeak-ng-data"
+            packDir = extBundle + "/packs"
+        }
         guard fm.fileExists(atPath: espeakDataPath),
               fm.fileExists(atPath: packDir) else { return }
         engine = tgsb_create(espeakDataPath, packDir, Int32(dspRate))
@@ -488,6 +504,8 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
         let pitchSyncB1    = load("pitchSyncB1", 50)
         let voiceTremor    = load("voiceTremor", 0)
         let headSizeSlider = load("headSize", voice == "david" ? 100 : 50)
+        let chorusDepthSlider  = load("chorusDepth", 0)
+        let chorusDetuneSlider = load("chorusDetuneHz", 33)
 
         let tilt     = (voiceTilt - 50.0) * (24.0 / 50.0)
         let noiseMod = noiseGlottalMod / 100.0
@@ -504,10 +522,13 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
         let hs       = headSizeSlider <= 50.0
             ? 1.25 - (headSizeSlider / 50.0) * 0.25
             : 1.0 - ((headSizeSlider - 50.0) / 50.0) * 0.15
+        let chDepth  = chorusDepthSlider / 100.0
+        let chDetune = 0.5 + (chorusDetuneSlider / 100.0) * 4.5
 
         tgsb_set_voicing_tone(eng, tilt, noiseMod, psF1, psB1,
                               sq, aspTilt, bw, tremor,
-                              1.0, hs, 1.0)
+                              1.0, hs, 1.0,
+                              chDepth, chDetune)
 
         // FrameEx: convert 0–100 sliders to engine parameters
         let creak    = load("creakiness", 0) / 100.0
@@ -639,8 +660,15 @@ public class TGSBAudioUnit: AVSpeechSynthesisProviderAudioUnit {
     // MARK: - Helpers
 
     private func extractPlainText(from ssml: String) -> String {
-        var text = ssml.replacingOccurrences(of: "<[^>]+>", with: " ",
-                                              options: .regularExpression)
+        // Convert SSML <break> tags to commas so the clause splitter
+        // generates pauses. VoiceOver inserts these between semantic
+        // groups (e.g. "Utility Categories table, Row 1 of 12, selected").
+        var text = ssml.replacingOccurrences(
+            of: #"<break\b[^>]*/?\s*>"#, with: ". ",
+            options: .regularExpression)
+        // Strip remaining SSML tags.
+        text = text.replacingOccurrences(of: "<[^>]+>", with: " ",
+                                          options: .regularExpression)
         text = text.replacingOccurrences(of: "&apos;", with: "'")
         text = text.replacingOccurrences(of: "&quot;", with: "\"")
         text = text.replacingOccurrences(of: "&amp;",  with: "&")
