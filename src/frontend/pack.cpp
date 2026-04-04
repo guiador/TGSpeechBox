@@ -748,6 +748,11 @@ getNum("primaryStressDiv", lp.primaryStressDiv);
   getNum("boundarySmoothingWithinSyllableScale", lp.boundarySmoothingWithinSyllableScale);
   getNum("boundarySmoothingWithinSyllableFadeScale", lp.boundarySmoothingWithinSyllableFadeScale);
   getNum("boundarySmoothingHighRateFadeRatioFloor", lp.boundarySmoothingHighRateFadeRatioFloor);
+  getNum("boundarySmoothingAffricateToVowelHold", lp.boundarySmoothingAffricateToVowelHold);
+  getNum("boundarySmoothingFricativeToVowelHold", lp.boundarySmoothingFricativeToVowelHold);
+  getNum("boundarySmoothingStopToVowelHold", lp.boundarySmoothingStopToVowelHold);
+  getNum("boundarySmoothingAffricateToVowelVoicingHold", lp.boundarySmoothingAffricateToVowelVoicingHold);
+  getNum("boundarySmoothingStopToVowelVoicingHold", lp.boundarySmoothingStopToVowelVoicingHold);
 
   // Coda noise taper (fricative→stop continuity)
   getBool("codaNoiseTaperEnabled", lp.codaNoiseTaperEnabled);
@@ -1046,6 +1051,15 @@ if (const yaml_min::Node* bs = settings.get("boundarySmoothing"); bs && bs->isMa
 
   // Rate-adaptive fade ratio floor.
   getNumFrom(*bs, "highRateFadeRatioFloor", lp.boundarySmoothingHighRateFadeRatioFloor);
+
+  // Source amplitude hold ratios.
+  getNumFrom(*bs, "affricateToVowelHold", lp.boundarySmoothingAffricateToVowelHold);
+  getNumFrom(*bs, "fricativeToVowelHold", lp.boundarySmoothingFricativeToVowelHold);
+  getNumFrom(*bs, "stopToVowelHold", lp.boundarySmoothingStopToVowelHold);
+
+  // Voicing onset hold ratios.
+  getNumFrom(*bs, "affricateToVowelVoicingHold", lp.boundarySmoothingAffricateToVowelVoicingHold);
+  getNumFrom(*bs, "stopToVowelVoicingHold", lp.boundarySmoothingStopToVowelVoicingHold);
 }
 
 if (const yaml_min::Node* ss = settings.get("syllableStructure"); ss && ss->isMap()) {

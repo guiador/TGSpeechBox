@@ -1006,6 +1006,17 @@ double lengthContrastPreGeminateVowelScale = 0.85;
   // Rate-adaptive fade ratio floor (used with shared highRateThreshold)
   double boundarySmoothingHighRateFadeRatioFloor = 0.40;
 
+  // Source amplitude hold ratios: delay old noise fadeout during crossfade
+  // to create temporal overlap with incoming voicing. 0.0 = legacy.
+  double boundarySmoothingAffricateToVowelHold = 0.0;
+  double boundarySmoothingFricativeToVowelHold = 0.0;
+  double boundarySmoothingStopToVowelHold = 0.0;
+
+  // Voicing onset hold ratios: delay new voicing ramp-in during crossfade.
+  // Creates temporal separation between affricate/stop release and vowel onset.
+  double boundarySmoothingAffricateToVowelVoicingHold = 0.0;
+  double boundarySmoothingStopToVowelVoicingHold = 0.0;
+
   // Coda noise taper: maintain frication continuity through fricative→stop closures.
   // When enabled, the silent closure gap between a fricative and a following coda stop
   // is replaced with a taper frame that decays the fricative's noise, keeping the DSP's
